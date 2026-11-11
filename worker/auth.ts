@@ -1,0 +1,144 @@
+import type { Role, User } from "../shared/types";
+import type { Env } from "./env";
+import { HttpError } from "./http";
+
+const enc = new TextEncoder();
+
+// PBKDF2-SHA256. 100k iterations is the maximum Workers' WebCrypto allows.
+const PBKDF2_ITERATIONS = 100_000;
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+export const SESSION_COOKIE = "sid";
+
+function toB64(bytes: Uint8Array): string {
+  let s = "";
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s);
+}
+
+function fromB64(s: string): Uint8Array {
+  return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+}
+
+function toB64Url(bytes: Uint8Array): string {
+  return toB64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", enc.encode(input));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function pbkdf2(password: string, salt: Uint8Array, iterations: number): Promise<Uint8Array> {
+  const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt, iterations },
+    key,
+    256,
+  );
+  return new Uint8Array(bits);
+}
+
+/** Returns a self-describing hash string: pbkdf2$<iterations>$<salt>$<hash>. */
+export async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const hash = await pbkdf2(password, salt, PBKDF2_ITERATIONS);
+  return `pbkdf2$${PBKDF2_ITERATIONS}$${toB64(salt)}$${toB64(hash)}`;
+}
+
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const [scheme, iter, saltB64, hashB64] = stored.split("$");
+  if (scheme !== "pbkdf2" || !iter || !saltB64 || !hashB64) return false;
+  const expected = fromB64(hashB64);
+  const actual = await pbkdf2(password, fromB64(saltB64), Number(iter));
+  if (actual.byteLength !== expected.byteLength) return false;
+  return crypto.subtle.timingSafeEqual(actual, expected);
+}
+
+/** Used when the username doesn't exist, so failed logins take the same time either way. */
+let dummyHash: Promise<string> | null = null;
+export function getDummyHash(): Promise<string> {
+  dummyHash ??= hashPassword("relay-dummy-password");
+  return dummyHash;
+}
+
+export async function createSession(env: Env, userId: string): Promise<{ token: string; maxAge: number }> {
+  const token = toB64Url(crypto.getRandomValues(new Uint8Array(32)));
+  const now = Date.now();
+  await env.DB.prepare(
+    "INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?1, ?2, ?3, ?4)",
+  )
+    .bind(await sha256Hex(token), userId, now + SESSION_TTL_MS, now)
+    .run();
+  return { token, maxAge: Math.floor(SESSION_TTL_MS / 1000) };
+}
+
+export async function deleteSession(env: Env, request: Request): Promise<void> {
+  const token = readCookie(request, SESSION_COOKIE);
+  if (!token) return;
+  await env.DB.prepare("DELETE FROM sessions WHERE token_hash = ?1").bind(await sha256Hex(token)).run();
+}
+
+export function sessionCookie(token: string, maxAge: number): string {
+  return `${SESSION_COOKIE}=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
+}
+
+export function readCookie(request: Request, name: string): string | null {
+  const header = request.headers.get("Cookie");
+  if (!header) return null;
+  for (const part of header.split(";")) {
+    const [k, ...v] = part.trim().split("=");
+    if (k === name) return v.join("=") || null;
+  }
+  return null;
+}
+
+/** Deletes every session for the user except the one making this request. */
+export async function revokeOtherSessions(env: Env, request: Request, userId: string): Promise<void> {
+  const token = readCookie(request, SESSION_COOKIE) ?? "";
+  await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?1 AND token_hash != ?2")
+    .bind(userId, await sha256Hex(token))
+    .run();
+}
+
+export async function getSessionUser(request: Request, env: Env): Promise<User | null> {
+  const token = readCookie(request, SESSION_COOKIE);
+  if (!token) return null;
+  const row = await env.DB.prepare(
+    `SELECT u.id, u.username, u.display_name, u.role
+       FROM sessions s JOIN users u ON u.id = s.user_id
+      WHERE s.token_hash = ?1 AND s.expires_at > ?2 AND u.suspended_at IS NULL`,
+  )
+    .bind(await sha256Hex(token), Date.now())
+    .first<{ id: string; username: string; display_name: string; role: Role }>();
+  return row ? { id: row.id, username: row.username, displayName: row.display_name, role: row.role } : null;
+}
+
+export async function requireUser(request: Request, env: Env): Promise<User> {
+  const user = await getSessionUser(request, env);
+  if (!user) throw new HttpError(401, "Please sign in.");
+  return user;
+}
+
+export async function requireAdmin(request: Request, env: Env): Promise<User> {
+  const user = await requireUser(request, env);
+  // 404 so the admin API's existence isn't revealed to regular users.
+  if (user.role !== "admin") throw new HttpError(404, "Not found.");
+  return user;
+}
+
+/** Fixed-window rate limit stored in D1. Throws 429 when exceeded. */
+export async function rateLimit(env: Env, key: string, limit: number, windowMs: number): Promise<void> {
+  const now = Date.now();
+  const row = await env.DB.prepare(
+    `INSERT INTO rate_limits (key, count, window_start) VALUES (?1, 1, ?2)
+     ON CONFLICT(key) DO UPDATE SET
+       count        = CASE WHEN window_start < ?2 - ?3 THEN 1  ELSE count + 1 END,
+       window_start = CASE WHEN window_start < ?2 - ?3 THEN ?2 ELSE window_start END
+     RETURNING count`,
+  )
+    .bind(key, now, windowMs)
+    .first<{ count: number }>();
+  if (row && row.count > limit) {
+    throw new HttpError(429, "Too many attempts. Please wait a few minutes and try again.");
+  }
+}

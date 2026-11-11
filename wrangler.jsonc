@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "relay-chat",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-10-01",
+
+  // The React app is served as static assets. Only /api/* runs the Worker.
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // Free D1 (SQLite) database.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "relay-chat-db",
+      "database_id": "77a013af-35e5-4921-aa5b-9ffba2b50554",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // One Durable Object per chat room holds that room's live WebSocket connections.
+  // SQLite-backed classes are available on the free plan.
+  "durable_objects": {
+    "bindings": [{ "name": "CHAT_ROOM", "class_name": "ChatRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ChatRoom"] }],
+
+  "observability": { "enabled": true }
+}
