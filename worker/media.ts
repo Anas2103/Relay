@@ -1,41 +1,81 @@
-import { AUDIO_TYPES, IMAGE_TYPES } from "../shared/types";
+import {
+  AUDIO_TYPES,
+  BLOCKED_EXTENSIONS,
+  fileExtension,
+  IMAGE_TYPES,
+  LIMITS,
+  VIDEO_TYPES,
+  type MediaKind,
+} from "../shared/types";
 import { HttpError } from "./http";
+
+type Container = "jpeg" | "png" | "gif" | "webp" | "matroska" | "ogg" | "mp4" | "quicktime" | "mp3" | "aac";
 
 /**
  * Identifies a file by its first bytes ("magic numbers") instead of trusting the
  * client's Content-Type, so nobody can upload e.g. an HTML page disguised as a photo.
  */
-export function sniffMime(bytes: Uint8Array): string | null {
-  const b = bytes;
+function sniffContainer(b: Uint8Array): Container | null {
   const ascii = (start: number, len: number) => String.fromCharCode(...b.subarray(start, start + len));
-
-  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
-  if (b[0] === 0x89 && ascii(1, 3) === "PNG") return "image/png";
-  if (ascii(0, 4) === "GIF8") return "image/gif";
-  if (ascii(0, 4) === "RIFF" && ascii(8, 4) === "WEBP") return "image/webp";
-  if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return "audio/webm";
-  if (ascii(0, 4) === "OggS") return "audio/ogg";
-  if (ascii(4, 4) === "ftyp") return "audio/mp4";
-  if (ascii(0, 3) === "ID3" || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0 && (b[1] & 0x06) !== 0)) return "audio/mpeg";
-  if (b[0] === 0xff && (b[1] & 0xf6) === 0xf0) return "audio/aac";
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "jpeg";
+  if (b[0] === 0x89 && ascii(1, 3) === "PNG") return "png";
+  if (ascii(0, 4) === "GIF8") return "gif";
+  if (ascii(0, 4) === "RIFF" && ascii(8, 4) === "WEBP") return "webp";
+  if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return "matroska"; // WebM
+  if (ascii(0, 4) === "OggS") return "ogg";
+  if (ascii(4, 4) === "ftyp") return ascii(8, 4) === "qt  " ? "quicktime" : "mp4";
+  if (ascii(0, 3) === "ID3" || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0 && (b[1] & 0x06) !== 0)) return "mp3";
+  if (b[0] === 0xff && (b[1] & 0xf6) === 0xf0) return "aac";
   return null;
 }
 
-export type MediaFamily = "image" | "audio";
+/** Maps a detected container to a MIME type for the requested kind, or null if it doesn't fit. */
+function mimeFor(kind: MediaKind, container: Container | null): string | null {
+  if (!container) return null;
+  const map: Record<Exclude<MediaKind, "file">, Partial<Record<Container, string>>> = {
+    image: { jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp" },
+    voice: { matroska: "audio/webm", ogg: "audio/ogg", mp4: "audio/mp4", mp3: "audio/mpeg", aac: "audio/aac" },
+    video: { mp4: "video/mp4", matroska: "video/webm", quicktime: "video/quicktime" },
+  };
+  if (kind === "file") return null;
+  const mime = map[kind][container] ?? null;
+  const allowed: readonly string[] = kind === "image" ? IMAGE_TYPES : kind === "voice" ? AUDIO_TYPES : VIDEO_TYPES;
+  return mime && allowed.includes(mime) ? mime : null;
+}
 
-/** Reads a raw upload body, enforcing a size limit and a whitelist of real file types. */
+/** Strips paths, control characters and anything odd from an uploaded file's name. */
+export function cleanFileName(raw: string | null): string {
+  const base = (raw ?? "").split(/[\\/]/).pop() ?? "";
+  const cleaned = base
+    .replace(/[\u0000-\u001f\u007f<>:"|?*]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, LIMITS.fileNameMax);
+  return cleaned || "file";
+}
+
+/** Reads a raw upload body, enforcing a size limit and (for media) a whitelist of real file types. */
 export async function readUpload(
   request: Request,
-  family: MediaFamily,
+  kind: MediaKind,
   maxBytes: number,
+  fileName?: string,
 ): Promise<{ bytes: Uint8Array; mime: string }> {
+  if (kind === "file" && fileName && BLOCKED_EXTENSIONS.includes(fileExtension(fileName))) {
+    throw new HttpError(415, "For safety, programs and scripts can't be sent.");
+  }
+
   const bytes = await readCapped(request, maxBytes);
   if (bytes.byteLength === 0) throw new HttpError(400, "The file is empty.");
 
-  const mime = sniffMime(bytes);
-  const allowed: readonly string[] = family === "image" ? IMAGE_TYPES : AUDIO_TYPES;
-  if (!mime || !allowed.includes(mime)) {
-    throw new HttpError(415, family === "image" ? "That isn't a supported image." : "That isn't a supported audio file.");
+  if (kind === "file") {
+    // Documents can be anything; they're always served as downloads, never opened inline.
+    return { bytes, mime: "application/octet-stream" };
+  }
+  const mime = mimeFor(kind, sniffContainer(bytes));
+  if (!mime) {
+    const what = { image: "an image", voice: "a supported audio file", video: "a supported video (MP4, WebM or MOV)" }[kind];
+    throw new HttpError(415, `That isn't ${what}.`);
   }
   return { bytes, mime };
 }
@@ -63,7 +103,7 @@ async function readCapped(request: Request, maxBytes: number): Promise<Uint8Arra
       break;
     }
   }
-  if (tooBig) throw new HttpError(413, tooLarge(maxBytes));
+  if (tooBig) throw new HttpError(413, `File is too large (max ${Math.round(maxBytes / 1_000_000)} MB).`);
 
   const out = new Uint8Array(total);
   let offset = 0;
@@ -74,18 +114,42 @@ async function readCapped(request: Request, maxBytes: number): Promise<Uint8Arra
   return out;
 }
 
-function tooLarge(max: number): string {
-  return `File is too large (max ${(max / 1_000_000).toFixed(1)} MB).`;
-}
-
 /** Headers for serving user-uploaded files safely from our own origin. */
-export function mediaHeaders(mime: string, cache: "immutable" | "no-store"): Record<string, string> {
+export function mediaHeaders(
+  mime: string,
+  cache: "immutable" | "no-store",
+  download?: string,
+): Record<string, string> {
   return {
     "Content-Type": mime,
     "X-Content-Type-Options": "nosniff",
     // Even if something slipped through, the browser won't run scripts from this response.
-    "Content-Security-Policy": "default-src 'none'; sandbox",
-    "Content-Disposition": "inline",
+    "Content-Security-Policy": "default-src 'none'; media-src 'self'; sandbox",
+    "Content-Disposition": download
+      ? `attachment; filename="${download.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "")}"; filename*=UTF-8''${encodeURIComponent(download)}`
+      : "inline",
     "Cache-Control": cache === "immutable" ? "private, max-age=31536000, immutable" : "no-store",
+    "Accept-Ranges": "bytes",
   };
+}
+
+/**
+ * Parses an HTTP Range header. iPhones refuse to play audio/video unless the
+ * server can return byte ranges, and ranges make video seeking instant.
+ * Returns null for "whole file", or "invalid" for an unsatisfiable range.
+ */
+export function parseRange(header: string | null, size: number): { start: number; end: number } | null | "invalid" {
+  const match = header?.match(/^bytes=(\d*)-(\d*)$/);
+  if (!match || (match[1] === "" && match[2] === "")) return null;
+  let start: number;
+  let end: number;
+  if (match[1] === "") {
+    start = Math.max(0, size - Number(match[2])); // "bytes=-500" = the last 500 bytes
+    end = size - 1;
+  } else {
+    start = Number(match[1]);
+    end = match[2] === "" ? size - 1 : Math.min(Number(match[2]), size - 1);
+  }
+  if (start >= size || start > end) return "invalid";
+  return { start, end };
 }

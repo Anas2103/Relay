@@ -3,8 +3,11 @@ import type {
   AdminUser,
   AdminUserUpdate,
   AuditEntry,
+  GalleryTab,
+  MediaKind,
   Me,
   Message,
+  MessagePage,
   Profile,
   Role,
   Room,
@@ -53,6 +56,44 @@ async function request<T>(
   return data as T;
 }
 
+export interface Cursor {
+  createdAt: number;
+  id: string;
+}
+
+/**
+ * Uploads a file with progress reporting (fetch can't report upload progress,
+ * which matters for a 20 MB video on mobile data).
+ */
+function uploadMedia(
+  roomId: string,
+  kind: MediaKind,
+  file: Blob,
+  opts: { name?: string; onProgress?: (fraction: number) => void } = {},
+): Promise<{ mediaId: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const name = opts.name ? `&name=${encodeURIComponent(opts.name)}` : "";
+    xhr.open("POST", `/api/rooms/${roomId}/media?kind=${kind}${name}`);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    xhr.upload.onprogress = (e) => e.lengthComputable && opts.onProgress?.(e.loaded / e.total);
+    xhr.onload = () => {
+      let data: { mediaId?: string; error?: string } = {};
+      try {
+        data = JSON.parse(xhr.responseText);
+      } catch {
+        // non-JSON error page
+      }
+      if (xhr.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+      if (xhr.status >= 200 && xhr.status < 300 && data.mediaId) resolve({ mediaId: data.mediaId });
+      else reject(new ApiError(xhr.status, data.error ?? "Upload failed."));
+    };
+    xhr.onerror = () => reject(new ApiError(0, "Upload failed. Check your connection."));
+    xhr.send(file);
+  });
+}
+
 export function avatarUrl(user: Pick<User, "id" | "avatarVersion">): string | null {
   return user.avatarVersion ? `/api/users/${user.id}/avatar?v=${user.avatarVersion}` : null;
 }
@@ -84,14 +125,28 @@ export const api = {
 
   rooms: () => request<{ rooms: Room[] }>("/api/rooms"),
   openDm: (username: string) => request<{ room: Room }>("/api/rooms/dm", { method: "POST", body: { username } }),
-  messages: (roomId: string, before?: { createdAt: number; id: string }) => {
-    const qs = before ? `?before=${before.createdAt}&beforeId=${encodeURIComponent(before.id)}` : "";
-    return request<{ messages: Message[]; hasMore: boolean; readState: Record<string, number> }>(
-      `/api/rooms/${roomId}/messages${qs}`,
-    );
+  /** Latest page, or older (`before`), newer (`after`), or a window around one message (`around`). */
+  messages: (
+    roomId: string,
+    opts: { before?: Cursor; after?: Cursor; around?: string } = {},
+  ) => {
+    const qs = opts.around
+      ? `?around=${encodeURIComponent(opts.around)}`
+      : opts.after
+        ? `?after=${opts.after.createdAt}&afterId=${encodeURIComponent(opts.after.id)}`
+        : opts.before
+          ? `?before=${opts.before.createdAt}&beforeId=${encodeURIComponent(opts.before.id)}`
+          : "";
+    return request<MessagePage>(`/api/rooms/${roomId}/messages${qs}`);
   },
-  uploadMedia: (roomId: string, kind: "image" | "voice", file: Blob, signal?: AbortSignal) =>
-    request<{ mediaId: string }>(`/api/rooms/${roomId}/media?kind=${kind}`, { method: "POST", raw: file, signal }),
+  search: (roomId: string, q: string) =>
+    request<{ messages: Message[] }>(`/api/rooms/${roomId}/search?q=${encodeURIComponent(q)}`),
+  gallery: (roomId: string, tab: GalleryTab, before?: Cursor) =>
+    request<{ messages: Message[]; hasMore: boolean }>(
+      `/api/rooms/${roomId}/gallery?tab=${tab}${before ? `&before=${before.createdAt}&beforeId=${encodeURIComponent(before.id)}` : ""}`,
+    ),
+  uploadMedia,
+  iceServers: () => request<{ iceServers: RTCIceServer[]; relay: boolean }>("/api/calls/ice"),
 
   account: {
     update: (data: { displayName?: string; bio?: string; settings?: Partial<Settings> }) =>

@@ -1,14 +1,30 @@
 import { memo, useRef, useState, type MouseEvent, type ReactNode, type TouchEvent } from "react";
-import type { Message, ReplyPreview } from "../../shared/types";
+import { callLabel, fileExtension, formatBytes, type Message, type ReplyPreview } from "../../shared/types";
 import { mediaUrl } from "../lib/api";
 import { formatTime } from "../lib/format";
-import { EyeIcon, ImageIcon, MicIcon, OnceIcon, ReplyIcon, SmileIcon, Spinner, Ticks } from "./ui";
+import { formatDuration } from "../lib/media";
+import {
+  DownloadIcon,
+  EyeIcon,
+  FileIcon,
+  ImageIcon,
+  MicIcon,
+  OnceIcon,
+  PhoneIcon,
+  ReplyIcon,
+  SmileIcon,
+  Spinner,
+  Ticks,
+  VideoIcon,
+} from "./ui";
 import { VoicePlayer } from "./VoicePlayer";
 
 export type UiMessage = Message & {
   status?: "pending" | "failed";
   /** Local blob URL for media we just sent, so it shows instantly and doesn't reload. */
   localUrl?: string;
+  /** Upload progress 0–1 while sending a file. */
+  progress?: number;
 };
 
 export type BubbleAction =
@@ -18,7 +34,8 @@ export type BubbleAction =
   | { type: "retry"; message: UiMessage }
   | { type: "open-image"; message: UiMessage; src: string }
   | { type: "open-view-once"; message: UiMessage }
-  | { type: "jump"; messageId: string };
+  | { type: "jump"; messageId: string }
+  | { type: "call-back"; video: boolean };
 
 interface Props {
   message: UiMessage;
@@ -46,7 +63,7 @@ export const MessageBubble = memo(function MessageBubble({
   const bubbleRef = useRef<HTMLDivElement>(null);
   const pressTimer = useRef<number | undefined>(undefined);
   const deleted = m.deletedAt !== null;
-  const isMedia = !deleted && (m.kind === "image" || m.kind === "voice");
+  const isMedia = !deleted && m.kind !== "text" && m.kind !== "call";
   const viewOnce = m.kind === "image" && !!m.meta?.viewOnce;
 
   const openMenu = () => {
@@ -83,7 +100,8 @@ export const MessageBubble = memo(function MessageBubble({
         : "bg-bubble text-white"
       : "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-900/5 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-white/5";
 
-  const imageOnly = m.kind === "image" && !viewOnce && !m.body && !m.replyTo && !deleted;
+  const visual = (m.kind === "image" && !viewOnce) || m.kind === "video";
+  const imageOnly = visual && !m.body && !m.replyTo && !deleted;
   const reactions = Object.entries(m.reactions);
 
   return (
@@ -102,7 +120,7 @@ export const MessageBubble = memo(function MessageBubble({
           onTouchMove={cancelPress}
           onDoubleClick={() => !deleted && !m.status && onAction({ type: "react", message: m, emoji: "❤️" })}
           className={`relative max-w-[min(85vw,28rem)] text-[15px] leading-relaxed break-words ${corners} ${surface} ${
-            imageOnly ? "overflow-hidden p-0" : m.kind === "image" && !viewOnce ? "overflow-hidden p-1" : "px-3.5 py-2"
+            imageOnly ? "overflow-hidden p-0" : visual && !deleted ? "overflow-hidden p-1" : "px-3.5 py-2"
           } ${m.status === "pending" ? "opacity-80" : ""} select-text`}
         >
           {m.replyTo && !deleted && (
@@ -117,17 +135,19 @@ export const MessageBubble = memo(function MessageBubble({
             <ViewOnceContent message={m} mine={mine} meId={meId} onOpen={() => onAction({ type: "open-view-once", message: m })} />
           ) : m.kind === "image" ? (
             <ImageContent message={m} onOpen={(src) => onAction({ type: "open-image", message: m, src })} />
+          ) : m.kind === "video" ? (
+            <VideoContent message={m} />
+          ) : m.kind === "file" ? (
+            <FileContent message={m} mine={mine} />
+          ) : m.kind === "call" ? (
+            <CallContent message={m} mine={mine} onCallBack={(video) => onAction({ type: "call-back", video })} />
           ) : null}
 
           {!deleted && m.body && !viewOnce && (
-            <p className={`whitespace-pre-wrap ${m.kind === "image" ? "px-2.5 pt-1.5 pb-1" : ""}`}>{linkify(m.body, mine)}</p>
+            <p className={`whitespace-pre-wrap ${visual ? "px-2.5 pt-1.5 pb-1" : ""}`}>{linkify(m.body, mine)}</p>
           )}
 
-          {m.status === "pending" && isMedia && (
-            <span className="absolute top-2 right-2 rounded-full bg-black/50 p-1 text-white">
-              <Spinner className="size-3.5" />
-            </span>
-          )}
+          {m.status === "pending" && isMedia && <UploadBadge progress={m.progress} />}
         </div>
 
         {/* Hover actions (desktop) */}
@@ -185,7 +205,13 @@ function ReplyQuote({ reply, mine, meId, onClick }: { reply: ReplyPreview; mine:
       ? "Voice message"
       : reply.kind === "image"
         ? reply.body || "Photo"
-        : reply.body;
+        : reply.kind === "video"
+          ? reply.body || "Video"
+          : reply.kind === "file"
+            ? "Document"
+            : reply.kind === "call"
+              ? "Call"
+              : reply.body;
   return (
     <button
       onClick={onClick}
@@ -202,6 +228,117 @@ function ReplyQuote({ reply, mine, meId, onClick }: { reply: ReplyPreview; mine:
         <span className={`line-clamp-2 ${mine ? "text-white/85" : "text-zinc-600 dark:text-zinc-300"} ${reply.deleted ? "italic" : ""}`}>
           {text}
         </span>
+      </span>
+    </button>
+  );
+}
+
+/** Reserve the exact space before media loads, so the chat never jumps. */
+function mediaBox(m: UiMessage) {
+  const w = m.meta?.width ?? 300;
+  const h = m.meta?.height ?? 300;
+  return { width: Math.round(Math.min(280, (360 * w) / h, Math.max(w, 160))), aspectRatio: `${w} / ${h}`, maxWidth: "100%" };
+}
+
+function UploadBadge({ progress }: { progress?: number }) {
+  const pct = progress !== undefined ? Math.round(progress * 100) : null;
+  return (
+    <span className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-black/55 px-1.5 py-1 text-[11px] font-medium text-white tabular-nums">
+      {pct !== null && pct < 100 ? (
+        <svg viewBox="0 0 20 20" className="size-3.5 -rotate-90" aria-hidden="true">
+          <circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" strokeOpacity=".3" strokeWidth="3" />
+          <circle
+            cx="10"
+            cy="10"
+            r="8"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeDasharray={`${(pct / 100) * 50.3} 50.3`}
+            strokeLinecap="round"
+          />
+        </svg>
+      ) : (
+        <Spinner className="size-3.5" />
+      )}
+      {pct !== null && pct < 100 && <span>{pct}%</span>}
+    </span>
+  );
+}
+
+function VideoContent({ message: m }: { message: UiMessage }) {
+  const src = m.localUrl ?? mediaUrl(m.roomId, m.id);
+  return (
+    <div className="relative overflow-hidden rounded-xl bg-black" style={mediaBox(m)}>
+      {/* "#t=0.1" makes iPhones show the first frame instead of a black box */}
+      <video
+        src={m.localUrl ? src : `${src}#t=0.1`}
+        controls
+        playsInline
+        preload="metadata"
+        className="size-full object-contain"
+        aria-label={m.body || "Video"}
+      />
+      {m.meta?.duration ? (
+        <span className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[11px] font-medium text-white tabular-nums">
+          {formatDuration(m.meta.duration)}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function FileContent({ message: m, mine }: { message: UiMessage; mine: boolean }) {
+  const name = m.meta?.name ?? "Document";
+  const ext = fileExtension(name).toUpperCase().slice(0, 4) || "FILE";
+  const href = m.localUrl ?? mediaUrl(m.roomId, m.id);
+  return (
+    <a
+      href={m.status ? undefined : href}
+      download={name}
+      onClick={(e) => m.status && e.preventDefault()}
+      className={`flex w-64 max-w-full items-center gap-3 rounded-xl p-2 transition ${
+        mine ? "bg-black/15 hover:bg-black/25" : "bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900/60 dark:hover:bg-zinc-900"
+      }`}
+      aria-label={`Download ${name}`}
+    >
+      <span className={`relative flex size-11 shrink-0 items-center justify-center rounded-lg ${mine ? "bg-white/20" : "bg-bubble/15 text-bubble-fg"}`}>
+        <FileIcon className="size-5 -translate-y-1.5" />
+        <span className="absolute bottom-1.5 text-[8px] leading-none font-bold tracking-wide">{ext}</span>
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="line-clamp-2 text-sm font-medium break-all">{name}</span>
+        <span className={`text-xs ${mine ? "text-white/75" : "text-zinc-500 dark:text-zinc-400"}`}>
+          {formatBytes(m.meta?.size ?? 0)} · {ext}
+        </span>
+      </span>
+      {!m.status && <DownloadIcon className={`size-5 shrink-0 ${mine ? "text-white/80" : "text-zinc-400"}`} />}
+    </a>
+  );
+}
+
+function CallContent({ message: m, mine, onCallBack }: { message: UiMessage; mine: boolean; onCallBack: (video: boolean) => void }) {
+  const call = m.meta?.call;
+  const missed = call?.status === "missed" || call?.status === "declined";
+  const Icon = call?.video ? VideoIcon : PhoneIcon;
+  // The record is written by the caller, so from the other side it reads "Missed …".
+  const label = callLabel(call).replace(/^\S+\s/, "");
+  return (
+    <button
+      onClick={() => onCallBack(!!call?.video)}
+      className="flex items-center gap-3 py-0.5 text-left"
+      title={call?.video ? "Video call back" : "Call back"}
+    >
+      <span
+        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${
+          mine ? "bg-white/20" : missed ? "bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400" : "bg-bubble/15 text-bubble-fg"
+        }`}
+      >
+        <Icon className="size-4.5" />
+      </span>
+      <span>
+        <span className="block text-sm font-medium">{mine ? label.replace("Missed", "Unanswered") : label}</span>
+        <span className={`text-xs ${mine ? "text-white/75" : "text-zinc-500 dark:text-zinc-400"}`}>Tap to call back</span>
       </span>
     </button>
   );

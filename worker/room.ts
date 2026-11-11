@@ -25,6 +25,7 @@ interface Attachment {
 const BUCKET_SIZE = 8;
 const REFILL_MS = 1000;
 const UNATTACHED_MEDIA_TTL_MS = 60 * 60 * 1000;
+const CHUNK_BYTES = 1_000_000;
 const EMOJI_RE = /^\p{Extended_Pictographic}/u;
 
 class UserError extends Error {}
@@ -42,6 +43,7 @@ class UserError extends Error {}
  */
 export class ChatRoom extends DurableObject<Env> {
   private sql: SqlStorage;
+  private lastTimestamp = 0;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -55,6 +57,16 @@ export class ChatRoom extends DurableObject<Env> {
       created_at  INTEGER NOT NULL,
       attached    INTEGER NOT NULL DEFAULT 0
     )`);
+    // Large files are split into 1 MB chunks (SQLite values max out at 2 MB).
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS media_chunks (
+      media_id TEXT NOT NULL,
+      idx      INTEGER NOT NULL,
+      data     BLOB NOT NULL,
+      PRIMARY KEY (media_id, idx)
+    )`);
+    const columns = this.sql.exec<{ name: string }>("PRAGMA table_info(media)").toArray().map((c) => c.name);
+    if (!columns.includes("chunks")) this.sql.exec("ALTER TABLE media ADD COLUMN chunks INTEGER NOT NULL DEFAULT 0");
+    if (!columns.includes("name")) this.sql.exec("ALTER TABLE media ADD COLUMN name TEXT");
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
   }
 
@@ -82,17 +94,30 @@ export class ChatRoom extends DurableObject<Env> {
 
   // ---------- Media storage (RPC) ----------
 
-  async putMedia(uploaderId: string, mime: string, bytes: Uint8Array): Promise<string> {
+  async putMedia(uploaderId: string, mime: string, bytes: Uint8Array, name?: string): Promise<string> {
     const id = crypto.randomUUID();
-    this.sql.exec(
-      "INSERT INTO media (id, uploader_id, mime, size, data, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-      id,
-      uploaderId,
-      mime,
-      bytes.byteLength,
-      bytes,
-      Date.now(),
-    );
+    const chunks = Math.ceil(bytes.byteLength / CHUNK_BYTES);
+    this.ctx.storage.transactionSync(() => {
+      this.sql.exec(
+        "INSERT INTO media (id, uploader_id, mime, size, data, created_at, chunks, name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        id,
+        uploaderId,
+        mime,
+        bytes.byteLength,
+        new Uint8Array(0),
+        Date.now(),
+        chunks,
+        name ?? null,
+      );
+      for (let i = 0; i < chunks; i++) {
+        this.sql.exec(
+          "INSERT INTO media_chunks (media_id, idx, data) VALUES (?, ?, ?)",
+          id,
+          i,
+          bytes.subarray(i * CHUNK_BYTES, (i + 1) * CHUNK_BYTES),
+        );
+      }
+    });
     // Clean up uploads that never got sent.
     if ((await this.ctx.storage.getAlarm()) === null) {
       await this.ctx.storage.setAlarm(Date.now() + UNATTACHED_MEDIA_TTL_MS);
@@ -100,27 +125,85 @@ export class ChatRoom extends DurableObject<Env> {
     return id;
   }
 
-  async getMedia(id: string): Promise<{ mime: string; data: ArrayBuffer } | null> {
+  async getMedia(id: string): Promise<{ mime: string; data: ArrayBuffer; name: string | null } | null> {
     const row = this.sql
-      .exec<{ mime: string; data: ArrayBuffer }>("SELECT mime, data FROM media WHERE id = ? AND attached = 1", id)
+      .exec<{ mime: string; data: ArrayBuffer; chunks: number; size: number; name: string | null }>(
+        "SELECT mime, data, chunks, size, name FROM media WHERE id = ? AND attached = 1",
+        id,
+      )
       .toArray()[0];
-    return row ?? null;
+    if (!row) return null;
+    if (row.chunks === 0) return { mime: row.mime, data: row.data, name: row.name }; // stored before chunking existed
+
+    const out = new Uint8Array(row.size);
+    let offset = 0;
+    for (const c of this.sql.exec<{ data: ArrayBuffer }>(
+      "SELECT data FROM media_chunks WHERE media_id = ? ORDER BY idx",
+      id,
+    )) {
+      out.set(new Uint8Array(c.data), offset);
+      offset += c.data.byteLength;
+    }
+    return { mime: row.mime, data: out.buffer, name: row.name };
+  }
+
+  async mediaInfo(id: string): Promise<{ mime: string; size: number; name: string | null } | null> {
+    return (
+      this.sql
+        .exec<{ mime: string; size: number; name: string | null }>(
+          "SELECT mime, size, name FROM media WHERE id = ? AND attached = 1",
+          id,
+        )
+        .toArray()[0] ?? null
+    );
+  }
+
+  /** Reads bytes [start, end] (inclusive) touching only the chunks needed — fast video seeking. */
+  async readMedia(id: string, start: number, end: number): Promise<ArrayBuffer | null> {
+    const row = this.sql
+      .exec<{ data: ArrayBuffer; chunks: number }>("SELECT data, chunks FROM media WHERE id = ? AND attached = 1", id)
+      .toArray()[0];
+    if (!row) return null;
+    if (row.chunks === 0) return row.data.slice(start, end + 1);
+
+    const first = Math.floor(start / CHUNK_BYTES);
+    const last = Math.floor(end / CHUNK_BYTES);
+    const out = new Uint8Array(end - start + 1);
+    let written = 0;
+    for (const c of this.sql.exec<{ idx: number; data: ArrayBuffer }>(
+      "SELECT idx, data FROM media_chunks WHERE media_id = ? AND idx BETWEEN ? AND ? ORDER BY idx",
+      id,
+      first,
+      last,
+    )) {
+      const chunkStart = c.idx * CHUNK_BYTES;
+      const from = Math.max(start, chunkStart) - chunkStart;
+      const to = Math.min(end + 1, chunkStart + c.data.byteLength) - chunkStart;
+      const piece = new Uint8Array(c.data, from, to - from);
+      out.set(piece, written);
+      written += piece.byteLength;
+    }
+    return out.buffer;
   }
 
   async deleteMedia(id: string): Promise<void> {
+    this.sql.exec("DELETE FROM media_chunks WHERE media_id = ?", id);
     this.sql.exec("DELETE FROM media WHERE id = ?", id);
   }
 
   /** Called when the whole conversation is deleted. */
   async wipeMedia(): Promise<void> {
+    this.sql.exec("DELETE FROM media_chunks");
     this.sql.exec("DELETE FROM media");
   }
 
   async alarm(): Promise<void> {
+    const cutoff = Date.now() - UNATTACHED_MEDIA_TTL_MS;
     this.sql.exec(
-      "DELETE FROM media WHERE attached = 0 AND created_at < ?",
-      Date.now() - UNATTACHED_MEDIA_TTL_MS,
+      "DELETE FROM media_chunks WHERE media_id IN (SELECT id FROM media WHERE attached = 0 AND created_at < ?)",
+      cutoff,
     );
+    this.sql.exec("DELETE FROM media WHERE attached = 0 AND created_at < ?", cutoff);
     const pending = this.sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM media WHERE attached = 0").one().n;
     if (pending > 0) await this.ctx.storage.setAlarm(Date.now() + UNATTACHED_MEDIA_TTL_MS);
   }
@@ -225,28 +308,52 @@ export class ChatRoom extends DurableObject<Env> {
     event: Extract<ClientEvent, { type: "send" }>,
     clientId: string,
   ): Promise<void> {
-    const kind: MessageKind = event.kind === "image" || event.kind === "voice" ? event.kind : "text";
-    const body = typeof event.body === "string" ? event.body.trim() : "";
+    const kind: MessageKind = (["image", "voice", "video", "file", "call"] as const).includes(event.kind as never)
+      ? event.kind
+      : "text";
+    const body = kind === "call" ? "" : typeof event.body === "string" ? event.body.trim() : "";
     if (body.length > LIMITS.messageMax) throw new UserError(`Messages can be at most ${LIMITS.messageMax} characters.`);
     if (kind === "text" && !body) throw new UserError("Message is empty.");
 
     this.takeToken(ws, att);
 
+    // Timestamp is taken synchronously, in arrival order, and strictly increases per room.
+    // (Several messages can arrive in the same millisecond, and the database writes below
+    // can finish in any order — without this, quick bursts could display shuffled.)
+    const now = Math.max(Date.now(), this.lastTimestamp + 1);
+    this.lastTimestamp = now;
+
     let meta: MediaMeta | null = null;
     let mediaId: string | null = null;
-    if (kind !== "text") {
+    if (kind === "call") {
+      const call = (event.meta as { call?: Record<string, unknown> } | undefined)?.call ?? {};
+      const statuses = ["ended", "missed", "declined", "busy", "failed"] as const;
+      const status = statuses.find((s) => s === call.status);
+      if (!status) throw new UserError("Invalid call record.");
+      const duration = Number(call.duration);
+      meta = {
+        mime: "",
+        size: 0,
+        call: {
+          video: call.video === true,
+          status,
+          duration: status === "ended" && Number.isFinite(duration) && duration > 0 ? Math.min(Math.round(duration), 86_400) : undefined,
+        },
+      };
+    } else if (kind !== "text") {
       mediaId = typeof event.mediaId === "string" ? event.mediaId : null;
       const media = mediaId
         ? this.sql
-            .exec<{ mime: string; size: number }>(
-              "SELECT mime, size FROM media WHERE id = ? AND uploader_id = ? AND attached = 0",
+            .exec<{ mime: string; size: number; name: string | null }>(
+              "SELECT mime, size, name FROM media WHERE id = ? AND uploader_id = ? AND attached = 0",
               mediaId,
               att.userId,
             )
             .toArray()[0]
         : undefined;
       if (!media) throw new UserError("Upload not found. Please try again.");
-      if (!media.mime.startsWith(kind === "image" ? "image/" : "audio/")) throw new UserError("Wrong file type.");
+      const expected = { image: "image/", voice: "audio/", video: "video/", file: "application/" }[kind];
+      if (!media.mime.startsWith(expected)) throw new UserError("Wrong file type.");
       meta = sanitizeMeta(kind, media, (event as { meta?: unknown }).meta);
     }
 
@@ -259,7 +366,6 @@ export class ChatRoom extends DurableObject<Env> {
     }
 
     const id = crypto.randomUUID();
-    const now = Date.now();
     await this.env.DB.batch([
       this.env.DB.prepare(
         `INSERT INTO messages (id, room_id, user_id, body, created_at, kind, media_id, meta, reply_to_id)
@@ -386,7 +492,7 @@ export class ChatRoom extends DurableObject<Env> {
       ).bind(deletedAt, msg.id),
       this.env.DB.prepare("DELETE FROM message_reactions WHERE message_id = ?1").bind(msg.id),
     ]);
-    if (msg.media_id) this.sql.exec("DELETE FROM media WHERE id = ?", msg.media_id);
+    if (msg.media_id) await this.deleteMedia(msg.media_id);
     this.broadcast({ type: "delete", messageId: msg.id, deletedAt });
   }
 
@@ -431,19 +537,29 @@ export class ChatRoom extends DurableObject<Env> {
 }
 
 /** Keeps only well-formed metadata; size and type always come from the stored file. */
-function sanitizeMeta(kind: MessageKind, media: { mime: string; size: number }, raw: unknown): MediaMeta {
+function sanitizeMeta(
+  kind: MessageKind,
+  media: { mime: string; size: number; name: string | null },
+  raw: unknown,
+): MediaMeta {
   const input = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const meta: MediaMeta = { mime: media.mime, size: media.size };
   const int = (v: unknown, max: number) =>
     typeof v === "number" && Number.isFinite(v) && v > 0 && v <= max ? Math.round(v) : undefined;
+  const seconds = (v: unknown, max: number) => {
+    const d = Number(v);
+    return Number.isFinite(d) && d > 0 ? Math.min(Math.round(d * 10) / 10, max) : undefined;
+  };
 
-  if (kind === "image") {
+  if (kind === "file") {
+    meta.name = media.name ?? "file";
+  } else if (kind === "image" || kind === "video") {
     meta.width = int(input.width, 10_000);
     meta.height = int(input.height, 10_000);
-    if (input.viewOnce === true) meta.viewOnce = true;
+    if (kind === "video") meta.duration = seconds(input.duration, 24 * 3600);
+    if (kind === "image" && input.viewOnce === true) meta.viewOnce = true;
   } else {
-    const d = Number(input.duration);
-    if (Number.isFinite(d) && d > 0) meta.duration = Math.min(Math.round(d * 10) / 10, LIMITS.voiceMaxSeconds + 2);
+    meta.duration = seconds(input.duration, LIMITS.voiceMaxSeconds + 2);
     if (Array.isArray(input.waveform)) {
       meta.waveform = input.waveform
         .slice(0, 64)

@@ -25,10 +25,28 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Thin, unobtrusive scrollbars */
+/* Thin, unobtrusive scrollbars on desktop */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgb(161 161 170 / 0.4) transparent;
+}
+
+/* Phones and tablets: no visible scrollbars at all, like native apps */
+@media (pointer: coarse) {
+  * {
+    scrollbar-width: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* For elements that should never show a scrollbar (e.g. the message box) */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* Smooth theme switches without animating everything on page load */

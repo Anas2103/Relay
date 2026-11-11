@@ -1,5 +1,8 @@
 import { LIMITS } from "../../shared/types";
 
+/** Photos are re-encoded to stay under ~1.9 MB: sharp on any phone screen, fast on mobile data. */
+const IMAGE_TARGET_BYTES = 1_900_000;
+
 export interface PreparedImage {
   blob: Blob;
   width: number;
@@ -39,7 +42,7 @@ export async function prepareImage(file: File): Promise<PreparedImage> {
   });
 
   // Keep small GIFs untouched so they stay animated.
-  if (file.type === "image/gif" && file.size <= LIMITS.mediaMaxBytes) {
+  if (file.type === "image/gif" && file.size <= LIMITS.uploadMaxBytes.image) {
     const result = { blob: file as Blob, width: bitmap.width, height: bitmap.height };
     bitmap.close();
     return result;
@@ -52,7 +55,7 @@ export async function prepareImage(file: File): Promise<PreparedImage> {
     const width = Math.round(bitmap.width * scale);
     const height = Math.round(bitmap.height * scale);
     const blob = await encode(drawToCanvas(bitmap, width, height), quality);
-    if (blob.size <= LIMITS.mediaMaxBytes) {
+    if (blob.size <= IMAGE_TARGET_BYTES) {
       bitmap.close();
       return { blob, width, height };
     }
@@ -108,23 +111,40 @@ export class VoiceRecorder {
     return !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== "undefined";
   }
 
-  /** Starts recording. `onLevel` receives live 0–1 loudness for the UI. */
+  /**
+   * Starts recording. `onLevel` receives live 0–1 loudness for the UI.
+   * Must be called directly from a tap/click: iPhones only allow audio to start
+   * inside the user's gesture, so the AudioContext is created before anything is awaited.
+   */
   async start(onLevel: (level: number) => void): Promise<void> {
-    this.stream = await navigator.mediaDevices.getUserMedia({
+    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    this.audioCtx = new Ctx();
+    // Asking for the microphone is the very first await, so the browser shows its permission prompt.
+    const streamPromise = navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     });
+    this.audioCtx.resume().catch(() => {});
+    try {
+      this.stream = await streamPromise;
+    } catch (err) {
+      this.cleanup();
+      throw err;
+    }
 
     // Opus in WebM (Chrome/Firefox/Android) or AAC in MP4 (Safari/iOS).
-    const mimeType = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"].find((t) =>
-      MediaRecorder.isTypeSupported(t),
+    const mimeType = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4", "audio/aac"].find((t) =>
+      MediaRecorder.isTypeSupported?.(t),
     );
-    this.recorder = new MediaRecorder(this.stream, { mimeType, audioBitsPerSecond: 32_000 });
+    try {
+      this.recorder = new MediaRecorder(this.stream, mimeType ? { mimeType, audioBitsPerSecond: 32_000 } : undefined);
+    } catch {
+      this.recorder = new MediaRecorder(this.stream); // let the browser pick
+    }
     this.chunks = [];
     this.recorder.ondataavailable = (e) => e.data.size > 0 && this.chunks.push(e.data);
     this.recorder.start(250);
     this.startedAt = performance.now();
 
-    this.audioCtx = new AudioContext();
     const analyser = this.audioCtx.createAnalyser();
     analyser.fftSize = 512;
     this.audioCtx.createMediaStreamSource(this.stream).connect(analyser);
@@ -196,4 +216,68 @@ function downsample(levels: number[], bars: number): number[] {
 export function formatDuration(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+// ---------- Video ----------
+
+export interface PreparedVideo {
+  blob: Blob;
+  width: number;
+  height: number;
+  duration: number;
+}
+
+/** Reads a video's size and length so the chat can reserve space before it loads. */
+export function prepareVideo(file: File): Promise<PreparedVideo> {
+  if (file.size > LIMITS.uploadMaxBytes.video) {
+    return Promise.reject(new Error(`Videos can be up to ${LIMITS.uploadMaxBytes.video / 1_000_000} MB.`));
+  }
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.muted = true;
+    video.playsInline = true;
+    const done = () => URL.revokeObjectURL(url);
+    video.onloadedmetadata = () => {
+      resolve({
+        blob: file,
+        width: video.videoWidth || 640,
+        height: video.videoHeight || 360,
+        duration: Number.isFinite(video.duration) ? video.duration : 0,
+      });
+      done();
+    };
+    // Some formats can't be previewed by this browser but are still fine to send.
+    video.onerror = () => {
+      resolve({ blob: file, width: 640, height: 360, duration: 0 });
+      done();
+    };
+    video.src = url;
+  });
+}
+
+// ---------- Microphone / camera problems ----------
+
+export type DeviceProblem = "blocked" | "unsupported" | "in-app" | "not-found" | "busy" | "insecure" | "other";
+
+/** Apps like Instagram, Snapchat or TikTok open links in a built-in browser that can't use the mic/camera. */
+export function isInAppBrowser(): boolean {
+  return /Instagram|FBAN|FBAV|FB_IAB|Snapchat|TikTok|musical_ly|Line\/|MicroMessenger|; wv\)/i.test(navigator.userAgent);
+}
+
+export function deviceProblem(err: unknown): DeviceProblem {
+  if (!window.isSecureContext) return "insecure";
+  if (!navigator.mediaDevices?.getUserMedia) return isInAppBrowser() ? "in-app" : "unsupported";
+  const name = (err as DOMException | undefined)?.name;
+  if (name === "NotAllowedError" || name === "SecurityError" || name === "PermissionDeniedError") return "blocked";
+  if (name === "NotFoundError" || name === "DevicesNotFoundError" || name === "OverconstrainedError") return "not-found";
+  if (name === "NotReadableError" || name === "TrackStartError" || name === "AbortError") return "busy";
+  return "other";
+}
+
+export function canUseDevices(): DeviceProblem | null {
+  if (!window.isSecureContext) return "insecure";
+  if (!navigator.mediaDevices?.getUserMedia) return isInAppBrowser() ? "in-app" : "unsupported";
+  return null;
 }

@@ -278,6 +278,83 @@ export const ArrowDownIcon = (p: IconProps) => (
   </svg>
 );
 
+export const PhoneIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z" />
+  </svg>
+);
+export const PhoneOffIcon = (p: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...p}>
+    <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08a.956.956 0 0 1 0-1.36C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.72c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28a11.27 11.27 0 0 0-2.67-1.85.996.996 0 0 1-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z" />
+  </svg>
+);
+export const VideoIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="m22 8-6 4 6 4V8z" />
+    <rect x="2" y="6" width="14" height="12" rx="2" />
+  </svg>
+);
+export const VideoOffIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M10.7 6H14a2 2 0 0 1 2 2v3.3l1 1L22 8v8" />
+    <path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2" />
+    <path d="m2 2 20 20" />
+  </svg>
+);
+export const MicOffIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="m2 2 20 20" />
+    <path d="M18.9 13.4A7 7 0 0 0 19 12v-2" />
+    <path d="M5 10v2a7 7 0 0 0 12 5" />
+    <path d="M15 9.3V5a3 3 0 0 0-5.7-1.3" />
+    <path d="M9 9v3a3 3 0 0 0 5.1 2.1" />
+    <path d="M12 19v3" />
+  </svg>
+);
+export const SwitchCameraIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" />
+    <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5" />
+    <circle cx="12" cy="12" r="3" />
+    <path d="m18 22-3-3 3-3" />
+    <path d="m6 2 3 3-3 3" />
+  </svg>
+);
+export const FileIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+    <path d="M14 2v6h6" />
+  </svg>
+);
+export const DownloadIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <path d="m7 10 5 5 5-5" />
+    <path d="M12 15V3" />
+  </svg>
+);
+export const PaperclipIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5" />
+  </svg>
+);
+export const LinkIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
+    <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
+  </svg>
+);
+export const ChevronUpIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="m18 15-6-6-6 6" />
+  </svg>
+);
+export const ChevronDownIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="m6 9 6 6 6-6" />
+  </svg>
+);
+
 /** ✓ sent / ✓✓ read */
 export function Ticks({ read, className = "" }: { read: boolean; className?: string }) {
   return (

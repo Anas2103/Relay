@@ -105,5 +105,5 @@ export function useRoomSocket(roomId: string, onEvent: (event: SocketEvent) => v
 }
 
 export function useLobbySocket(onEvent: (event: LobbyEvent | { type: "connected" }) => void) {
-  return useSocket<LobbyEvent>("/api/lobby", onEvent).status;
+  return useSocket<LobbyEvent>("/api/lobby", onEvent);
 }

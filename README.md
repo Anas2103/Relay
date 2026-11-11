@@ -1,13 +1,22 @@
 # Relay
 
-Real-time, private chat with voice notes, photos and view-once pictures, running entirely on Cloudflare's free tier.
+Real-time, private chat with voice & video calls, voice notes, photos, videos, documents and view-once pictures, running entirely on Cloudflare's free tier.
 
 **Live demo:** https://relay-chat.bunbunchat.workers.dev
 
 ## Features
 
+**Calls**
+- **Voice and video calls** over WebRTC, peer-to-peer and encrypted (DTLS-SRTP); the server only relays the setup messages
+- Ringing on all your devices (stops everywhere once you answer on one), mute, camera on/off, front/back camera, minimize to keep chatting
+- Call history in the chat ("Missed video call", "Voice call · 3:20"); tap to call back
+- Works with free public STUN; optional Cloudflare TURN relay for restrictive networks
+
 **Messaging**
 - Real-time chat over WebSockets, with optimistic sending, retry on failure and automatic reconnect plus catch-up
+- **Documents and videos** up to 20 MB, with upload progress; videos stream with byte ranges (instant seeking, iPhone-compatible)
+- **Search** a whole conversation and **jump to any message**, however old (history loads around it in both directions)
+- **Contact info** with Media, Files, Links and Voice tabs
 - **Voice messages**: tap to record with a live waveform; playback with seek and 1× / 1.5× / 2× speed
 - **Photos**: compressed in the browser (a 4 MB photo becomes ~250 KB, with EXIF/GPS stripped), paste or drag-and-drop, captions
 - **View-once photos**: each recipient can open them exactly once, enforced by the server; deleted after everyone has seen them
@@ -96,6 +105,13 @@ npm run db:migrate:remote
 npm run deploy                            # → https://relay-chat.<your-subdomain>.workers.dev
 ```
 
+Optional: a TURN relay so calls also connect on networks that block direct connections (Cloudflare dashboard → Realtime → TURN → create a key):
+
+```bash
+npx wrangler secret put TURN_KEY_ID
+npx wrangler secret put TURN_KEY_API_TOKEN
+```
+
 Make your account an admin (one-time):
 
 ```bash
@@ -109,8 +125,9 @@ npx wrangler d1 execute relay-chat-db --remote --command "UPDATE users SET role=
 - [x] Voice messages, photos, view-once photos
 - [x] Replies, reactions, edit/delete, read receipts, unread badges, notifications
 - [x] Profile pictures, bios, last seen, themes, custom bubble colors
+- [x] Voice & video calls (WebRTC)
+- [x] Documents, videos, search, jump to message, shared media gallery
 - [ ] Group chats
-- [ ] End-to-end encryption
+- [ ] End-to-end encryption for messages
 - [ ] Installable app (PWA) with push notifications
-- [ ] Voice & video calls (WebRTC)
 - [ ] Automated tests in CI

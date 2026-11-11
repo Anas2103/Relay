@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { LobbyEvent, Me, Message, Room } from "../../shared/types";
+import type { CallInfo, ClientEvent, LobbyEvent, Me, Message, Room } from "../../shared/types";
 import { messagePreview } from "../../shared/types";
 import { api } from "../lib/api";
+import { calls } from "../lib/calls";
 import { playMessageSound } from "../lib/sound";
 import { useLobbySocket } from "../lib/useRoomSocket";
 import { AdminPanel } from "./AdminPanel";
+import { CallScreen } from "./CallScreen";
 import { ChatPane } from "./ChatPane";
-import { ProfileSheet } from "./ProfileSheet";
 import { SettingsDialog } from "./SettingsDialog";
 import { Sidebar } from "./Sidebar";
 import { ChatIcon } from "./ui";
@@ -35,7 +36,6 @@ export function ChatLayout({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [presence, setPresence] = useState<PresenceMap>({});
 
   // Refs so the lobby handler always sees fresh values without reconnecting.
@@ -92,11 +92,35 @@ export function ChatLayout({
           if (!mine && (!isOpen || away)) notify(meRef.current, e.fromName, e.lastMessage.preview, () => setActiveId(e.roomId));
           break;
         }
+        case "call":
+          calls.handle(e);
+          break;
       }
     },
     [refreshRooms],
   );
-  const lobbyStatus = useLobbySocket(onLobbyEvent);
+  const { status: lobbyStatus, send: lobbySend } = useLobbySocket(onLobbyEvent);
+
+  // Calls use the app-wide socket for signaling, and log a record into the chat when they end.
+  useEffect(() => {
+    calls.setTransport((env) => lobbySend(env));
+    calls.onRecord = postCallRecord;
+    calls.onIncoming = (name, video) => {
+      const m = meRef.current;
+      if (!m.settings.notifications || !("Notification" in window) || Notification.permission !== "granted") return;
+      if (document.visibilityState === "visible" && document.hasFocus()) return;
+      try {
+        const n = new Notification(name, { body: `Incoming ${video ? "video" : "voice"} call`, icon: "/favicon.svg", tag: "relay:call", requireInteraction: true });
+        n.onclick = () => {
+          window.focus();
+          n.close();
+        };
+      } catch {
+        // notifications unavailable
+      }
+    };
+    return () => calls.setTransport(null);
+  }, [lobbySend]);
 
   // Safety net in case a live event is ever missed.
   useEffect(() => {
@@ -140,8 +164,23 @@ export function ChatLayout({
 
   const active = rooms.find((r) => r.id === activeId) ?? null;
 
+  const startCall = useCallback((room: Room, video: boolean) => {
+    if (!room.peer) return;
+    void calls.start(room.id, { id: room.peer.id, name: room.peer.displayName }, video);
+  }, []);
+
+  const [callPeerId, setCallPeerId] = useState<string | null>(null);
+  useEffect(() => calls.subscribe(() => setCallPeerId(calls.getState().peerId)), []);
+  const callPeer = rooms.find((r) => r.peer?.id === callPeerId)?.peer ?? null;
+  const callScreen = <CallScreen peer={callPeer} />;
+
   if (adminOpen && me.role === "admin") {
-    return <AdminPanel me={me} onClose={() => setAdminOpen(false)} />;
+    return (
+      <>
+        <AdminPanel me={me} onClose={() => setAdminOpen(false)} />
+        {callScreen}
+      </>
+    );
   }
 
   return (
@@ -175,7 +214,7 @@ export function ChatLayout({
             peerPresence={active.peer ? presence[active.peer.id] : undefined}
             onBack={() => selectRoom(null)}
             onActivity={onActivity}
-            onOpenProfile={setProfileUserId}
+            onStartCall={(video) => startCall(active, video)}
           />
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center bg-white p-8 text-center dark:bg-zinc-900">
@@ -191,20 +230,31 @@ export function ChatLayout({
       </div>
 
       {settingsOpen && <SettingsDialog me={me} onClose={() => setSettingsOpen(false)} onMeUpdated={onMeUpdated} />}
-      {profileUserId && (
-        <ProfileSheet
-          userId={profileUserId}
-          me={me}
-          presence={presence[profileUserId]}
-          onClose={() => setProfileUserId(null)}
-          onEditProfile={() => {
-            setProfileUserId(null);
-            setSettingsOpen(true);
-          }}
-        />
-      )}
+      {callScreen}
     </div>
   );
+}
+
+/**
+ * Writes a call record ("Missed video call", "Voice call · 3:20") into the chat.
+ * Uses a short-lived connection to the room, so it works even if you've
+ * navigated to another chat during the call.
+ */
+function postCallRecord(roomId: string, call: CallInfo) {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${proto}://${location.host}/api/rooms/${roomId}/ws`);
+  const clientId = crypto.randomUUID();
+  const timeout = window.setTimeout(() => ws.close(), 5000);
+  ws.onopen = () => {
+    const event: ClientEvent = { type: "send", clientId, kind: "call", body: "", meta: { call } };
+    ws.send(JSON.stringify(event));
+  };
+  ws.onmessage = (e) => {
+    if (typeof e.data === "string" && e.data.includes(clientId)) {
+      window.clearTimeout(timeout);
+      ws.close();
+    }
+  };
 }
 
 /** Sound + desktop notification for a message in a chat you're not looking at. */

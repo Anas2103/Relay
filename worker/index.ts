@@ -14,7 +14,16 @@ import {
 } from "./auth";
 import { lobby, type Env } from "./env";
 import { assertSameOrigin, clientIp, HttpError, json, readJson } from "./http";
-import { connectSocket, getMediaFile, getMessages, listRooms, openDm, uploadMedia } from "./rooms";
+import {
+  connectSocket,
+  getGallery,
+  getMediaFile,
+  getMessages,
+  listRooms,
+  openDm,
+  searchMessages,
+  uploadMedia,
+} from "./rooms";
 import { getAvatar, getProfile, searchUsers } from "./users";
 import { isUniqueViolation, validDisplayName, validPassword, validUsername } from "./validate";
 
@@ -56,6 +65,7 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
   if (p === "/api/account" || p.startsWith("/api/account/")) return routeAccount(request, env, url);
   if (p.startsWith("/api/admin/")) return routeAdmin(request, env, url);
   if (p === "/api/lobby" && m === "GET") return connectLobby(request, env, url);
+  if (p === "/api/calls/ice" && m === "GET") return iceServers(request, env);
 
   // Users
   if (p === "/api/users/search" && m === "GET") return searchUsers(request, env, url);
@@ -79,6 +89,12 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
   }
   if ((match = p.match(new RegExp(`^/api/rooms/${ID}/messages/${ID}/media$`))) && m === "GET") {
     return getMediaFile(env, request, match[1], match[2]);
+  }
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/search$`))) && m === "GET") {
+    return searchMessages(request, env, url, match[1]);
+  }
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/gallery$`))) && m === "GET") {
+    return getGallery(request, env, url, match[1]);
   }
 
   throw new HttpError(404, "Not found.");
@@ -154,5 +170,38 @@ async function connectLobby(request: Request, env: Env, url: URL): Promise<Respo
 
   const forwarded = new Request(request);
   forwarded.headers.set("X-User-Id", me.id);
+  forwarded.headers.set("X-Display-Name", me.displayName);
   return lobby(env).fetch(forwarded);
+}
+
+// ---------- Calls ----------
+
+const PUBLIC_STUN = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }];
+
+/**
+ * Network routes for WebRTC calls. STUN (free, public) lets most devices connect
+ * directly. Some mobile/corporate networks need a TURN relay: if the optional
+ * TURN_KEY_ID / TURN_KEY_API_TOKEN secrets are set, short-lived Cloudflare TURN
+ * credentials are generated per call (Cloudflare's free tier covers small apps).
+ */
+async function iceServers(request: Request, env: Env): Promise<Response> {
+  await requireUser(request, env);
+  if (!env.TURN_KEY_ID || !env.TURN_KEY_API_TOKEN) return json({ iceServers: PUBLIC_STUN, relay: false });
+  try {
+    const res = await fetch(
+      `https://rtc.live.cloudflare.com/v1/turn/keys/${env.TURN_KEY_ID}/credentials/generate-ice-servers`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${env.TURN_KEY_API_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ ttl: 4 * 60 * 60 }),
+      },
+    );
+    if (!res.ok) throw new Error(`TURN ${res.status}`);
+    const data = (await res.json()) as { iceServers: unknown };
+    const servers = Array.isArray(data.iceServers) ? data.iceServers : [data.iceServers];
+    return json({ iceServers: [...PUBLIC_STUN, ...servers], relay: true });
+  } catch (err) {
+    console.error("TURN credentials failed", err);
+    return json({ iceServers: PUBLIC_STUN, relay: false });
+  }
 }
