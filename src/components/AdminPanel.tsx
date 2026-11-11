@@ -30,7 +30,7 @@ export function AdminPanel({ me, onClose }: { me: User; onClose: () => void }) {
           >
             <BackIcon className="size-5" />
           </button>
-          <ShieldIcon className="size-5 text-indigo-600 dark:text-indigo-400" />
+          <ShieldIcon className="size-5 text-accent-fg" />
           <h1 className="text-lg font-semibold tracking-tight">Admin</h1>
         </div>
         <nav className="mx-auto mt-3 flex max-w-6xl gap-1 px-4 md:px-6" aria-label="Admin sections">
@@ -47,7 +47,7 @@ export function AdminPanel({ me, onClose }: { me: User; onClose: () => void }) {
               aria-current={tab === id ? "page" : undefined}
               className={`border-b-2 px-3 pb-2.5 text-sm font-medium transition ${
                 tab === id
-                  ? "border-indigo-600 text-zinc-900 dark:border-indigo-400 dark:text-zinc-100"
+                  ? "border-accent text-zinc-900 dark:text-zinc-100"
                   : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
               }`}
             >
@@ -120,11 +120,11 @@ function Overview() {
         ))}
       </div>
 
-      <div className="flex gap-3 rounded-2xl bg-indigo-50 p-4 text-sm text-indigo-900 ring-1 ring-indigo-600/10 dark:bg-indigo-950/40 dark:text-indigo-200 dark:ring-indigo-400/10">
+      <div className="flex gap-3 rounded-2xl bg-accent/10 p-4 text-sm text-accent-fg ring-1 ring-accent/20 dark:bg-accent/15">
         <LockIcon className="mt-0.5 size-5 shrink-0" />
         <div>
           <p className="font-medium">Messages are private, even from admins.</p>
-          <p className="mt-0.5 text-indigo-800/80 dark:text-indigo-300/80">
+          <p className="mt-0.5 text-accent-fg/80">
             Admins can manage accounts, but there is no way to read anyone's conversations from here. Every admin
             action is recorded in the audit log.
           </p>
@@ -174,12 +174,12 @@ function Users({ me, onToast }: { me: User; onToast: (msg: string) => void }) {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search users"
             aria-label="Search users"
-            className="w-full rounded-xl border border-zinc-200 bg-white py-2.5 pr-3 pl-9 text-sm outline-none transition placeholder:text-zinc-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 dark:border-zinc-800 dark:bg-zinc-900"
+            className="w-full rounded-xl border border-zinc-200 bg-white py-2.5 pr-3 pl-9 text-sm outline-none transition placeholder:text-zinc-400 focus:border-accent focus:ring-4 focus:ring-accent/15 dark:border-zinc-800 dark:bg-zinc-900"
           />
         </div>
         <button
           onClick={() => setEditing("new")}
-          className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500"
+          className="flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink shadow-sm transition hover:opacity-90"
         >
           <PlusIcon className="size-4" />
           New user
@@ -222,7 +222,7 @@ function Users({ me, onToast }: { me: User; onToast: (msg: string) => void }) {
                 </div>
                 <button
                   onClick={() => setEditing(u)}
-                  className="col-start-2 row-span-2 rounded-lg px-3 py-1.5 text-sm font-medium text-indigo-600 transition hover:bg-indigo-50 md:col-start-6 md:row-start-1 md:row-span-1 md:justify-self-end dark:text-indigo-400 dark:hover:bg-indigo-950/50"
+                  className="col-start-2 row-span-2 rounded-lg px-3 py-1.5 text-sm font-medium text-accent-fg transition hover:bg-accent/10 md:col-start-6 md:row-start-1 md:row-span-1 md:justify-self-end"
                 >
                   Edit
                 </button>
@@ -261,7 +261,7 @@ function Users({ me, onToast }: { me: User; onToast: (msg: string) => void }) {
 
 function Badge({ tone, children }: { tone: "indigo" | "red" | "zinc"; children: ReactNode }) {
   const styles = {
-    indigo: "bg-indigo-50 text-indigo-700 ring-indigo-600/20 dark:bg-indigo-950/60 dark:text-indigo-300",
+    indigo: "bg-accent/10 text-accent-fg ring-accent/20 dark:bg-accent/15",
     red: "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-950/60 dark:text-red-300",
     zinc: "bg-zinc-100 text-zinc-600 ring-zinc-500/20 dark:bg-zinc-800 dark:text-zinc-300",
   }[tone];
@@ -274,7 +274,7 @@ function Badge({ tone, children }: { tone: "indigo" | "red" | "zinc"; children: 
 
 const inputClass =
   "w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm outline-none transition " +
-  "placeholder:text-zinc-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 " +
+  "placeholder:text-zinc-400 focus:border-accent focus:ring-4 focus:ring-accent/15 " +
   "disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800";
 
 function UserDialog({
@@ -461,7 +461,7 @@ function UserDialog({
           <button
             type="submit"
             disabled={busy !== null || !username || (isNew && !password)}
-            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy === "save" && <Spinner />}
             {isNew ? "Create user" : "Save changes"}

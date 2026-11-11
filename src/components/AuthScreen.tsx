@@ -7,8 +7,8 @@ type Mode = "login" | "register";
 
 const inputClass =
   "w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm outline-none transition " +
-  "placeholder:text-zinc-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 " +
-  "dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-indigo-400";
+  "placeholder:text-zinc-400 focus:border-accent focus:ring-4 focus:ring-accent/15 " +
+  "dark:border-zinc-800 dark:bg-zinc-900";
 
 export function AuthScreen({ onAuthed }: { onAuthed: (user: Me) => void }) {
   const [mode, setMode] = useState<Mode>("login");
@@ -130,7 +130,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: (user: Me) => void }) {
           <button
             type="submit"
             disabled={busy || !username || !password}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:ring-4 focus-visible:ring-indigo-500/30 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink shadow-sm transition hover:opacity-90 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy && <Spinner />}
             {mode === "login" ? "Sign in" : "Create account"}

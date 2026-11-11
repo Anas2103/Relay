@@ -97,7 +97,7 @@ export const MessageBubble = memo(function MessageBubble({
     : mine
       ? m.status === "failed"
         ? "bg-red-500 text-white"
-        : "bg-bubble text-white"
+        : "bg-bubble text-bubble-ink"
       : "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-900/5 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-white/5";
 
   const visual = (m.kind === "image" && !viewOnce) || m.kind === "video";
@@ -177,7 +177,7 @@ export const MessageBubble = memo(function MessageBubble({
           <span className={`mt-1 flex items-center gap-1 text-[11px] text-zinc-400 tabular-nums ${mine ? "mr-1" : "ml-1"}`}>
             {m.editedAt && !deleted && <span>edited ·</span>}
             {m.status === "pending" ? "Sending…" : formatTime(m.createdAt)}
-            {mine && !m.status && !deleted && <Ticks read={read} className={read ? "text-bubble-fg" : ""} />}
+            {mine && !m.status && !deleted && <Ticks read={read} className={read ? "text-accent-fg" : ""} />}
           </span>
         )
       )}
@@ -216,16 +216,16 @@ function ReplyQuote({ reply, mine, meId, onClick }: { reply: ReplyPreview; mine:
     <button
       onClick={onClick}
       className={`mb-1.5 flex w-full min-w-0 items-start gap-2 rounded-lg border-l-4 px-2.5 py-1.5 text-left text-sm ${
-        mine ? "border-white/70 bg-black/15" : "border-bubble bg-zinc-100 dark:bg-zinc-900/60"
+        mine ? "border-current/60 bg-current/10" : "border-accent bg-zinc-100 dark:bg-zinc-900/60"
       }`}
     >
       {reply.kind === "voice" && <MicIcon className="mt-0.5 size-3.5 shrink-0 opacity-70" />}
       {reply.kind === "image" && <ImageIcon className="mt-0.5 size-3.5 shrink-0 opacity-70" />}
       <span className="min-w-0">
-        <span className={`block text-xs font-semibold ${mine ? "text-white" : "text-bubble-fg"}`}>
+        <span className={`block text-xs font-semibold ${mine ? "" : "text-accent-fg"}`}>
           {reply.userId === meId ? "You" : reply.displayName}
         </span>
-        <span className={`line-clamp-2 ${mine ? "text-white/85" : "text-zinc-600 dark:text-zinc-300"} ${reply.deleted ? "italic" : ""}`}>
+        <span className={`line-clamp-2 ${mine ? "opacity-85" : "text-zinc-600 dark:text-zinc-300"} ${reply.deleted ? "italic" : ""}`}>
           {text}
         </span>
       </span>
@@ -298,21 +298,21 @@ function FileContent({ message: m, mine }: { message: UiMessage; mine: boolean }
       download={name}
       onClick={(e) => m.status && e.preventDefault()}
       className={`flex w-64 max-w-full items-center gap-3 rounded-xl p-2 transition ${
-        mine ? "bg-black/15 hover:bg-black/25" : "bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900/60 dark:hover:bg-zinc-900"
+        mine ? "bg-current/10 hover:bg-current/15" : "bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900/60 dark:hover:bg-zinc-900"
       }`}
       aria-label={`Download ${name}`}
     >
-      <span className={`relative flex size-11 shrink-0 items-center justify-center rounded-lg ${mine ? "bg-white/20" : "bg-bubble/15 text-bubble-fg"}`}>
+      <span className={`relative flex size-11 shrink-0 items-center justify-center rounded-lg ${mine ? "bg-current/15" : "bg-accent/15 text-accent-fg"}`}>
         <FileIcon className="size-5 -translate-y-1.5" />
         <span className="absolute bottom-1.5 text-[8px] leading-none font-bold tracking-wide">{ext}</span>
       </span>
       <span className="min-w-0 flex-1">
         <span className="line-clamp-2 text-sm font-medium break-all">{name}</span>
-        <span className={`text-xs ${mine ? "text-white/75" : "text-zinc-500 dark:text-zinc-400"}`}>
+        <span className={`text-xs ${mine ? "opacity-75" : "text-zinc-500 dark:text-zinc-400"}`}>
           {formatBytes(m.meta?.size ?? 0)} · {ext}
         </span>
       </span>
-      {!m.status && <DownloadIcon className={`size-5 shrink-0 ${mine ? "text-white/80" : "text-zinc-400"}`} />}
+      {!m.status && <DownloadIcon className={`size-5 shrink-0 ${mine ? "opacity-80" : "text-zinc-400"}`} />}
     </a>
   );
 }
@@ -331,14 +331,14 @@ function CallContent({ message: m, mine, onCallBack }: { message: UiMessage; min
     >
       <span
         className={`flex size-9 shrink-0 items-center justify-center rounded-full ${
-          mine ? "bg-white/20" : missed ? "bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400" : "bg-bubble/15 text-bubble-fg"
+          mine ? "bg-current/15" : missed ? "bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400" : "bg-accent/15 text-accent-fg"
         }`}
       >
         <Icon className="size-4.5" />
       </span>
       <span>
         <span className="block text-sm font-medium">{mine ? label.replace("Missed", "Unanswered") : label}</span>
-        <span className={`text-xs ${mine ? "text-white/75" : "text-zinc-500 dark:text-zinc-400"}`}>Tap to call back</span>
+        <span className={`text-xs ${mine ? "opacity-75" : "text-zinc-500 dark:text-zinc-400"}`}>Tap to call back</span>
       </span>
     </button>
   );
@@ -391,7 +391,7 @@ function ViewOnceContent({
       <span className="flex items-center gap-2 py-0.5 text-sm">
         <OnceIcon className="size-5" />
         <span className="font-medium">Photo</span>
-        <span className="text-white/75">· {m.status ? "Sending" : openedByOthers ? "Opened" : "View once"}</span>
+        <span className="opacity-75">· {m.status ? "Sending" : openedByOthers ? "Opened" : "View once"}</span>
       </span>
     );
   }
@@ -404,7 +404,7 @@ function ViewOnceContent({
     );
   }
   return (
-    <button onClick={onOpen} className="flex items-center gap-2 py-0.5 text-sm font-medium text-bubble-fg">
+    <button onClick={onOpen} className="flex items-center gap-2 py-0.5 text-sm font-medium text-accent-fg">
       <OnceIcon className="size-5" />
       Photo · Tap to view once
     </button>
@@ -435,7 +435,7 @@ function Reactions({
           onClick={() => onToggle(emoji)}
           className={`pop-in flex items-center gap-1 rounded-full px-1.5 py-0.5 text-sm shadow-sm ring-1 transition active:scale-95 ${
             mineToo
-              ? "bg-bubble/15 ring-bubble/40 dark:bg-bubble/30"
+              ? "bg-accent/15 ring-accent/40 dark:bg-accent/30"
               : "bg-white ring-zinc-200 dark:bg-zinc-800 dark:ring-zinc-700"
           }`}
           aria-label={`${emoji} ${count}${mineToo ? ", including you" : ""}`}
@@ -461,7 +461,7 @@ function linkify(text: string, mine: boolean): ReactNode {
         href={part}
         target="_blank"
         rel="noopener noreferrer nofollow"
-        className={`underline underline-offset-2 ${mine ? "text-white" : "text-bubble-fg"}`}
+        className={`underline underline-offset-2 ${mine ? "" : "text-accent-fg"}`}
         onClick={(e) => e.stopPropagation()}
       >
         {part}

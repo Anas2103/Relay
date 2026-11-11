@@ -123,7 +123,7 @@ export function CallScreen({ peer }: { peer: User | null }) {
               className={`absolute inset-0 size-full object-cover opacity-60 ${call.facing === "user" ? "-scale-x-100" : ""}`}
             />
           ) : (
-            <div className="absolute inset-0 bg-gradient-to-b from-bubble/60 via-zinc-900 to-zinc-950" />
+            <div className="absolute inset-0 bg-gradient-to-b from-accent/60 via-zinc-900 to-zinc-950" />
           )}
         </>
       )}

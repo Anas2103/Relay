@@ -322,12 +322,12 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
         {context && (
           <div className="fade-in mb-2 flex items-center gap-3 rounded-xl bg-zinc-100 px-3 py-2 dark:bg-zinc-800">
             {editing ? (
-              <EditIcon className="size-4 shrink-0 text-bubble-fg" />
+              <EditIcon className="size-4 shrink-0 text-accent-fg" />
             ) : (
-              <ReplyIcon className="size-4 shrink-0 text-bubble-fg" />
+              <ReplyIcon className="size-4 shrink-0 text-accent-fg" />
             )}
-            <div className="min-w-0 flex-1 border-l-2 border-bubble pl-2.5">
-              <p className="text-xs font-semibold text-bubble-fg">
+            <div className="min-w-0 flex-1 border-l-2 border-accent pl-2.5">
+              <p className="text-xs font-semibold text-accent-fg">
                 {editing ? "Editing message" : `Replying to ${context.userId === meId ? "yourself" : context.displayName}`}
               </p>
               <p className="truncate text-sm text-zinc-600 dark:text-zinc-300">{contextText}</p>
@@ -366,7 +366,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
                   <span className="w-10 shrink-0 text-sm font-medium tabular-nums">{formatDuration(elapsed)}</span>
                   <div className="flex h-6 min-w-0 flex-1 items-center justify-end gap-[2px] overflow-hidden" aria-hidden="true">
                     {levels.map((l, i) => (
-                      <span key={i} className="w-[3px] shrink-0 rounded-full bg-bubble" style={{ height: `${Math.max(12, l * 100)}%` }} />
+                      <span key={i} className="w-[3px] shrink-0 rounded-full bg-accent" style={{ height: `${Math.max(12, l * 100)}%` }} />
                     ))}
                   </div>
                 </>
@@ -375,7 +375,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
             <button
               onClick={finishRecording}
               disabled={recording !== "on"}
-              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-bubble text-white shadow-sm transition hover:opacity-90 active:scale-95 disabled:opacity-40"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-ink shadow-sm transition hover:opacity-90 active:scale-95 disabled:opacity-40"
               aria-label="Send voice message"
             >
               <SendIcon className="size-5 -translate-x-px translate-y-px" />
@@ -396,8 +396,8 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
                   onClick={() => setMenuOpen((o) => !o)}
                   disabled={preparing}
                   aria-expanded={menuOpen}
-                  className={`flex size-11 shrink-0 items-center justify-center rounded-full transition hover:bg-zinc-100 hover:text-bubble-fg disabled:opacity-50 dark:hover:bg-zinc-800 ${
-                    menuOpen ? "bg-zinc-100 text-bubble-fg dark:bg-zinc-800" : "text-zinc-500 dark:text-zinc-400"
+                  className={`flex size-11 shrink-0 items-center justify-center rounded-full transition hover:bg-zinc-100 hover:text-accent-fg disabled:opacity-50 dark:hover:bg-zinc-800 ${
+                    menuOpen ? "bg-zinc-100 text-accent-fg dark:bg-zinc-800" : "text-zinc-500 dark:text-zinc-400"
                   }`}
                   aria-label="Attach"
                   title="Attach"
@@ -464,7 +464,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
                 className={`no-scrollbar block w-full resize-none overflow-hidden rounded-2xl border bg-zinc-50 px-4 py-2.5 text-[15px] leading-6 outline-none transition placeholder:text-zinc-400 focus:bg-white focus:ring-4 dark:bg-zinc-800 dark:focus:bg-zinc-800 ${
                   tooLong
                     ? "border-red-400 focus:ring-red-500/15"
-                    : "border-zinc-200 focus:border-bubble focus:ring-bubble/15 dark:border-zinc-700"
+                    : "border-zinc-200 focus:border-accent focus:ring-accent/15 dark:border-zinc-700"
                 }`}
               />
               {draft.length > LIMITS.messageMax - 200 && (
@@ -477,7 +477,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
               <button
                 type="submit"
                 disabled={!draft.trim() || tooLong}
-                className="pop-in flex size-11 shrink-0 items-center justify-center rounded-full bg-bubble text-white shadow-sm transition hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                className="pop-in flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-ink shadow-sm transition hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label={editing ? "Save edit" : "Send message"}
               >
                 <SendIcon className="size-5 -translate-x-px translate-y-px" />
@@ -486,7 +486,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
               <button
                 type="button"
                 onClick={startRecording}
-                className="pop-in flex size-11 shrink-0 items-center justify-center rounded-full bg-bubble text-white shadow-sm transition hover:opacity-90 active:scale-95"
+                className="pop-in flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-ink shadow-sm transition hover:opacity-90 active:scale-95"
                 aria-label="Record a voice message"
                 title="Record a voice message"
               >
@@ -597,7 +597,7 @@ function MediaPreview({
             onClick={() => setViewOnce((v) => !v)}
             aria-pressed={viewOnce}
             className={`flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition ${
-              viewOnce ? "bg-bubble text-white" : "bg-white/10 text-white hover:bg-white/20"
+              viewOnce ? "bg-accent text-accent-ink" : "bg-white/10 text-accent-ink hover:bg-white/20"
             }`}
             title="View once: they can open it one time, then it's gone"
           >
@@ -616,7 +616,7 @@ function MediaPreview({
         />
         <button
           type="submit"
-          className="flex size-11 shrink-0 items-center justify-center rounded-full bg-bubble text-white shadow-sm transition hover:opacity-90 active:scale-95"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-ink shadow-sm transition hover:opacity-90 active:scale-95"
           aria-label={isImage ? "Send photo" : "Send video"}
         >
           <SendIcon className="size-5 -translate-x-px translate-y-px" />

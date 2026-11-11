@@ -71,7 +71,7 @@ export function MessageMenu({
               key={emoji}
               onClick={() => onAction({ react: emoji })}
               className={`flex size-9 items-center justify-center rounded-full text-xl transition hover:scale-110 hover:bg-zinc-100 active:scale-95 dark:hover:bg-zinc-700 ${
-                myReaction === emoji ? "bg-bubble/15 ring-2 ring-bubble/40" : ""
+                myReaction === emoji ? "bg-accent/15 ring-2 ring-accent/40" : ""
               }`}
               aria-label={`React ${emoji}`}
             >

@@ -111,7 +111,7 @@ export function DeviceHelp({
           {steps.map((s, i) => (
             <li key={i} className="flex gap-3">
               {steps.length > 1 && (
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-bubble/15 text-xs font-semibold text-bubble-fg">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent-fg">
                   {i + 1}
                 </span>
               )}
@@ -132,7 +132,7 @@ export function DeviceHelp({
                 dialogRef.current?.close();
                 onRetry();
               }}
-              className="rounded-xl bg-bubble px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+              className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink hover:opacity-90"
             >
               Try again
             </button>

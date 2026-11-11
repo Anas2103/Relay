@@ -28,33 +28,79 @@ export interface Profile extends User {
 
 // ---------- Settings ----------
 
-export const BUBBLE_COLORS = {
-  indigo: "#4f46e5",
-  violet: "#7c3aed",
-  pink: "#db2777",
-  rose: "#e11d48",
-  orange: "#c2410c",
-  emerald: "#047857",
-  teal: "#0f766e",
-  sky: "#0369a1",
-  slate: "#334155",
-} as const;
-export type BubbleColor = keyof typeof BUBBLE_COLORS;
+/**
+ * Every color comes with the text colors that stay readable with it:
+ *  - `ink`:     text drawn ON the color (white on most, dark on yellow)
+ *  - `onLight`: the color used as text on a light background
+ *  - `onDark`:  the color used as text on a dark background
+ */
+export interface PaletteColor {
+  label: string;
+  hex: string;
+  ink: string;
+  onLight: string;
+  onDark: string;
+}
+
+export const PALETTE = {
+  indigo: { label: "Indigo", hex: "#4f46e5", ink: "#ffffff", onLight: "#4f46e5", onDark: "#a5b4fc" },
+  blue: { label: "Blue", hex: "#2563eb", ink: "#ffffff", onLight: "#2563eb", onDark: "#93c5fd" },
+  sky: { label: "Sky", hex: "#0369a1", ink: "#ffffff", onLight: "#0369a1", onDark: "#7dd3fc" },
+  teal: { label: "Teal", hex: "#0f766e", ink: "#ffffff", onLight: "#0f766e", onDark: "#5eead4" },
+  emerald: { label: "Emerald", hex: "#047857", ink: "#ffffff", onLight: "#047857", onDark: "#6ee7b7" },
+  yellow: { label: "Yellow", hex: "#facc15", ink: "#1c1917", onLight: "#a16207", onDark: "#fde047" },
+  orange: { label: "Orange", hex: "#c2410c", ink: "#ffffff", onLight: "#c2410c", onDark: "#fdba74" },
+  rose: { label: "Rose", hex: "#e11d48", ink: "#ffffff", onLight: "#e11d48", onDark: "#fda4af" },
+  pink: { label: "Pink", hex: "#db2777", ink: "#ffffff", onLight: "#db2777", onDark: "#f9a8d4" },
+  violet: { label: "Violet", hex: "#7c3aed", ink: "#ffffff", onLight: "#7c3aed", onDark: "#c4b5fd" },
+  slate: { label: "Graphite", hex: "#334155", ink: "#ffffff", onLight: "#334155", onDark: "#cbd5e1" },
+} as const satisfies Record<string, PaletteColor>;
+
+export type ColorName = keyof typeof PALETTE;
+/** Kept for older code paths: bubble colors use the same palette. */
+export type BubbleColor = ColorName;
 export type Theme = "system" | "light" | "dark";
+
+export const WALLPAPERS = {
+  plain: "Plain",
+  dots: "Dots",
+  grid: "Grid",
+  aurora: "Aurora",
+  sunset: "Sunset",
+  ocean: "Ocean",
+  forest: "Forest",
+  lavender: "Lavender",
+} as const;
+export type Wallpaper = keyof typeof WALLPAPERS;
 
 export interface Settings {
   theme: Theme;
-  bubbleColor: BubbleColor;
+  /** App color: buttons, links, badges, highlights. */
+  accentColor: ColorName;
+  /** Your own message bubbles only. */
+  bubbleColor: ColorName;
+  /** Background behind the messages. */
+  wallpaper: Wallpaper;
   sounds: boolean;
   notifications: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: "system",
+  accentColor: "indigo",
   bubbleColor: "indigo",
+  wallpaper: "plain",
   sounds: true,
   notifications: false,
 };
+
+export function isColorName(v: unknown): v is ColorName {
+  return typeof v === "string" && Object.hasOwn(PALETTE, v);
+}
+
+export function isWallpaper(v: unknown): v is Wallpaper {
+  return typeof v === "string" && Object.hasOwn(WALLPAPERS, v);
+}
 
 // ---------- Admin ----------
 

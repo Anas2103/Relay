@@ -113,7 +113,7 @@ export function Sidebar({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Find a friend by username"
             aria-label="Search users"
-            className="w-full rounded-xl bg-zinc-100 py-2.5 pr-9 pl-9 text-sm outline-none transition placeholder:text-zinc-400 focus:bg-white focus:ring-2 focus:ring-bubble/40 dark:bg-zinc-800 dark:focus:bg-zinc-800"
+            className="w-full rounded-xl bg-zinc-100 py-2.5 pr-9 pl-9 text-sm outline-none transition placeholder:text-zinc-400 focus:bg-white focus:ring-2 focus:ring-accent/40 dark:bg-zinc-800 dark:focus:bg-zinc-800"
           />
           {query && (
             <button
@@ -198,7 +198,7 @@ const RoomItem = memo(function RoomItem({
       onClick={() => onSelect(room.id)}
       aria-current={active ? "page" : undefined}
       className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
-        active ? "bg-bubble/10 dark:bg-bubble/20" : "hover:bg-zinc-100 dark:hover:bg-zinc-800/70"
+        active ? "bg-accent/10 dark:bg-accent/20" : "hover:bg-zinc-100 dark:hover:bg-zinc-800/70"
       }`}
     >
       <Avatar name={title} seed={room.peer?.id ?? room.id} user={room.peer} online={online} />
@@ -207,7 +207,7 @@ const RoomItem = memo(function RoomItem({
           <p className={`truncate text-sm ${unread ? "font-semibold" : "font-medium"}`}>{title}</p>
           {last && (
             <span
-              className={`shrink-0 text-xs tabular-nums ${unread ? "font-semibold text-bubble-fg" : "text-zinc-400"}`}
+              className={`shrink-0 text-xs tabular-nums ${unread ? "font-semibold text-accent-fg" : "text-zinc-400"}`}
             >
               {formatListTime(last.createdAt)}
             </span>
@@ -227,7 +227,7 @@ const RoomItem = memo(function RoomItem({
           </p>
           {unread && (
             <span
-              className="pop-in flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-bubble px-1.5 text-[11px] font-semibold text-white tabular-nums"
+              className="pop-in flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-semibold text-accent-ink tabular-nums"
               aria-label={`${room.unreadCount} unread`}
             >
               {room.unreadCount > 99 ? "99+" : room.unreadCount}

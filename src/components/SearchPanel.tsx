@@ -66,7 +66,7 @@ export function SearchPanel({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search messages, captions and files"
             aria-label="Search messages"
-            className="w-full rounded-xl bg-zinc-100 py-2.5 pr-9 pl-9 text-sm outline-none focus:ring-2 focus:ring-bubble/40 dark:bg-zinc-800"
+            className="w-full rounded-xl bg-zinc-100 py-2.5 pr-9 pl-9 text-sm outline-none focus:ring-2 focus:ring-accent/40 dark:bg-zinc-800"
           />
           {query && (
             <button

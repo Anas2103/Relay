@@ -1,19 +1,19 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { BUBBLE_COLORS, LIMITS, type BubbleColor, type Me, type Settings, type Theme } from "../../shared/types";
+import { LIMITS, PALETTE, WALLPAPERS, type ColorName, type Me, type Settings, type Theme, type Wallpaper } from "../../shared/types";
 import { api, ApiError } from "../lib/api";
 import { prepareAvatar } from "../lib/media";
 import { playMessageSound } from "../lib/sound";
-import { AlertIcon, Avatar, CameraIcon, CheckIcon, MonitorIcon, MoonIcon, Spinner, SunIcon, XIcon } from "./ui";
+import { AlertIcon, Avatar, CameraIcon, CheckIcon, MonitorIcon, MoonIcon, SendIcon, Spinner, SunIcon, XIcon } from "./ui";
 
 type Tab = "profile" | "appearance" | "notifications" | "security";
 
 const inputClass =
   "w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm outline-none transition " +
-  "placeholder:text-zinc-400 focus:border-bubble focus:ring-4 focus:ring-bubble/15 " +
+  "placeholder:text-zinc-400 focus:border-accent focus:ring-4 focus:ring-accent/15 " +
   "dark:border-zinc-700 dark:bg-zinc-800";
 
 const primaryButton =
-  "flex items-center justify-center gap-2 rounded-xl bg-bubble px-4 py-2.5 text-sm font-semibold text-white " +
+  "flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink " +
   "shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
 
 type Status = { kind: "error" | "success"; text: string } | null;
@@ -72,7 +72,7 @@ export function SettingsDialog({
               aria-current={tab === id ? "page" : undefined}
               className={`shrink-0 border-b-2 px-2.5 pb-2.5 text-sm font-medium transition ${
                 tab === id
-                  ? "border-bubble text-zinc-900 dark:text-zinc-100"
+                  ? "border-accent text-zinc-900 dark:text-zinc-100"
                   : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
               }`}
             >
@@ -168,7 +168,7 @@ function ProfileTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={busy !== null}
-              className="rounded-lg px-2.5 py-1 text-sm font-medium text-bubble-fg ring-1 ring-bubble/30 transition hover:bg-bubble/10 disabled:opacity-50"
+              className="rounded-lg px-2.5 py-1 text-sm font-medium text-accent-fg ring-1 ring-accent/30 transition hover:bg-accent/10 disabled:opacity-50"
             >
               {me.avatarVersion ? "Change photo" : "Add photo"}
             </button>
@@ -256,6 +256,7 @@ function useSettingSaver(me: Me, onMeUpdated: (me: Me) => void) {
 
 function AppearanceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void }) {
   const { save, error } = useSettingSaver(me, onMeUpdated);
+  const s = me.settings;
   const themes: [Theme, string, ReactNode][] = [
     ["system", "System", <MonitorIcon key="s" className="size-5" />],
     ["light", "Light", <SunIcon key="l" className="size-5" />],
@@ -264,6 +265,8 @@ function AppearanceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => v
 
   return (
     <div className="space-y-6">
+      <AppearancePreview me={me} />
+
       <section>
         <h3 className="text-sm font-semibold">Theme</h3>
         <div className="mt-3 grid grid-cols-3 gap-2" role="radiogroup" aria-label="Theme">
@@ -271,11 +274,11 @@ function AppearanceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => v
             <button
               key={value}
               role="radio"
-              aria-checked={me.settings.theme === value}
+              aria-checked={s.theme === value}
               onClick={() => save({ theme: value })}
               className={`flex flex-col items-center gap-1.5 rounded-xl px-3 py-3 text-sm font-medium ring-1 transition ${
-                me.settings.theme === value
-                  ? "bg-bubble/10 text-bubble-fg ring-2 ring-bubble"
+                s.theme === value
+                  ? "bg-accent/10 text-accent-fg ring-2 ring-accent"
                   : "ring-zinc-200 hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800"
               }`}
             >
@@ -287,42 +290,124 @@ function AppearanceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => v
       </section>
 
       <section>
-        <h3 className="text-sm font-semibold">Chat bubble color</h3>
-        <div className="mt-3 flex flex-wrap gap-2.5" role="radiogroup" aria-label="Bubble color">
-          {(Object.entries(BUBBLE_COLORS) as [BubbleColor, string][]).map(([name, hex]) => (
+        <h3 className="text-sm font-semibold">App color</h3>
+        <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">Buttons, links, badges and highlights.</p>
+        <Swatches label="App color" value={s.accentColor} onPick={(c) => save({ accentColor: c })} />
+      </section>
+
+      <section>
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">Bubble color</h3>
+            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">Only your own messages.</p>
+          </div>
+          {s.bubbleColor !== s.accentColor && (
+            <button
+              onClick={() => save({ bubbleColor: s.accentColor })}
+              className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-accent-fg hover:bg-accent/10"
+            >
+              Match app color
+            </button>
+          )}
+        </div>
+        <Swatches label="Bubble color" value={s.bubbleColor} onPick={(c) => save({ bubbleColor: c })} />
+      </section>
+
+      <section>
+        <h3 className="text-sm font-semibold">Chat wallpaper</h3>
+        <div className="mt-3 grid grid-cols-4 gap-2" role="radiogroup" aria-label="Chat wallpaper">
+          {(Object.entries(WALLPAPERS) as [Wallpaper, string][]).map(([name, label]) => (
             <button
               key={name}
               role="radio"
-              aria-checked={me.settings.bubbleColor === name}
-              aria-label={name}
-              title={name[0].toUpperCase() + name.slice(1)}
-              onClick={() => save({ bubbleColor: name })}
-              className={`flex size-9 items-center justify-center rounded-full transition hover:scale-110 ${
-                me.settings.bubbleColor === name ? "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-zinc-900" : ""
-              }`}
-              style={{ backgroundColor: hex, ["--tw-ring-color" as string]: hex }}
+              aria-checked={s.wallpaper === name}
+              onClick={() => save({ wallpaper: name })}
+              className="group flex flex-col items-center gap-1.5"
             >
-              {me.settings.bubbleColor === name && <CheckIcon className="size-4 text-white" />}
+              <span
+                className={`chat-wall wall-${name} relative flex h-16 w-full items-end justify-end overflow-hidden rounded-xl p-1.5 ring-1 transition group-hover:scale-[1.03] ${
+                  s.wallpaper === name ? "ring-2 ring-accent" : "ring-zinc-200 dark:ring-zinc-700"
+                }`}
+              >
+                <span className="h-2.5 w-7 rounded-full bg-bubble" />
+                {s.wallpaper === name && (
+                  <span className="absolute top-1.5 left-1.5 flex size-4 items-center justify-center rounded-full bg-accent text-accent-ink">
+                    <CheckIcon className="size-3" />
+                  </span>
+                )}
+              </span>
+              <span className={`text-xs ${s.wallpaper === name ? "font-semibold text-accent-fg" : "text-zinc-500 dark:text-zinc-400"}`}>
+                {label}
+              </span>
             </button>
           ))}
         </div>
-
-        {/* Live preview */}
-        <div className="mt-4 space-y-1.5 rounded-2xl bg-zinc-50 p-4 dark:bg-zinc-950">
-          <div className="flex">
-            <span className="rounded-2xl rounded-bl-md bg-white px-3.5 py-2 text-sm shadow-sm ring-1 ring-zinc-900/5 dark:bg-zinc-800 dark:ring-white/5">
-              Did you see the new colors? 🎨
-            </span>
-          </div>
-          <div className="flex justify-end">
-            <span className="rounded-2xl rounded-br-md bg-bubble px-3.5 py-2 text-sm text-white transition-colors">
-              Yes, this one's my favorite
-            </span>
-          </div>
-        </div>
       </section>
+
       {error && <StatusLine status={{ kind: "error", text: error }} />}
       <p className="text-xs text-zinc-500 dark:text-zinc-400">Your appearance syncs across all your devices.</p>
+    </div>
+  );
+}
+
+function Swatches({ label, value, onPick }: { label: string; value: ColorName; onPick: (c: ColorName) => void }) {
+  return (
+    <div className="mt-3 flex flex-wrap gap-2.5" role="radiogroup" aria-label={label}>
+      {(Object.entries(PALETTE) as [ColorName, (typeof PALETTE)[ColorName]][]).map(([name, c]) => (
+        <button
+          key={name}
+          role="radio"
+          aria-checked={value === name}
+          aria-label={c.label}
+          title={c.label}
+          onClick={() => onPick(name)}
+          className={`flex size-9 items-center justify-center rounded-full transition hover:scale-110 ${
+            value === name ? "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-zinc-900" : ""
+          }`}
+          style={{ backgroundColor: c.hex, ["--tw-ring-color" as string]: c.hex }}
+        >
+          {value === name && <CheckIcon className="size-4" style={{ color: c.ink }} />}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** A tiny chat that shows exactly what the chosen theme, colors and wallpaper look like. */
+function AppearancePreview({ me }: { me: Me }) {
+  return (
+    <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-200 dark:ring-zinc-800" aria-label="Preview" role="img">
+      <div className="flex items-center gap-2.5 border-b border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
+        <span className="flex size-8 items-center justify-center rounded-full bg-rose-500 text-xs font-semibold text-white">MA</span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold">Marinas</span>
+          <span className="block text-xs text-accent-fg">Online</span>
+        </span>
+        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-semibold text-accent-ink">
+          2
+        </span>
+      </div>
+      <div className={`chat-wall wall-${me.settings.wallpaper} space-y-1.5 px-3 py-3 transition-colors`}>
+        <div className="flex">
+          <span className="rounded-2xl rounded-bl-md bg-white px-3 py-1.5 text-sm shadow-sm ring-1 ring-zinc-900/5 dark:bg-zinc-800 dark:ring-white/5">
+            Did you see the new colors? 🎨
+          </span>
+        </div>
+        <div className="flex flex-col items-end">
+          <span className="rounded-2xl rounded-br-md bg-bubble px-3 py-1.5 text-sm text-bubble-ink transition-colors">
+            Yes! Check this out <span className="underline underline-offset-2">relay.app</span>
+          </span>
+          <span className="mt-0.5 mr-1 flex items-center gap-1 text-[11px] text-zinc-400">
+            9:41 <span className="text-accent-fg">✓✓</span>
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 border-t border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
+        <span className="h-8 flex-1 rounded-full bg-zinc-100 px-3 text-xs leading-8 text-zinc-400 dark:bg-zinc-800">Message</span>
+        <span className="flex size-8 items-center justify-center rounded-full bg-accent text-accent-ink">
+          <SendIcon className="size-4" />
+        </span>
+      </div>
     </div>
   );
 }
@@ -397,7 +482,7 @@ function ToggleRow({
         onClick={onChange}
         disabled={disabled}
         className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40 ${
-          checked ? "bg-bubble" : "bg-zinc-300 dark:bg-zinc-700"
+          checked ? "bg-accent" : "bg-zinc-300 dark:bg-zinc-700"
         }`}
       >
         <span

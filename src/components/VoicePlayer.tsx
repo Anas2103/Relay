@@ -81,8 +81,8 @@ export function VoicePlayer({ id, src, meta, mine }: { id: string; src: string; 
   }
 
   const shown = playing || progress > 0 ? progress * knownDuration : knownDuration;
-  const played = mine ? "bg-white" : "bg-bubble";
-  const unplayed = mine ? "bg-white/40" : "bg-zinc-300 dark:bg-zinc-600";
+  const played = mine ? "bg-current" : "bg-accent";
+  const unplayed = mine ? "bg-current/35" : "bg-zinc-300 dark:bg-zinc-600";
 
   return (
     <div className="flex w-60 max-w-full items-center gap-3 py-0.5 sm:w-64">
@@ -111,7 +111,7 @@ export function VoicePlayer({ id, src, meta, mine }: { id: string; src: string; 
       <button
         onClick={toggle}
         className={`flex size-10 shrink-0 items-center justify-center rounded-full transition active:scale-95 ${
-          mine ? "bg-white/20 text-white hover:bg-white/30" : "bg-bubble text-white hover:opacity-90"
+          mine ? "bg-current/20 hover:bg-current/30" : "bg-accent text-accent-ink hover:opacity-90"
         }`}
         aria-label={playing ? "Pause voice message" : "Play voice message"}
       >
@@ -145,11 +145,11 @@ export function VoicePlayer({ id, src, meta, mine }: { id: string; src: string; 
             />
           ))}
         </div>
-        <div className={`mt-0.5 flex items-center justify-between text-[11px] tabular-nums ${mine ? "text-white/80" : "text-zinc-500 dark:text-zinc-400"}`}>
+        <div className={`mt-0.5 flex items-center justify-between text-[11px] tabular-nums ${mine ? "opacity-80" : "text-zinc-500 dark:text-zinc-400"}`}>
           <span>{failed ? "Couldn't play" : formatDuration(shown)}</span>
           <button
             onClick={cycleRate}
-            className={`rounded-full px-1.5 py-px font-semibold ${mine ? "bg-white/20" : "bg-zinc-200 dark:bg-zinc-700"}`}
+            className={`rounded-full px-1.5 py-px font-semibold ${mine ? "bg-current/20" : "bg-zinc-200 dark:bg-zinc-700"}`}
             aria-label={`Playback speed ${rate}x`}
           >
             {rate}×

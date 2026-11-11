@@ -1,4 +1,4 @@
-import { BUBBLE_COLORS, LIMITS, type Settings, type User } from "../shared/types";
+import { isColorName, isWallpaper, LIMITS, type Settings, type User } from "../shared/types";
 import {
   hashPassword,
   loadMe,
@@ -63,8 +63,14 @@ async function updateProfile(request: Request, env: Env, me: User): Promise<Resp
     const current = (await loadMe(env, me.id)).settings;
     const patch = body.settings as Partial<Record<keyof Settings, unknown>>;
     const next: Settings = parseSettings(JSON.stringify({ ...current, ...patch }));
-    if (patch.bubbleColor !== undefined && !(String(patch.bubbleColor) in BUBBLE_COLORS)) {
+    if (patch.bubbleColor !== undefined && !isColorName(patch.bubbleColor)) {
       throw new HttpError(400, "Unknown bubble color.");
+    }
+    if (patch.accentColor !== undefined && !isColorName(patch.accentColor)) {
+      throw new HttpError(400, "Unknown app color.");
+    }
+    if (patch.wallpaper !== undefined && !isWallpaper(patch.wallpaper)) {
+      throw new HttpError(400, "Unknown wallpaper.");
     }
     sets.push("settings = ?");
     binds.push(JSON.stringify(next));

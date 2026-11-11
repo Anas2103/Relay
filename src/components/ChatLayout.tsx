@@ -218,7 +218,7 @@ export function ChatLayout({
           />
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center bg-white p-8 text-center dark:bg-zinc-900">
-            <div className="flex size-16 items-center justify-center rounded-2xl bg-bubble/10 text-bubble-fg">
+            <div className="flex size-16 items-center justify-center rounded-2xl bg-accent/10 text-accent-fg">
               <ChatIcon className="size-8" />
             </div>
             <h2 className="mt-5 text-lg font-semibold">Your messages</h2>

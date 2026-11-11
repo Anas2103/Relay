@@ -122,7 +122,7 @@ export function ChatInfo({
           <h3 className="mt-3 text-xl font-semibold tracking-tight">{title}</h3>
           {peer && <p className="text-sm text-zinc-500 dark:text-zinc-400">@{peer.username}</p>}
           {status && (
-            <p className={`mt-1 text-sm ${presence?.online ? "text-bubble-fg" : "text-zinc-500 dark:text-zinc-400"}`}>{status}</p>
+            <p className={`mt-1 text-sm ${presence?.online ? "text-accent-fg" : "text-zinc-500 dark:text-zinc-400"}`}>{status}</p>
           )}
           {peer && (
             <div className="mt-4 flex gap-3">
@@ -155,7 +155,7 @@ export function ChatInfo({
               aria-current={tab === id ? "page" : undefined}
               className={`flex-1 border-b-2 py-2.5 text-sm font-medium transition ${
                 tab === id
-                  ? "border-bubble text-zinc-900 dark:text-zinc-100"
+                  ? "border-accent text-zinc-900 dark:text-zinc-100"
                   : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
               }`}
             >
@@ -209,7 +209,7 @@ export function ChatInfo({
             <button
               onClick={loadMore}
               disabled={loadingMore}
-              className="mx-auto mt-3 flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-bubble-fg hover:bg-bubble/10"
+              className="mx-auto mt-3 flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-accent-fg hover:bg-accent/10"
             >
               {loadingMore && <Spinner className="size-4" />}
               Load more
@@ -227,7 +227,7 @@ function InfoAction({ icon, label, onClick }: { icon: React.ReactNode; label: st
   return (
     <button
       onClick={onClick}
-      className="flex w-20 flex-col items-center gap-1 rounded-2xl py-2.5 text-xs font-medium text-bubble-fg ring-1 ring-zinc-200 transition hover:bg-bubble/10 dark:ring-zinc-700"
+      className="flex w-20 flex-col items-center gap-1 rounded-2xl py-2.5 text-xs font-medium text-accent-fg ring-1 ring-zinc-200 transition hover:bg-accent/10 dark:ring-zinc-700"
     >
       {icon}
       {label}
@@ -270,7 +270,7 @@ function RowMeta({ message: m, meId, onJump }: { message: Message; meId: string;
       <span className="truncate">
         {m.userId === meId ? "You" : m.displayName} · {formatDateTime(m.createdAt)}
       </span>
-      <button onClick={onJump} className="shrink-0 font-medium text-bubble-fg hover:underline">
+      <button onClick={onJump} className="shrink-0 font-medium text-accent-fg hover:underline">
         Show in chat
       </button>
     </span>
@@ -281,7 +281,7 @@ function FileRow({ message: m, meId, onJump }: { message: Message; meId: string;
   const name = m.meta?.name ?? "Document";
   return (
     <div className="flex items-center gap-3 rounded-xl p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bubble/15 text-bubble-fg">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent-fg">
         <FileIcon className="size-5" />
       </span>
       <span className="min-w-0 flex-1">
@@ -325,7 +325,7 @@ function LinksRow({ message: m, meId, onJump }: { message: Message; meId: string
             </span>
             <span className="min-w-0">
               <span className="block truncate text-sm font-medium">{host}</span>
-              <span className="block truncate text-xs text-bubble-fg">{href}</span>
+              <span className="block truncate text-xs text-accent-fg">{href}</span>
             </span>
           </a>
         );

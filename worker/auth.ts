@@ -1,4 +1,4 @@
-import { BUBBLE_COLORS, DEFAULT_SETTINGS, type Me, type Role, type Settings, type User } from "../shared/types";
+import { DEFAULT_SETTINGS, isColorName, isWallpaper, type Me, type Role, type Settings, type User } from "../shared/types";
 import type { Env } from "./env";
 import { HttpError } from "./http";
 
@@ -155,9 +155,13 @@ export function parseSettings(raw: string | null): Settings {
   } catch {
     // fall back to defaults
   }
+  const bubbleColor = isColorName(parsed.bubbleColor) ? parsed.bubbleColor : DEFAULT_SETTINGS.bubbleColor;
   return {
     theme: parsed.theme === "light" || parsed.theme === "dark" ? parsed.theme : "system",
-    bubbleColor: parsed.bubbleColor && parsed.bubbleColor in BUBBLE_COLORS ? parsed.bubbleColor : DEFAULT_SETTINGS.bubbleColor,
+    // Before app colors existed, the bubble color colored the whole app — keep that look for existing users.
+    accentColor: isColorName(parsed.accentColor) ? parsed.accentColor : bubbleColor,
+    bubbleColor,
+    wallpaper: isWallpaper(parsed.wallpaper) ? parsed.wallpaper : DEFAULT_SETTINGS.wallpaper,
     sounds: typeof parsed.sounds === "boolean" ? parsed.sounds : DEFAULT_SETTINGS.sounds,
     notifications: typeof parsed.notifications === "boolean" ? parsed.notifications : DEFAULT_SETTINGS.notifications,
   };

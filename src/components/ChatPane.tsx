@@ -63,7 +63,15 @@ interface Outgoing {
   name?: string;
   meta?: Pick<MediaMeta, "width" | "height" | "duration" | "waveform" | "viewOnce">;
   mediaId?: string;
+  /** Upload in flight (don't start a second one on reconnect). */
+  uploading?: boolean;
+  /** Actually handed to an open socket (never re-sent automatically, to avoid duplicates). */
+  sent?: boolean;
+  /** Gives up and shows "Not sent" if the connection doesn't come back in time. */
+  giveUp?: number;
 }
+
+const OFFLINE_GRACE_MS = 20_000;
 
 interface Props {
   room: Room;
@@ -159,6 +167,10 @@ export function ChatPane({ room, me, peerPresence, onBack, onActivity, onStartCa
       switch (e.type) {
         case "connected":
           if (!hasNewerRef.current) loadLatest(); // catch up on anything missed while disconnected
+          // Send everything that was written while the connection was down.
+          for (const [clientId, out] of outgoing.current) {
+            if (!out.sent && !out.uploading) void deliverRef.current(clientId);
+          }
           break;
         case "message": {
           const mine = e.message.userId === me.id;
@@ -364,14 +376,19 @@ export function ChatPane({ room, me, peerPresence, onBack, onActivity, onStartCa
   const deliver = useCallback(
     async (clientId: string) => {
       const out = outgoing.current.get(clientId);
-      if (!out) return;
+      if (!out || out.sent || out.uploading) return;
       try {
         if (out.blob && !out.mediaId) {
-          const { mediaId } = await api.uploadMedia(room.id, out.kind as MediaKind, out.blob, {
-            name: out.name,
-            onProgress: (p) => patch(clientId, (m) => ({ ...m, progress: p })),
-          });
-          out.mediaId = mediaId;
+          out.uploading = true;
+          try {
+            const { mediaId } = await api.uploadMedia(room.id, out.kind as MediaKind, out.blob, {
+              name: out.name,
+              onProgress: (p) => patch(clientId, (m) => ({ ...m, progress: p })),
+            });
+            out.mediaId = mediaId;
+          } finally {
+            out.uploading = false;
+          }
         }
         const ok = send({
           type: "send",
@@ -382,7 +399,17 @@ export function ChatPane({ room, me, peerPresence, onBack, onActivity, onStartCa
           meta: out.meta,
           replyToId: out.replyToId,
         });
-        if (!ok) throw new Error("offline");
+        if (ok) {
+          out.sent = true;
+          window.clearTimeout(out.giveUp);
+          return;
+        }
+        // Still connecting: keep it as "Sending…" and send it as soon as we're connected.
+        window.clearTimeout(out.giveUp);
+        out.giveUp = window.setTimeout(() => {
+          const still = outgoing.current.get(clientId);
+          if (still && !still.sent) patch(clientId, (m) => ({ ...m, status: "failed", progress: undefined }));
+        }, OFFLINE_GRACE_MS);
       } catch (err) {
         patch(clientId, (m) => ({ ...m, status: "failed", progress: undefined }));
         if (err instanceof ApiError) setNotice(err.message);
@@ -390,6 +417,10 @@ export function ChatPane({ room, me, peerPresence, onBack, onActivity, onStartCa
     },
     [patch, room.id, send],
   );
+  const deliverRef = useRef(deliver);
+  useEffect(() => {
+    deliverRef.current = deliver;
+  }, [deliver]);
 
   const queue = useCallback(
     (out: Outgoing, localUrl?: string) => {
@@ -536,6 +567,10 @@ export function ChatPane({ room, me, peerPresence, onBack, onActivity, onStartCa
           break;
         case "retry":
           patch(a.message.id, (m) => ({ ...m, status: "pending" }));
+          {
+            const out = outgoing.current.get(a.message.id);
+            if (out) out.sent = false; // the server rejected it (or it never left): try again
+          }
           stateRef.current.deliver(a.message.id);
           break;
         case "open-image":
@@ -618,7 +653,7 @@ export function ChatPane({ room, me, peerPresence, onBack, onActivity, onStartCa
   return (
     <div className="flex min-w-0 flex-1">
       <section
-        className="relative flex min-w-0 flex-1 flex-col bg-zinc-50 dark:bg-zinc-950"
+        className={`chat-wall wall-${me.settings.wallpaper} relative flex min-w-0 flex-1 flex-col`}
         aria-label={`Chat with ${title}`}
         onDragOver={(e) => {
           if ([...e.dataTransfer.types].includes("Files")) {
@@ -648,7 +683,7 @@ export function ChatPane({ room, me, peerPresence, onBack, onActivity, onStartCa
               <h2 className="truncate font-semibold">{title}</h2>
               <p
                 className={`truncate text-xs ${
-                  typingNames.length || peerPresence?.online ? "text-bubble-fg" : "text-zinc-500 dark:text-zinc-400"
+                  typingNames.length || peerPresence?.online ? "text-accent-fg" : "text-zinc-500 dark:text-zinc-400"
                 }`}
               >
                 {statusText}
@@ -705,7 +740,7 @@ export function ChatPane({ room, me, peerPresence, onBack, onActivity, onStartCa
           ) : loadError && messages.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-zinc-500">
               Couldn't load messages.
-              <button onClick={() => loadLatest()} className="font-medium text-bubble-fg hover:underline">
+              <button onClick={() => loadLatest()} className="font-medium text-accent-fg hover:underline">
                 Try again
               </button>
             </div>
@@ -764,7 +799,7 @@ export function ChatPane({ room, me, peerPresence, onBack, onActivity, onStartCa
         {(newBelow > 0 || hasNewer) && (
           <button
             onClick={() => jumpToLatest()}
-            className="pop-in absolute right-4 bottom-24 z-10 flex items-center gap-1.5 rounded-full bg-bubble px-3 py-2 text-sm font-medium text-white shadow-lg md:right-8"
+            className="pop-in absolute right-4 bottom-24 z-10 flex items-center gap-1.5 rounded-full bg-accent px-3 py-2 text-sm font-medium text-accent-ink shadow-lg md:right-8"
           >
             <ArrowDownIcon className="size-4" />
             {newBelow > 0 ? `${newBelow} new` : "Latest"}
@@ -802,7 +837,7 @@ export function ChatPane({ room, me, peerPresence, onBack, onActivity, onStartCa
         />
 
         {dragging && (
-          <div className="pointer-events-none absolute inset-2 z-30 flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-bubble bg-white/80 text-bubble-fg backdrop-blur-sm dark:bg-zinc-900/80">
+          <div className="pointer-events-none absolute inset-2 z-30 flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-accent bg-white/80 text-accent-fg backdrop-blur-sm dark:bg-zinc-900/80">
             <ImageIcon className="size-10" />
             <p className="font-medium">Drop a photo, video or file to send</p>
           </div>
