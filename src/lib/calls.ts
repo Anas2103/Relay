@@ -1,5 +1,6 @@
 import type { CallEnvelope, CallInfo, CallSignal, IceCandidate, LobbyEvent } from "../../shared/types";
 import { api } from "./api";
+import { createAudioContext, micConstraints, processMic, type ProcessedMic, type VoiceSettings } from "./audio";
 import { canUseDevices, deviceProblem, type DeviceProblem } from "./media";
 import { startTone } from "./sound";
 
@@ -52,7 +53,6 @@ const IDLE: CallState = {
 
 const RING_TIMEOUT_MS = 45_000;
 const RECONNECT_GRACE_MS = 12_000;
-const AUDIO: MediaTrackConstraints = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
 const videoConstraints = (facing: "user" | "environment"): MediaTrackConstraints => ({
   facingMode: facing,
   width: { ideal: 1280 },
@@ -81,6 +81,37 @@ class CallManager {
   onRecord: ((roomId: string, info: CallInfo) => void) | null = null;
   /** Called on an incoming call so the app can show a notification if hidden. */
   onIncoming: ((name: string, video: boolean) => void) | null = null;
+  /** Noise suppression / echo cancellation / gain settings (kept in sync with the user's settings). */
+  voice: VoiceSettings = { noiseSuppression: "ai", echoCancellation: true, autoGainControl: true, noiseGate: false };
+  private rawMic: MediaStream | null = null;
+  private processedMic: ProcessedMic | null = null;
+  private audioCtx: AudioContext | null = null;
+
+  /**
+   * Opens the mic (and camera) and runs the audio through noise suppression.
+   * The AudioContext is created synchronously, before any await, so it's allowed
+   * to start on iPhones (it must happen inside the tap).
+   */
+  private async openMic(video: boolean): Promise<MediaStream> {
+    this.audioCtx = createAudioContext();
+    const raw = navigator.mediaDevices.getUserMedia({
+      audio: micConstraints(this.voice),
+      video: video ? videoConstraints("user") : false,
+    });
+    this.audioCtx.resume().catch(() => {});
+    this.rawMic = await raw;
+    this.processedMic = await processMic(this.rawMic, this.voice, this.audioCtx);
+    return this.processedMic.stream;
+  }
+
+  private releaseMic() {
+    this.processedMic?.dispose();
+    this.processedMic = null;
+    this.rawMic?.getTracks().forEach((t) => t.stop());
+    this.rawMic = null;
+    this.audioCtx?.close().catch(() => {});
+    this.audioCtx = null;
+  }
 
   // ---- store plumbing (useSyncExternalStore) ----
   subscribe = (fn: () => void) => {
@@ -128,13 +159,13 @@ class CallManager {
 
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO, video: video ? videoConstraints("user") : false });
+      stream = await this.openMic(video);
     } catch (err) {
       this.set({ problem: deviceProblem(err) });
       return this.finish(video ? "Couldn't start the camera" : "Couldn't start the microphone", null);
     }
     // The user may have hung up while the permission prompt was open.
-    if (this.getState().phase !== "outgoing") return stream.getTracks().forEach((t) => t.stop());
+    if (this.getState().phase !== "outgoing") return this.releaseMic();
     this.set({ localStream: stream });
 
     try {
@@ -247,10 +278,7 @@ class CallManager {
 
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: AUDIO,
-        video: this.state.video ? videoConstraints("user") : false,
-      });
+      stream = await this.openMic(this.state.video);
     } catch (err) {
       this.set({ problem: deviceProblem(err) });
       this.signal({ type: "decline" });
@@ -413,6 +441,7 @@ class CallManager {
     this.stopTone?.();
     this.stopTone = null;
     this.state.localStream?.getTracks().forEach((t) => t.stop());
+    this.releaseMic();
     try {
       this.pc?.close();
     } catch {

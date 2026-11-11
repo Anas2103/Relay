@@ -101,6 +101,11 @@ export function ChatLayout({
   );
   const { status: lobbyStatus, send: lobbySend } = useLobbySocket(onLobbyEvent);
 
+  // Calls use your noise suppression / echo cancellation settings.
+  useEffect(() => {
+    calls.voice = me.settings;
+  }, [me.settings]);
+
   // Calls use the app-wide socket for signaling, and log a record into the chat when they end.
   useEffect(() => {
     calls.setTransport((env) => lobbySend(env));

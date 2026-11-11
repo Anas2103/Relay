@@ -1,11 +1,31 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { LIMITS, PALETTE, WALLPAPERS, type ColorName, type Me, type Settings, type Theme, type Wallpaper } from "../../shared/types";
+import {
+  bubbleLook,
+  DARK_THEMES,
+  GRADIENTS,
+  LIGHT_THEMES,
+  LIMITS,
+  PALETTE,
+  WALLPAPERS,
+  type ColorName,
+  type DarkTheme,
+  type GradientName,
+  type LightTheme,
+  type Me,
+  type NoiseSuppression,
+  type Settings,
+  type Theme,
+  type Wallpaper,
+} from "../../shared/types";
+import { createAudioContext, micConstraints, processMic, type VoiceSettings } from "../lib/audio";
+import { deviceProblem, type DeviceProblem } from "../lib/media";
+import { DeviceHelp } from "./DeviceHelp";
 import { api, ApiError } from "../lib/api";
 import { prepareAvatar } from "../lib/media";
 import { playMessageSound } from "../lib/sound";
 import { AlertIcon, Avatar, CameraIcon, CheckIcon, MonitorIcon, MoonIcon, SendIcon, Spinner, SunIcon, XIcon } from "./ui";
 
-type Tab = "profile" | "appearance" | "notifications" | "security";
+type Tab = "profile" | "appearance" | "voice" | "notifications" | "security";
 
 const inputClass =
   "w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm outline-none transition " +
@@ -38,6 +58,7 @@ export function SettingsDialog({
   const tabs: [Tab, string][] = [
     ["profile", "Profile"],
     ["appearance", "Appearance"],
+    ["voice", "Voice & video"],
     ["notifications", "Notifications"],
     ["security", "Password"],
   ];
@@ -51,7 +72,7 @@ export function SettingsDialog({
       aria-labelledby="settings-title"
     >
       <div className="flex max-h-[88dvh] flex-col">
-        <div className="flex items-center justify-between px-5 pt-5 md:px-6">
+        <div className="flex shrink-0 items-center justify-between px-5 pt-5 md:px-6">
           <h2 id="settings-title" className="text-lg font-semibold">
             Settings
           </h2>
@@ -64,7 +85,7 @@ export function SettingsDialog({
             <XIcon className="size-5" />
           </button>
         </div>
-        <nav className="mt-3 flex gap-1 overflow-x-auto border-b border-zinc-200 px-4 md:px-5 dark:border-zinc-800" aria-label="Settings sections">
+        <nav className="no-scrollbar mt-3 flex shrink-0 gap-1 overflow-x-auto border-b border-zinc-200 px-4 md:px-5 dark:border-zinc-800" aria-label="Settings sections">
           {tabs.map(([id, label]) => (
             <button
               key={id}
@@ -83,6 +104,7 @@ export function SettingsDialog({
         <div className="overflow-y-auto p-5 md:p-6">
           {tab === "profile" && <ProfileTab me={me} onMeUpdated={onMeUpdated} />}
           {tab === "appearance" && <AppearanceTab me={me} onMeUpdated={onMeUpdated} />}
+          {tab === "voice" && <VoiceTab me={me} onMeUpdated={onMeUpdated} />}
           {tab === "notifications" && <NotificationsTab me={me} onMeUpdated={onMeUpdated} />}
           {tab === "security" && <PasswordTab />}
         </div>
@@ -264,11 +286,11 @@ function AppearanceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => v
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <AppearancePreview me={me} />
 
       <section>
-        <h3 className="text-sm font-semibold">Theme</h3>
+        <SectionTitle title="Theme" />
         <div className="mt-3 grid grid-cols-3 gap-2" role="radiogroup" aria-label="Theme">
           {themes.map(([value, label, icon]) => (
             <button
@@ -287,20 +309,37 @@ function AppearanceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => v
             </button>
           ))}
         </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <StylePicker
+            label="Light style"
+            options={LIGHT_THEMES}
+            value={s.lightTheme}
+            swatches={{ classic: ["#ffffff", "#f4f4f5"], cream: ["#fffdf8", "#f3ecdd"], cool: ["#fbfdff", "#e7edf4"] }}
+            onPick={(v) => save({ lightTheme: v as LightTheme, theme: s.theme === "dark" ? "light" : s.theme })}
+          />
+          <StylePicker
+            label="Dark style"
+            options={DARK_THEMES}
+            value={s.darkTheme}
+            swatches={{
+              classic: ["#18181b", "#09090b"],
+              dim: ["#1c2938", "#15202b"],
+              amoled: ["#050505", "#000000"],
+              midnight: ["#0d1428", "#070b1a"],
+            }}
+            onPick={(v) => save({ darkTheme: v as DarkTheme, theme: s.theme === "light" ? "dark" : s.theme })}
+          />
+        </div>
       </section>
 
       <section>
-        <h3 className="text-sm font-semibold">App color</h3>
-        <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">Buttons, links, badges and highlights.</p>
+        <SectionTitle title="App color" hint="Buttons, links, badges and highlights." />
         <Swatches label="App color" value={s.accentColor} onPick={(c) => save({ accentColor: c })} />
       </section>
 
       <section>
         <div className="flex items-end justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold">Bubble color</h3>
-            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">Only your own messages.</p>
-          </div>
+          <SectionTitle title="Your bubble" hint="Your messages — your friends see this color too." />
           {s.bubbleColor !== s.accentColor && (
             <button
               onClick={() => save({ bubbleColor: s.accentColor })}
@@ -310,11 +349,43 @@ function AppearanceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => v
             </button>
           )}
         </div>
+        <p className="mt-3 text-xs font-medium tracking-wide text-zinc-400 uppercase">Colors</p>
         <Swatches label="Bubble color" value={s.bubbleColor} onPick={(c) => save({ bubbleColor: c })} />
+        <p className="mt-4 text-xs font-medium tracking-wide text-zinc-400 uppercase">Gradients</p>
+        <div className="mt-2 flex flex-wrap gap-2.5" role="radiogroup" aria-label="Bubble gradient">
+          {(Object.keys(GRADIENTS) as GradientName[]).map((name) => {
+            const look = bubbleLook(name);
+            const selected = s.bubbleColor === name;
+            return (
+              <button
+                key={name}
+                role="radio"
+                aria-checked={selected}
+                aria-label={GRADIENTS[name].label}
+                title={GRADIENTS[name].label}
+                onClick={() => save({ bubbleColor: name })}
+                className={`flex size-9 items-center justify-center rounded-full transition hover:scale-110 ${
+                  selected ? "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-zinc-900" : ""
+                }`}
+                style={{ background: look.background, ["--tw-ring-color" as string]: look.solid }}
+              >
+                {selected && <CheckIcon className="size-4" style={{ color: look.ink }} />}
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-5">
+          <ToggleRow
+            title="Show friends' bubble colors"
+            description="See each friend's chosen color on their messages. Turn off to keep everyone's bubbles neutral."
+            checked={s.showOthersBubbles}
+            onChange={() => save({ showOthersBubbles: !s.showOthersBubbles })}
+          />
+        </div>
       </section>
 
       <section>
-        <h3 className="text-sm font-semibold">Chat wallpaper</h3>
+        <SectionTitle title="Chat wallpaper" />
         <div className="mt-3 grid grid-cols-4 gap-2" role="radiogroup" aria-label="Chat wallpaper">
           {(Object.entries(WALLPAPERS) as [Wallpaper, string][]).map(([name, label]) => (
             <button
@@ -329,7 +400,7 @@ function AppearanceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => v
                   s.wallpaper === name ? "ring-2 ring-accent" : "ring-zinc-200 dark:ring-zinc-700"
                 }`}
               >
-                <span className="h-2.5 w-7 rounded-full bg-bubble" />
+                <span className="bubble-fill h-2.5 w-7 rounded-full" />
                 {s.wallpaper === name && (
                   <span className="absolute top-1.5 left-1.5 flex size-4 items-center justify-center rounded-full bg-accent text-accent-ink">
                     <CheckIcon className="size-3" />
@@ -350,9 +421,57 @@ function AppearanceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => v
   );
 }
 
-function Swatches({ label, value, onPick }: { label: string; value: ColorName; onPick: (c: ColorName) => void }) {
+function SectionTitle({ title, hint }: { title: string; hint?: string }) {
   return (
-    <div className="mt-3 flex flex-wrap gap-2.5" role="radiogroup" aria-label={label}>
+    <div>
+      <h3 className="text-sm font-semibold">{title}</h3>
+      {hint && <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{hint}</p>}
+    </div>
+  );
+}
+
+function StylePicker({
+  label,
+  options,
+  value,
+  swatches,
+  onPick,
+}: {
+  label: string;
+  options: Record<string, string>;
+  value: string;
+  swatches: Record<string, [string, string]>;
+  onPick: (v: string) => void;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-medium tracking-wide text-zinc-400 uppercase">{label}</p>
+      <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label={label}>
+        {Object.entries(options).map(([id, name]) => (
+          <button
+            key={id}
+            role="radio"
+            aria-checked={value === id}
+            onClick={() => onPick(id)}
+            className={`flex items-center gap-2 rounded-full py-1 pr-3 pl-1 text-xs font-medium ring-1 transition ${
+              value === id ? "bg-accent/10 text-accent-fg ring-2 ring-accent" : "ring-zinc-200 hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800"
+            }`}
+          >
+            <span
+              className="size-5 rounded-full ring-1 ring-black/10 dark:ring-white/15"
+              style={{ background: `linear-gradient(135deg, ${swatches[id][0]} 50%, ${swatches[id][1]} 50%)` }}
+            />
+            {name}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Swatches({ label, value, onPick }: { label: string; value: string; onPick: (c: ColorName) => void }) {
+  return (
+    <div className="mt-2 flex flex-wrap gap-2.5" role="radiogroup" aria-label={label}>
       {(Object.entries(PALETTE) as [ColorName, (typeof PALETTE)[ColorName]][]).map(([name, c]) => (
         <button
           key={name}
@@ -373,8 +492,10 @@ function Swatches({ label, value, onPick }: { label: string; value: ColorName; o
   );
 }
 
-/** A tiny chat that shows exactly what the chosen theme, colors and wallpaper look like. */
+/** A tiny chat showing exactly what the theme, colors and wallpaper look like — including a friend's bubble. */
 function AppearancePreview({ me }: { me: Me }) {
+  const friend = bubbleLook("g-berry");
+  const showFriend = me.settings.showOthersBubbles;
   return (
     <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-200 dark:ring-zinc-800" aria-label="Preview" role="img">
       <div className="flex items-center gap-2.5 border-b border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
@@ -389,13 +510,18 @@ function AppearancePreview({ me }: { me: Me }) {
       </div>
       <div className={`chat-wall wall-${me.settings.wallpaper} space-y-1.5 px-3 py-3 transition-colors`}>
         <div className="flex">
-          <span className="rounded-2xl rounded-bl-md bg-white px-3 py-1.5 text-sm shadow-sm ring-1 ring-zinc-900/5 dark:bg-zinc-800 dark:ring-white/5">
-            Did you see the new colors? 🎨
+          <span
+            className={`rounded-2xl rounded-bl-md px-3 py-1.5 text-sm ${
+              showFriend ? "shadow-sm" : "bg-white shadow-sm ring-1 ring-zinc-900/5 dark:bg-zinc-800 dark:ring-white/5"
+            }`}
+            style={showFriend ? { background: friend.background, color: friend.ink } : undefined}
+          >
+            I picked the Berry gradient 💜
           </span>
         </div>
         <div className="flex flex-col items-end">
-          <span className="rounded-2xl rounded-br-md bg-bubble px-3 py-1.5 text-sm text-bubble-ink transition-colors">
-            Yes! Check this out <span className="underline underline-offset-2">relay.app</span>
+          <span className="bubble-fill rounded-2xl rounded-br-md px-3 py-1.5 text-sm transition-colors">
+            Love it! Mine's this one <span className="underline underline-offset-2">relay.app</span>
           </span>
           <span className="mt-0.5 mr-1 flex items-center gap-1 text-[11px] text-zinc-400">
             9:41 <span className="text-accent-fg">✓✓</span>
@@ -409,6 +535,214 @@ function AppearancePreview({ me }: { me: Me }) {
         </span>
       </div>
     </div>
+  );
+}
+
+// ---------- Voice & video ----------
+
+const SUPPRESSION: [NoiseSuppression, string, string][] = [
+  ["ai", "AI noise suppression", "A neural network removes fans, keyboards, traffic and background voices while keeping yours clear, like Discord's Krisp."],
+  ["standard", "Standard", "Your browser's built-in noise filter. Lighter, but lets more background noise through."],
+  ["off", "Off", "Your raw microphone. Best for music or a professional mic."],
+];
+
+function VoiceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void }) {
+  const { save, error } = useSettingSaver(me, onMeUpdated);
+  const s = me.settings;
+  return (
+    <div className="space-y-7">
+      <section>
+        <SectionTitle title="Noise suppression" hint="Used in calls and voice messages. Everything runs on your device." />
+        <div className="mt-3 space-y-2" role="radiogroup" aria-label="Noise suppression">
+          {SUPPRESSION.map(([value, title, description]) => (
+            <button
+              key={value}
+              role="radio"
+              aria-checked={s.noiseSuppression === value}
+              onClick={() => save({ noiseSuppression: value })}
+              className={`flex w-full items-start gap-3 rounded-xl p-3 text-left ring-1 transition ${
+                s.noiseSuppression === value
+                  ? "bg-accent/10 ring-2 ring-accent"
+                  : "ring-zinc-200 hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800"
+              }`}
+            >
+              <span
+                className={`mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full ring-2 ${
+                  s.noiseSuppression === value ? "ring-accent" : "ring-zinc-300 dark:ring-zinc-600"
+                }`}
+              >
+                {s.noiseSuppression === value && <span className="size-2 rounded-full bg-accent" />}
+              </span>
+              <span>
+                <span className="flex items-center gap-2 text-sm font-medium">
+                  {title}
+                  {value === "ai" && (
+                    <span className="rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-accent-ink uppercase">
+                      Best
+                    </span>
+                  )}
+                </span>
+                <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">{description}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <SectionTitle title="Voice processing" />
+        <ToggleRow
+          title="Echo cancellation"
+          description="Stops the other person hearing themselves through your speakers."
+          checked={s.echoCancellation}
+          onChange={() => save({ echoCancellation: !s.echoCancellation })}
+        />
+        <ToggleRow
+          title="Automatic gain control"
+          description="Keeps your volume steady whether you whisper or shout."
+          checked={s.autoGainControl}
+          onChange={() => save({ autoGainControl: !s.autoGainControl })}
+        />
+        <ToggleRow
+          title="Noise gate"
+          description="Fully silences your mic between words, so quiet background sounds never get through."
+          checked={s.noiseGate}
+          onChange={() => save({ noiseGate: !s.noiseGate })}
+        />
+      </section>
+
+      <MicTest voice={s} />
+      {error && <StatusLine status={{ kind: "error", text: error }} />}
+    </div>
+  );
+}
+
+/** Like Discord's "Let's check": a live level meter with your settings applied, and optional listen-back. */
+function MicTest({ voice }: { voice: VoiceSettings }) {
+  const [running, setRunning] = useState(false);
+  const [level, setLevel] = useState(0);
+  const [mode, setMode] = useState<string | null>(null);
+  const [engine, setEngine] = useState<string | undefined>(undefined);
+  const [listen, setListen] = useState(false);
+  const [problem, setProblem] = useState<DeviceProblem | null>(null);
+  const session = useRef<{ stop: () => void; setListen: (on: boolean) => void } | null>(null);
+
+  // Restart with new settings when they change mid-test.
+  const key = JSON.stringify(voice);
+  useEffect(() => {
+    if (!running) return;
+    session.current?.stop();
+    session.current = null;
+    void start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  useEffect(() => () => session.current?.stop(), []);
+
+  async function start() {
+    const ctx = createAudioContext();
+    let raw: MediaStream;
+    try {
+      raw = await navigator.mediaDevices.getUserMedia({ audio: micConstraints(voice) });
+    } catch (err) {
+      ctx.close().catch(() => {});
+      setProblem(deviceProblem(err));
+      setRunning(false);
+      return;
+    }
+    const processed = await processMic(raw, voice, ctx);
+    const source = ctx.createMediaStreamSource(processed.stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    source.connect(analyser);
+    const monitor = ctx.createGain();
+    monitor.gain.value = 0;
+    source.connect(monitor).connect(ctx.destination);
+    const buf = new Float32Array(analyser.fftSize);
+    let raf = 0;
+    const tick = () => {
+      analyser.getFloatTimeDomainData(buf);
+      let sum = 0;
+      for (const v of buf) sum += v * v;
+      const db = 20 * Math.log10(Math.sqrt(sum / buf.length) + 1e-8);
+      setLevel(Math.min(1, Math.max(0, (db + 60) / 55)));
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+    setMode(processed.mode);
+    setEngine(processed.engine);
+    session.current = {
+      stop: () => {
+        cancelAnimationFrame(raf);
+        processed.dispose();
+        raw.getTracks().forEach((t) => t.stop());
+        ctx.close().catch(() => {});
+        setLevel(0);
+      },
+      setListen: (on) => monitor.gain.setTargetAtTime(on ? 1 : 0, ctx.currentTime, 0.05),
+    };
+    session.current.setListen(listen);
+  }
+
+  function toggle() {
+    if (running) {
+      session.current?.stop();
+      session.current = null;
+      setRunning(false);
+      setListen(false);
+    } else {
+      setRunning(true);
+      void start();
+    }
+  }
+
+  return (
+    <section className="rounded-2xl bg-zinc-50 p-4 dark:bg-zinc-800/60">
+      <div className="flex items-center justify-between gap-3">
+        <SectionTitle title="Mic test" hint={running ? "Say something — this is how you sound to others." : "Check your microphone with these settings."} />
+        <button
+          onClick={toggle}
+          className={`shrink-0 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+            running ? "bg-red-600 text-white hover:bg-red-500" : "bg-accent text-accent-ink hover:opacity-90"
+          }`}
+        >
+          {running ? "Stop" : "Let's check"}
+        </button>
+      </div>
+      <div className="mt-4 flex h-3 gap-[3px]" aria-label="Microphone level" role="meter" aria-valuenow={Math.round(level * 100)} aria-valuemin={0} aria-valuemax={100}>
+        {Array.from({ length: 32 }, (_, i) => (
+          <span
+            key={i}
+            className={`flex-1 rounded-full transition-colors duration-75 ${
+              i / 32 < level ? (i > 26 ? "bg-red-500" : i > 20 ? "bg-amber-400" : "bg-emerald-500") : "bg-zinc-200 dark:bg-zinc-700"
+            }`}
+          />
+        ))}
+      </div>
+      {running && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <span>
+            Active:{" "}
+            <span className="font-medium text-zinc-700 dark:text-zinc-200">
+              {mode === "ai" ? `AI noise suppression (${engine === "gtcrn" ? "GTCRN, max quality" : "RNNoise, battery saver"})` : mode === "standard" ? "Standard" : "Off"}
+              {mode && mode !== voice.noiseSuppression && " (AI isn't supported in this browser)"}
+            </span>
+          </span>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={listen}
+              onChange={(e) => {
+                setListen(e.target.checked);
+                session.current?.setListen(e.target.checked);
+              }}
+              className="accent-[var(--accent)]"
+            />
+            Hear yourself (use headphones)
+          </label>
+        </div>
+      )}
+      {problem && <DeviceHelp problem={problem} device="microphone" onClose={() => setProblem(null)} />}
+    </section>
   );
 }
 

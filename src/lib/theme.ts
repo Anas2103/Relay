@@ -1,20 +1,21 @@
-import { PALETTE, type ColorName, type Settings, type Theme, type Wallpaper } from "../../shared/types";
+import { bubbleLook, PALETTE, type Settings, type Theme } from "../../shared/types";
 
-const STORAGE_KEY = "relay:appearance:v2";
+const STORAGE_KEY = "relay:appearance:v3";
 const media = window.matchMedia("(prefers-color-scheme: dark)");
 
-type Appearance = Pick<Settings, "theme" | "accentColor" | "bubbleColor" | "wallpaper">;
+type Appearance = Pick<Settings, "theme" | "lightTheme" | "darkTheme" | "accentColor" | "bubbleColor" | "wallpaper">;
 let current: Appearance | null = null;
 
 /** CSS variables for one mode. The pre-load script (public/theme-init.js) applies these too. */
 function variables(a: Appearance, dark: boolean): Record<string, string> {
   const accent = PALETTE[a.accentColor] ?? PALETTE.indigo;
-  const bubble = PALETTE[a.bubbleColor] ?? PALETTE.indigo;
+  const bubble = bubbleLook(a.bubbleColor);
   return {
     "--accent": accent.hex,
     "--accent-ink": accent.ink,
     "--accent-fg": dark ? accent.onDark : accent.onLight,
-    "--bubble": bubble.hex,
+    "--bubble": bubble.solid,
+    "--bubble-bg": bubble.background,
     "--bubble-ink": bubble.ink,
   };
 }
@@ -29,9 +30,12 @@ function render() {
   const root = document.documentElement;
   root.classList.toggle("dark", dark);
   root.style.colorScheme = dark ? "dark" : "light";
+  root.dataset.lightTheme = current.lightTheme;
+  root.dataset.darkTheme = current.darkTheme;
   for (const [k, v] of Object.entries(variables(current, dark))) root.style.setProperty(k, v);
-  root.dataset.wallpaper = current.wallpaper;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#09090b" : "#ffffff");
+  // Browser UI color (address bar on phones) follows the theme style.
+  const surface = getComputedStyle(root).getPropertyValue(dark ? "--color-zinc-900" : "--color-white").trim();
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", surface || (dark ? "#18181b" : "#ffffff"));
 }
 
 media.addEventListener("change", () => current?.theme === "system" && render());
@@ -40,6 +44,8 @@ media.addEventListener("change", () => current?.theme === "system" && render());
 export function applyAppearance(settings: Appearance, animate = false) {
   const next: Appearance = {
     theme: settings.theme,
+    lightTheme: settings.lightTheme,
+    darkTheme: settings.darkTheme,
     accentColor: settings.accentColor,
     bubbleColor: settings.bubbleColor,
     wallpaper: settings.wallpaper,
@@ -55,7 +61,8 @@ export function applyAppearance(settings: Appearance, animate = false) {
       STORAGE_KEY,
       JSON.stringify({
         theme: next.theme,
-        wallpaper: next.wallpaper,
+        lightTheme: next.lightTheme,
+        darkTheme: next.darkTheme,
         light: variables(next, false),
         dark: variables(next, true),
       }),
@@ -66,14 +73,6 @@ export function applyAppearance(settings: Appearance, animate = false) {
   render();
 }
 
-/** For live previews in Settings (e.g. showing a bubble color before it's chosen). */
-export function paletteVars(name: ColorName, dark: boolean) {
-  const c = PALETTE[name];
-  return { bg: c.hex, ink: c.ink, fg: dark ? c.onDark : c.onLight };
-}
-
 export function currentlyDark() {
   return document.documentElement.classList.contains("dark");
 }
-
-export type { Wallpaper };

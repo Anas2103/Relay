@@ -1,5 +1,5 @@
 import { LIMITS, type Profile } from "../shared/types";
-import { requireUser } from "./auth";
+import { parseSettings, requireUser } from "./auth";
 import type { Env } from "./env";
 import { HttpError, json } from "./http";
 import { mediaHeaders } from "./media";
@@ -25,7 +25,7 @@ export async function searchUsers(request: Request, env: Env, url: URL): Promise
 export async function getProfile(request: Request, env: Env, userId: string): Promise<Response> {
   await requireUser(request, env);
   const row = await env.DB.prepare(
-    `SELECT id, username, display_name, avatar_version, bio, last_seen_at, created_at
+    `SELECT id, username, display_name, avatar_version, bio, last_seen_at, created_at, settings
        FROM users WHERE id = ?1 AND suspended_at IS NULL`,
   )
     .bind(userId)
@@ -37,9 +37,16 @@ export async function getProfile(request: Request, env: Env, userId: string): Pr
       bio: string;
       last_seen_at: number | null;
       created_at: number;
+      settings: string;
     }>();
   if (!row) throw new HttpError(404, "User not found.");
-  const profile: Profile = { ...toUser(row), bio: row.bio, lastSeenAt: row.last_seen_at, createdAt: row.created_at };
+  const profile: Profile = {
+    ...toUser(row),
+    bubbleColor: parseSettings(row.settings).bubbleColor,
+    bio: row.bio,
+    lastSeenAt: row.last_seen_at,
+    createdAt: row.created_at,
+  };
   return json({ profile });
 }
 

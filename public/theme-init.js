@@ -3,7 +3,7 @@
 (function () {
   var saved = null;
   try {
-    saved = JSON.parse(localStorage.getItem("relay:appearance:v2") || "null");
+    saved = JSON.parse(localStorage.getItem("relay:appearance:v3") || "null");
   } catch (e) {}
   var theme = (saved && saved.theme) || "system";
   var dark = theme === "dark" || (theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
@@ -11,8 +11,9 @@
   if (dark) root.classList.add("dark");
   root.style.colorScheme = dark ? "dark" : "light";
   if (saved) {
+    root.setAttribute("data-light-theme", saved.lightTheme || "classic");
+    root.setAttribute("data-dark-theme", saved.darkTheme || "classic");
     var vars = dark ? saved.dark : saved.light;
     for (var k in vars) root.style.setProperty(k, vars[k]);
-    root.setAttribute("data-wallpaper", saved.wallpaper || "plain");
   }
 })();

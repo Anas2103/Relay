@@ -10,6 +10,8 @@ export interface User {
   avatarVersion: number | null;
   /** Only present on the signed-in user's own profile. */
   role?: Role;
+  /** Their chosen bubble style, shown to others (who can turn this off). */
+  bubbleColor?: BubbleStyle;
 }
 
 /** The signed-in user, with their private settings. */
@@ -30,9 +32,10 @@ export interface Profile extends User {
 
 /**
  * Every color comes with the text colors that stay readable with it:
- *  - `ink`:     text drawn ON the color (white on most, dark on yellow)
+ *  - `ink`:     text drawn ON the color (white on deep colors, dark on light ones)
  *  - `onLight`: the color used as text on a light background
  *  - `onDark`:  the color used as text on a dark background
+ * All pairs meet WCAG AA (4.5:1) — checked by a script against white and zinc-900.
  */
 export interface PaletteColor {
   label: string;
@@ -42,64 +45,157 @@ export interface PaletteColor {
   onDark: string;
 }
 
+const DARK_INK = "#1c1917";
+
 export const PALETTE = {
-  indigo: { label: "Indigo", hex: "#4f46e5", ink: "#ffffff", onLight: "#4f46e5", onDark: "#a5b4fc" },
-  blue: { label: "Blue", hex: "#2563eb", ink: "#ffffff", onLight: "#2563eb", onDark: "#93c5fd" },
-  sky: { label: "Sky", hex: "#0369a1", ink: "#ffffff", onLight: "#0369a1", onDark: "#7dd3fc" },
-  teal: { label: "Teal", hex: "#0f766e", ink: "#ffffff", onLight: "#0f766e", onDark: "#5eead4" },
-  emerald: { label: "Emerald", hex: "#047857", ink: "#ffffff", onLight: "#047857", onDark: "#6ee7b7" },
-  yellow: { label: "Yellow", hex: "#facc15", ink: "#1c1917", onLight: "#a16207", onDark: "#fde047" },
-  orange: { label: "Orange", hex: "#c2410c", ink: "#ffffff", onLight: "#c2410c", onDark: "#fdba74" },
+  // Deep colors (white text)
+  red: { label: "Red", hex: "#dc2626", ink: "#ffffff", onLight: "#dc2626", onDark: "#fca5a5" },
   rose: { label: "Rose", hex: "#e11d48", ink: "#ffffff", onLight: "#e11d48", onDark: "#fda4af" },
   pink: { label: "Pink", hex: "#db2777", ink: "#ffffff", onLight: "#db2777", onDark: "#f9a8d4" },
+  fuchsia: { label: "Fuchsia", hex: "#a21caf", ink: "#ffffff", onLight: "#a21caf", onDark: "#f0abfc" },
+  purple: { label: "Purple", hex: "#9333ea", ink: "#ffffff", onLight: "#9333ea", onDark: "#d8b4fe" },
   violet: { label: "Violet", hex: "#7c3aed", ink: "#ffffff", onLight: "#7c3aed", onDark: "#c4b5fd" },
+  indigo: { label: "Indigo", hex: "#4f46e5", ink: "#ffffff", onLight: "#4f46e5", onDark: "#a5b4fc" },
+  blue: { label: "Blue", hex: "#2563eb", ink: "#ffffff", onLight: "#2563eb", onDark: "#93c5fd" },
+  sky: { label: "Ocean", hex: "#0369a1", ink: "#ffffff", onLight: "#0369a1", onDark: "#7dd3fc" },
+  cyan: { label: "Cyan", hex: "#0e7490", ink: "#ffffff", onLight: "#0e7490", onDark: "#67e8f9" },
+  teal: { label: "Teal", hex: "#0f766e", ink: "#ffffff", onLight: "#0f766e", onDark: "#5eead4" },
+  emerald: { label: "Emerald", hex: "#047857", ink: "#ffffff", onLight: "#047857", onDark: "#6ee7b7" },
+  green: { label: "Green", hex: "#15803d", ink: "#ffffff", onLight: "#15803d", onDark: "#86efac" },
+  orange: { label: "Orange", hex: "#c2410c", ink: "#ffffff", onLight: "#c2410c", onDark: "#fdba74" },
+  coffee: { label: "Coffee", hex: "#7c4a2d", ink: "#ffffff", onLight: "#7c4a2d", onDark: "#e7c9a9" },
   slate: { label: "Graphite", hex: "#334155", ink: "#ffffff", onLight: "#334155", onDark: "#cbd5e1" },
+  // Light colors (dark text)
+  yellow: { label: "Yellow", hex: "#facc15", ink: DARK_INK, onLight: "#a16207", onDark: "#fde047" },
+  amber: { label: "Amber", hex: "#f59e0b", ink: DARK_INK, onLight: "#b45309", onDark: "#fcd34d" },
+  lime: { label: "Lime", hex: "#a3e635", ink: "#1a2e05", onLight: "#4d7c0f", onDark: "#bef264" },
+  mint: { label: "Mint", hex: "#6ee7b7", ink: "#022c22", onLight: "#047857", onDark: "#6ee7b7" },
+  babyblue: { label: "Baby blue", hex: "#7dd3fc", ink: "#082f49", onLight: "#0369a1", onDark: "#7dd3fc" },
+  lavender: { label: "Lavender", hex: "#c4b5fd", ink: "#2e1065", onLight: "#6d28d9", onDark: "#c4b5fd" },
+  blush: { label: "Blush", hex: "#f9a8d4", ink: "#500724", onLight: "#be185d", onDark: "#f9a8d4" },
+  peach: { label: "Peach", hex: "#fdba74", ink: "#431407", onLight: "#c2410c", onDark: "#fdba74" },
 } as const satisfies Record<string, PaletteColor>;
 
 export type ColorName = keyof typeof PALETTE;
-/** Kept for older code paths: bubble colors use the same palette. */
-export type BubbleColor = ColorName;
+
+/** Gradient bubbles (bubbles only — the app color is always a solid color). */
+export interface BubbleGradient {
+  label: string;
+  from: string;
+  to: string;
+  ink: string;
+}
+
+export const GRADIENTS = {
+  "g-sunset": { label: "Sunset", from: "#c2410c", to: "#be185d", ink: "#ffffff" },
+  "g-berry": { label: "Berry", from: "#be185d", to: "#7e22ce", ink: "#ffffff" },
+  "g-ocean": { label: "Deep sea", from: "#0369a1", to: "#4338ca", ink: "#ffffff" },
+  "g-aurora": { label: "Aurora", from: "#0f766e", to: "#1d4ed8", ink: "#ffffff" },
+  "g-forest": { label: "Forest", from: "#15803d", to: "#0f766e", ink: "#ffffff" },
+  "g-fire": { label: "Fire", from: "#b91c1c", to: "#c2410c", ink: "#ffffff" },
+  "g-night": { label: "Night", from: "#1e1b4b", to: "#6d28d9", ink: "#ffffff" },
+  "g-candy": { label: "Cotton candy", from: "#f9a8d4", to: "#c4b5fd", ink: "#3b0764" },
+  "g-peachy": { label: "Peachy", from: "#fed7aa", to: "#fbcfe8", ink: "#431407" },
+  "g-citrus": { label: "Citrus", from: "#fde047", to: "#86efac", ink: "#14532d" },
+} as const satisfies Record<string, BubbleGradient>;
+
+export type GradientName = keyof typeof GRADIENTS;
+export type BubbleStyle = ColorName | GradientName;
+/** Kept for older code paths. */
+export type BubbleColor = BubbleStyle;
+
+/** What a bubble style looks like: a CSS background, readable text, and a solid fallback color. */
+export function bubbleLook(style: BubbleStyle): { background: string; ink: string; solid: string } {
+  if (style in GRADIENTS) {
+    const g = GRADIENTS[style as GradientName];
+    return { background: `linear-gradient(135deg, ${g.from}, ${g.to})`, ink: g.ink, solid: g.to };
+  }
+  const c = PALETTE[(style as ColorName) in PALETTE ? (style as ColorName) : "indigo"];
+  return { background: c.hex, ink: c.ink, solid: c.hex };
+}
+
 export type Theme = "system" | "light" | "dark";
+
+/** Styles for each mode. "System" uses your light style by day and dark style by night. */
+export const LIGHT_THEMES = { classic: "Classic", cream: "Cream", cool: "Cool" } as const;
+export const DARK_THEMES = { classic: "Classic", dim: "Dim", amoled: "AMOLED black", midnight: "Midnight" } as const;
+export type LightTheme = keyof typeof LIGHT_THEMES;
+export type DarkTheme = keyof typeof DARK_THEMES;
 
 export const WALLPAPERS = {
   plain: "Plain",
   dots: "Dots",
   grid: "Grid",
+  hearts: "Hearts",
+  stars: "Stars",
+  waves: "Waves",
+  confetti: "Confetti",
   aurora: "Aurora",
   sunset: "Sunset",
   ocean: "Ocean",
   forest: "Forest",
   lavender: "Lavender",
+  rose: "Rose",
+  peach: "Peach",
+  mint: "Mint",
+  galaxy: "Galaxy",
 } as const;
 export type Wallpaper = keyof typeof WALLPAPERS;
 
+export type NoiseSuppression = "ai" | "standard" | "off";
+
 export interface Settings {
   theme: Theme;
+  lightTheme: LightTheme;
+  darkTheme: DarkTheme;
   /** App color: buttons, links, badges, highlights. */
   accentColor: ColorName;
-  /** Your own message bubbles only. */
-  bubbleColor: ColorName;
+  /** Your own message bubbles — also shown to the people you chat with. */
+  bubbleColor: BubbleStyle;
+  /** Show other people's chosen bubble colors on their messages (Instagram/TikTok-style). */
+  showOthersBubbles: boolean;
   /** Background behind the messages. */
   wallpaper: Wallpaper;
   sounds: boolean;
   notifications: boolean;
+  // Voice processing for calls and voice messages (Discord-style)
+  noiseSuppression: NoiseSuppression;
+  echoCancellation: boolean;
+  autoGainControl: boolean;
+  /** Silences the background between words. */
+  noiseGate: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: "system",
+  lightTheme: "classic",
+  darkTheme: "classic",
   accentColor: "indigo",
   bubbleColor: "indigo",
+  showOthersBubbles: true,
   wallpaper: "plain",
   sounds: true,
   notifications: false,
+  noiseSuppression: "ai",
+  echoCancellation: true,
+  autoGainControl: true,
+  noiseGate: false,
 };
 
 export function isColorName(v: unknown): v is ColorName {
   return typeof v === "string" && Object.hasOwn(PALETTE, v);
 }
-
+export function isBubbleStyle(v: unknown): v is BubbleStyle {
+  return isColorName(v) || (typeof v === "string" && Object.hasOwn(GRADIENTS, v));
+}
 export function isWallpaper(v: unknown): v is Wallpaper {
   return typeof v === "string" && Object.hasOwn(WALLPAPERS, v);
+}
+export function isLightTheme(v: unknown): v is LightTheme {
+  return typeof v === "string" && Object.hasOwn(LIGHT_THEMES, v);
+}
+export function isDarkTheme(v: unknown): v is DarkTheme {
+  return typeof v === "string" && Object.hasOwn(DARK_THEMES, v);
 }
 
 // ---------- Admin ----------

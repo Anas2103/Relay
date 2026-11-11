@@ -9,7 +9,7 @@ import {
   type Room,
   type User,
 } from "../shared/types";
-import { rateLimit, requireUser } from "./auth";
+import { parseSettings, rateLimit, requireUser } from "./auth";
 import { lobby, room, type Env } from "./env";
 import { HttpError, json, readJson } from "./http";
 import { cleanFileName, mediaHeaders, parseRange, readUpload } from "./media";
@@ -27,6 +27,7 @@ interface RoomRow {
   peer_username: string | null;
   peer_display_name: string | null;
   peer_avatar_version: number | null;
+  peer_settings: string | null;
   last_kind: MessageKind | null;
   last_body: string | null;
   last_meta: string | null;
@@ -40,7 +41,7 @@ export async function listRooms(env: Env, userId: string, onlyRoomId?: string): 
   const { results } = await env.DB.prepare(
     `SELECT r.id, r.type, r.name, r.created_at,
             pu.id AS peer_id, pu.username AS peer_username, pu.display_name AS peer_display_name,
-            pu.avatar_version AS peer_avatar_version,
+            pu.avatar_version AS peer_avatar_version, pu.settings AS peer_settings,
             lm.kind AS last_kind, lm.body AS last_body, lm.meta AS last_meta, lm.deleted_at AS last_deleted_at,
             lm.created_at AS last_at, lm.user_id AS last_user_id,
             (SELECT COUNT(*) FROM messages x
@@ -77,6 +78,7 @@ export async function listRooms(env: Env, userId: string, onlyRoomId?: string): 
             username: r.peer_username!,
             displayName: r.peer_display_name!,
             avatarVersion: r.peer_avatar_version,
+            bubbleColor: parseSettings(r.peer_settings).bubbleColor,
           }
         : null,
       lastMessage:

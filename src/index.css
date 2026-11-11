@@ -16,6 +16,50 @@
   --color-bubble-ink: var(--bubble-ink, #ffffff);
 }
 
+
+/* ---------- Your bubble: solid color or gradient ---------- */
+.bubble-fill {
+  background: var(--bubble-bg, var(--bubble, #4f46e5));
+  color: var(--bubble-ink, #ffffff);
+}
+
+/* ---------- Theme styles (re-tint the neutral grays used everywhere) ---------- */
+:root:not(.dark)[data-light-theme="cream"] {
+  --color-white: #fffdf8;
+  --color-zinc-50: #faf5ea;
+  --color-zinc-100: #f3ecdd;
+  --color-zinc-200: #e8ddc8;
+  --color-zinc-300: #d8c9ad;
+}
+:root:not(.dark)[data-light-theme="cool"] {
+  --color-white: #fbfdff;
+  --color-zinc-50: #f1f5f9;
+  --color-zinc-100: #e7edf4;
+  --color-zinc-200: #d9e2ec;
+  --color-zinc-300: #c3cfdc;
+}
+:root.dark[data-dark-theme="dim"] {
+  --color-zinc-950: #15202b;
+  --color-zinc-900: #1c2938;
+  --color-zinc-800: #253341;
+  --color-zinc-700: #38444d;
+  --color-zinc-600: #4f5d6a;
+}
+:root.dark[data-dark-theme="amoled"] {
+  --color-zinc-950: #000000;
+  --color-zinc-900: #050505;
+  --color-zinc-800: #141414;
+  --color-zinc-700: #242424;
+  --color-zinc-600: #3a3a3a;
+}
+:root.dark[data-dark-theme="midnight"] {
+  --color-zinc-950: #070b1a;
+  --color-zinc-900: #0d1428;
+  --color-zinc-800: #18213b;
+  --color-zinc-700: #273256;
+  --color-zinc-600: #3b4670;
+}
+
 /* ---------- Chat wallpapers (each has a light and a dark version) ---------- */
 .chat-wall {
   background-color: var(--color-zinc-50);
@@ -33,34 +77,66 @@
     linear-gradient(90deg, color-mix(in oklab, var(--accent) 9%, transparent) 1px, transparent 1px);
   background-size: 28px 28px;
 }
+.wall-hearts {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56'%3E%3Cpath d='M14 22c-4-4-10-1-8 4 1.5 3.5 8 8 8 8s6.5-4.5 8-8c2-5-4-8-8-4z' fill='%23f472b6' fill-opacity='.18'/%3E%3Cpath d='M42 48c-3-3-7.5-.8-6 3 1.1 2.6 6 6 6 6s4.9-3.4 6-6c1.5-3.8-3-6-6-3z' fill='%23fb7185' fill-opacity='.14'/%3E%3C/svg%3E");
+  background-size: 56px 56px;
+}
+.dark .wall-hearts {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56'%3E%3Cpath d='M14 22c-4-4-10-1-8 4 1.5 3.5 8 8 8 8s6.5-4.5 8-8c2-5-4-8-8-4z' fill='%23f472b6' fill-opacity='.14'/%3E%3Cpath d='M42 48c-3-3-7.5-.8-6 3 1.1 2.6 6 6 6 6s4.9-3.4 6-6c1.5-3.8-3-6-6-3z' fill='%23fb7185' fill-opacity='.10'/%3E%3C/svg%3E");
+}
+.wall-stars {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cpath d='M16 8l1.6 4.4L22 14l-4.4 1.6L16 20l-1.6-4.4L10 14l4.4-1.6z' fill='%23f59e0b' fill-opacity='.22'/%3E%3Ccircle cx='46' cy='40' r='1.6' fill='%236366f1' fill-opacity='.25'/%3E%3Cpath d='M48 50l.9 2.4 2.4.9-2.4.9-.9 2.4-.9-2.4-2.4-.9 2.4-.9z' fill='%2306b6d4' fill-opacity='.25'/%3E%3C/svg%3E");
+  background-size: 64px 64px;
+}
+.dark .wall-stars {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cpath d='M16 8l1.6 4.4L22 14l-4.4 1.6L16 20l-1.6-4.4L10 14l4.4-1.6z' fill='%23fde68a' fill-opacity='.22'/%3E%3Ccircle cx='46' cy='40' r='1.6' fill='%23ffffff' fill-opacity='.35'/%3E%3Cpath d='M48 50l.9 2.4 2.4.9-2.4.9-.9 2.4-.9-2.4-2.4-.9 2.4-.9z' fill='%23a5f3fc' fill-opacity='.3'/%3E%3C/svg%3E");
+}
+.wall-waves {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='24'%3E%3Cpath d='M0 12c10 0 10-8 20-8s10 8 20 8 10-8 20-8 10 8 20 8' fill='none' stroke='%230ea5e9' stroke-opacity='.16' stroke-width='2'/%3E%3C/svg%3E");
+  background-size: 80px 24px;
+}
+.dark .wall-waves {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='24'%3E%3Cpath d='M0 12c10 0 10-8 20-8s10 8 20 8 10-8 20-8 10 8 20 8' fill='none' stroke='%2338bdf8' stroke-opacity='.14' stroke-width='2'/%3E%3C/svg%3E");
+}
+.wall-confetti {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72'%3E%3Crect x='8' y='10' width='6' height='3' rx='1.5' transform='rotate(30 11 11)' fill='%23f43f5e' fill-opacity='.3'/%3E%3Crect x='44' y='18' width='6' height='3' rx='1.5' transform='rotate(-25 47 19)' fill='%2322c55e' fill-opacity='.3'/%3E%3Ccircle cx='28' cy='46' r='2' fill='%23eab308' fill-opacity='.4'/%3E%3Crect x='56' y='54' width='6' height='3' rx='1.5' transform='rotate(60 59 55)' fill='%233b82f6' fill-opacity='.3'/%3E%3Ccircle cx='12' cy='62' r='1.6' fill='%23a855f7' fill-opacity='.35'/%3E%3C/svg%3E");
+  background-size: 72px 72px;
+}
 .wall-aurora {
   background-image:
     radial-gradient(60% 50% at 0% 0%, color-mix(in oklab, var(--accent) 24%, transparent), transparent),
     radial-gradient(50% 50% at 100% 100%, color-mix(in oklab, var(--bubble) 24%, transparent), transparent);
 }
-.wall-sunset {
-  background-image: linear-gradient(160deg, #fff1e6 0%, #ffe4ec 55%, #f3e8ff 100%);
+.wall-sunset { background-image: linear-gradient(160deg, #fff1e6 0%, #ffe4ec 55%, #f3e8ff 100%); }
+.dark .wall-sunset { background-image: linear-gradient(160deg, #2a1215 0%, #2b1023 55%, #1c1230 100%); }
+.wall-ocean { background-image: linear-gradient(170deg, #e0f2fe 0%, #e6fffa 100%); }
+.dark .wall-ocean { background-image: linear-gradient(170deg, #071a2e 0%, #052523 100%); }
+.wall-forest { background-image: linear-gradient(170deg, #ecfdf5 0%, #f7fee7 100%); }
+.dark .wall-forest { background-image: linear-gradient(170deg, #06201a 0%, #10200a 100%); }
+.wall-lavender { background-image: linear-gradient(170deg, #f5f3ff 0%, #fdf2f8 100%); }
+.dark .wall-lavender { background-image: linear-gradient(170deg, #17122b 0%, #24101f 100%); }
+.wall-rose { background-image: linear-gradient(165deg, #fff1f2 0%, #ffe4e6 50%, #fce7f3 100%); }
+.dark .wall-rose { background-image: linear-gradient(165deg, #2a0f16 0%, #2f0d1c 50%, #2a0b24 100%); }
+.wall-peach { background-image: linear-gradient(165deg, #fff7ed 0%, #ffedd5 50%, #fef9c3 100%); }
+.dark .wall-peach { background-image: linear-gradient(165deg, #2a1608 0%, #2b1a06 50%, #262007 100%); }
+.wall-mint { background-image: linear-gradient(165deg, #f0fdfa 0%, #dcfce7 50%, #ecfeff 100%); }
+.dark .wall-mint { background-image: linear-gradient(165deg, #04211d 0%, #052614 50%, #041f24 100%); }
+.wall-galaxy {
+  background-image:
+    radial-gradient(1px 1px at 20px 30px, #a78bfa 50%, transparent 51%),
+    radial-gradient(1px 1px at 70px 90px, #93c5fd 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 110px 40px, #f0abfc 50%, transparent 51%),
+    radial-gradient(70% 60% at 20% 10%, #ede9fe, transparent),
+    radial-gradient(60% 60% at 90% 90%, #e0e7ff, transparent);
+  background-size: 140px 120px, 140px 120px, 140px 120px, 100% 100%, 100% 100%;
 }
-.dark .wall-sunset {
-  background-image: linear-gradient(160deg, #2a1215 0%, #2b1023 55%, #1c1230 100%);
-}
-.wall-ocean {
-  background-image: linear-gradient(170deg, #e0f2fe 0%, #e6fffa 100%);
-}
-.dark .wall-ocean {
-  background-image: linear-gradient(170deg, #071a2e 0%, #052523 100%);
-}
-.wall-forest {
-  background-image: linear-gradient(170deg, #ecfdf5 0%, #f7fee7 100%);
-}
-.dark .wall-forest {
-  background-image: linear-gradient(170deg, #06201a 0%, #10200a 100%);
-}
-.wall-lavender {
-  background-image: linear-gradient(170deg, #f5f3ff 0%, #fdf2f8 100%);
-}
-.dark .wall-lavender {
-  background-image: linear-gradient(170deg, #17122b 0%, #24101f 100%);
+.dark .wall-galaxy {
+  background-image:
+    radial-gradient(1px 1px at 20px 30px, #ffffff 50%, transparent 51%),
+    radial-gradient(1px 1px at 70px 90px, #c7d2fe 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 110px 40px, #f5d0fe 50%, transparent 51%),
+    radial-gradient(70% 60% at 20% 10%, #2e1065, transparent),
+    radial-gradient(60% 60% at 90% 90%, #1e1b4b, transparent);
 }
 
 html,

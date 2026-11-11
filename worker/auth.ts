@@ -1,4 +1,15 @@
-import { DEFAULT_SETTINGS, isColorName, isWallpaper, type Me, type Role, type Settings, type User } from "../shared/types";
+import {
+  DEFAULT_SETTINGS,
+  isBubbleStyle,
+  isColorName,
+  isDarkTheme,
+  isLightTheme,
+  isWallpaper,
+  type Me,
+  type Role,
+  type Settings,
+  type User,
+} from "../shared/types";
 import type { Env } from "./env";
 import { HttpError } from "./http";
 
@@ -149,21 +160,33 @@ export async function loadMe(env: Env, userId: string): Promise<Me> {
 }
 
 export function parseSettings(raw: string | null): Settings {
-  let parsed: Partial<Settings> = {};
+  let parsed: Partial<Record<keyof Settings, unknown>> = {};
   try {
     parsed = JSON.parse(raw ?? "{}");
   } catch {
     // fall back to defaults
   }
-  const bubbleColor = isColorName(parsed.bubbleColor) ? parsed.bubbleColor : DEFAULT_SETTINGS.bubbleColor;
+  const d = DEFAULT_SETTINGS;
+  const bool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fallback);
+  const bubbleColor = isBubbleStyle(parsed.bubbleColor) ? parsed.bubbleColor : d.bubbleColor;
   return {
     theme: parsed.theme === "light" || parsed.theme === "dark" ? parsed.theme : "system",
+    lightTheme: isLightTheme(parsed.lightTheme) ? parsed.lightTheme : d.lightTheme,
+    darkTheme: isDarkTheme(parsed.darkTheme) ? parsed.darkTheme : d.darkTheme,
     // Before app colors existed, the bubble color colored the whole app — keep that look for existing users.
-    accentColor: isColorName(parsed.accentColor) ? parsed.accentColor : bubbleColor,
+    accentColor: isColorName(parsed.accentColor) ? parsed.accentColor : isColorName(bubbleColor) ? bubbleColor : d.accentColor,
     bubbleColor,
-    wallpaper: isWallpaper(parsed.wallpaper) ? parsed.wallpaper : DEFAULT_SETTINGS.wallpaper,
-    sounds: typeof parsed.sounds === "boolean" ? parsed.sounds : DEFAULT_SETTINGS.sounds,
-    notifications: typeof parsed.notifications === "boolean" ? parsed.notifications : DEFAULT_SETTINGS.notifications,
+    showOthersBubbles: bool(parsed.showOthersBubbles, d.showOthersBubbles),
+    wallpaper: isWallpaper(parsed.wallpaper) ? parsed.wallpaper : d.wallpaper,
+    sounds: bool(parsed.sounds, d.sounds),
+    notifications: bool(parsed.notifications, d.notifications),
+    noiseSuppression:
+      parsed.noiseSuppression === "standard" || parsed.noiseSuppression === "off" || parsed.noiseSuppression === "ai"
+        ? parsed.noiseSuppression
+        : d.noiseSuppression,
+    echoCancellation: bool(parsed.echoCancellation, d.echoCancellation),
+    autoGainControl: bool(parsed.autoGainControl, d.autoGainControl),
+    noiseGate: bool(parsed.noiseGate, d.noiseGate),
   };
 }
 

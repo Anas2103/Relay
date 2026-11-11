@@ -1,4 +1,5 @@
 import { LIMITS } from "../../shared/types";
+import { createAudioContext, micConstraints, processMic, type ProcessedMic, type VoiceSettings } from "./audio";
 
 /** Photos are re-encoded to stay under ~1.9 MB: sharp on any phone screen, fast on mobile data. */
 const IMAGE_TARGET_BYTES = 1_900_000;
@@ -99,6 +100,8 @@ export interface Recording {
 const WAVEFORM_BARS = 48;
 
 export class VoiceRecorder {
+  private raw: MediaStream | null = null;
+  private processed: ProcessedMic | null = null;
   private stream: MediaStream | null = null;
   private recorder: MediaRecorder | null = null;
   private chunks: Blob[] = [];
@@ -116,16 +119,16 @@ export class VoiceRecorder {
    * Must be called directly from a tap/click: iPhones only allow audio to start
    * inside the user's gesture, so the AudioContext is created before anything is awaited.
    */
-  async start(onLevel: (level: number) => void): Promise<void> {
-    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    this.audioCtx = new Ctx();
+  async start(onLevel: (level: number) => void, voice: VoiceSettings): Promise<void> {
+    this.audioCtx = createAudioContext();
     // Asking for the microphone is the very first await, so the browser shows its permission prompt.
-    const streamPromise = navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-    });
+    const streamPromise = navigator.mediaDevices.getUserMedia({ audio: micConstraints(voice) });
     this.audioCtx.resume().catch(() => {});
     try {
-      this.stream = await streamPromise;
+      this.raw = await streamPromise;
+      // Same noise suppression as calls (AI / standard / off, plus the optional noise gate).
+      this.processed = await processMic(this.raw, voice, this.audioCtx);
+      this.stream = this.processed.stream;
     } catch (err) {
       this.cleanup();
       throw err;
@@ -191,6 +194,10 @@ export class VoiceRecorder {
 
   private cleanup(): void {
     cancelAnimationFrame(this.raf);
+    this.processed?.dispose();
+    this.processed = null;
+    this.raw?.getTracks().forEach((t) => t.stop());
+    this.raw = null;
     this.stream?.getTracks().forEach((t) => t.stop());
     this.audioCtx?.close().catch(() => {});
     this.stream = null;

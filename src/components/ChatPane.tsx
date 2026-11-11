@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import type { MediaKind, MediaMeta, Me, Message, MessageKind, Room } from "../../shared/types";
+import { bubbleLook, type MediaKind, type MediaMeta, type Me, type Message, type MessageKind, type Room } from "../../shared/types";
 import { api, ApiError, fetchMedia, mediaUrl } from "../lib/api";
 import { formatDayDivider, formatRelative, sameDay } from "../lib/format";
 import type { PreparedImage, PreparedVideo, Recording } from "../lib/media";
@@ -635,6 +635,9 @@ export function ChatPane({ room, me, peerPresence, onBack, onActivity, onStartCa
       ),
     [readState, me.id],
   );
+  // The other person's chosen bubble style, unless you've turned that off in Settings.
+  const peerBubble = me.settings.showOthersBubbles ? peer?.bubbleColor : undefined;
+  const peerTint = useMemo(() => (peerBubble ? bubbleLook(peerBubble) : undefined), [peerBubble]);
   const typingNames = Object.values(typing).map((t) => t.name);
   const statusText =
     typingNames.length > 0
@@ -781,6 +784,7 @@ export function ChatPane({ room, me, peerPresence, onBack, onActivity, onStartCa
                       startsGroup={startsGroup}
                       endsGroup={endsGroup}
                       read={othersRead >= m.createdAt}
+                      tint={m.userId === me.id ? undefined : peerTint}
                       onAction={onBubbleAction}
                     />
                   </div>
@@ -834,6 +838,7 @@ export function ChatPane({ room, me, peerPresence, onBack, onActivity, onStartCa
           onSendVoice={sendVoice}
           onTyping={(isTyping) => send({ type: "typing", isTyping })}
           onError={setNotice}
+          voice={me.settings}
         />
 
         {dragging && (

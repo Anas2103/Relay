@@ -1,4 +1,13 @@
-import { isColorName, isWallpaper, LIMITS, type Settings, type User } from "../shared/types";
+import {
+  isBubbleStyle,
+  isColorName,
+  isDarkTheme,
+  isLightTheme,
+  isWallpaper,
+  LIMITS,
+  type Settings,
+  type User,
+} from "../shared/types";
 import {
   hashPassword,
   loadMe,
@@ -63,15 +72,19 @@ async function updateProfile(request: Request, env: Env, me: User): Promise<Resp
     const current = (await loadMe(env, me.id)).settings;
     const patch = body.settings as Partial<Record<keyof Settings, unknown>>;
     const next: Settings = parseSettings(JSON.stringify({ ...current, ...patch }));
-    if (patch.bubbleColor !== undefined && !isColorName(patch.bubbleColor)) {
-      throw new HttpError(400, "Unknown bubble color.");
+    const checks: [keyof Settings, (v: unknown) => boolean, string][] = [
+      ["bubbleColor", isBubbleStyle, "Unknown bubble color."],
+      ["accentColor", isColorName, "Unknown app color."],
+      ["wallpaper", isWallpaper, "Unknown wallpaper."],
+      ["lightTheme", isLightTheme, "Unknown light theme."],
+      ["darkTheme", isDarkTheme, "Unknown dark theme."],
+      ["noiseSuppression", (v) => v === "ai" || v === "standard" || v === "off", "Unknown noise suppression mode."],
+    ];
+    for (const [key, valid, message] of checks) {
+      if (patch[key] !== undefined && !valid(patch[key])) throw new HttpError(400, message);
     }
-    if (patch.accentColor !== undefined && !isColorName(patch.accentColor)) {
-      throw new HttpError(400, "Unknown app color.");
-    }
-    if (patch.wallpaper !== undefined && !isWallpaper(patch.wallpaper)) {
-      throw new HttpError(400, "Unknown wallpaper.");
-    }
+    // Your bubble color is visible to the people you chat with, so tell them to refresh.
+    if (patch.bubbleColor !== undefined && patch.bubbleColor !== current.bubbleColor) publicChange = true;
     sets.push("settings = ?");
     binds.push(JSON.stringify(next));
   }

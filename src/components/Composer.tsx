@@ -21,6 +21,7 @@ import {
   type PreparedVideo,
   type Recording,
 } from "../lib/media";
+import type { VoiceSettings } from "../lib/audio";
 import { DeviceHelp } from "./DeviceHelp";
 import type { UiMessage } from "./MessageBubble";
 import {
@@ -57,6 +58,8 @@ interface Props {
   onSendVoice: (recording: Recording) => void;
   onTyping: (isTyping: boolean) => void;
   onError: (message: string) => void;
+  /** Noise suppression etc. for voice messages. */
+  voice: VoiceSettings;
 }
 
 type Pending =
@@ -82,6 +85,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
     onSendVoice,
     onTyping,
     onError,
+    voice,
   },
   ref,
 ) {
@@ -258,7 +262,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
         setLevels((prev) => [...prev.slice(-39), level]);
         setElapsed(recorder.elapsed);
         if (recorder.elapsed >= LIMITS.voiceMaxSeconds) finishRecording();
-      })
+      }, voice)
       .then(() => {
         if (recorderRef.current === recorder) setRecording("on");
         else recorder.cancel(); // cancelled while the prompt was open

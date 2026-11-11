@@ -45,6 +45,8 @@ interface Props {
   startsGroup: boolean;
   endsGroup: boolean;
   read: boolean;
+  /** The other person's chosen bubble style (when you allow showing it). */
+  tint?: { background: string; ink: string };
   onAction: (action: BubbleAction) => void;
 }
 
@@ -58,6 +60,7 @@ export const MessageBubble = memo(function MessageBubble({
   startsGroup,
   endsGroup,
   read,
+  tint,
   onAction,
 }: Props) {
   const bubbleRef = useRef<HTMLDivElement>(null);
@@ -92,13 +95,18 @@ export const MessageBubble = memo(function MessageBubble({
     ? `rounded-2xl ${startsGroup ? "" : "rounded-tr-md"} ${endsGroup ? "" : "rounded-br-md"}`
     : `rounded-2xl ${startsGroup ? "" : "rounded-tl-md"} ${endsGroup ? "" : "rounded-bl-md"}`;
 
+  // Bubbles with a color behind them (mine, or theirs when shown) tint their contents from their text color.
+  const theirs = !mine && !!tint && !deleted;
+  const tinted = (mine || theirs) && !deleted;
   const surface = deleted
     ? "bg-transparent text-zinc-500 italic ring-1 ring-zinc-300 dark:text-zinc-400 dark:ring-zinc-700"
     : mine
       ? m.status === "failed"
         ? "bg-red-500 text-white"
-        : "bg-bubble text-bubble-ink"
-      : "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-900/5 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-white/5";
+        : "bubble-fill"
+      : theirs
+        ? "shadow-sm"
+        : "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-900/5 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-white/5";
 
   const visual = (m.kind === "image" && !viewOnce) || m.kind === "video";
   const imageOnly = visual && !m.body && !m.replyTo && !deleted;
@@ -119,32 +127,33 @@ export const MessageBubble = memo(function MessageBubble({
           onTouchEnd={cancelPress}
           onTouchMove={cancelPress}
           onDoubleClick={() => !deleted && !m.status && onAction({ type: "react", message: m, emoji: "❤️" })}
+          style={theirs ? { background: tint!.background, color: tint!.ink } : undefined}
           className={`relative max-w-[min(85vw,28rem)] text-[15px] leading-relaxed break-words ${corners} ${surface} ${
             imageOnly ? "overflow-hidden p-0" : visual && !deleted ? "overflow-hidden p-1" : "px-3.5 py-2"
           } ${m.status === "pending" ? "opacity-80" : ""} select-text`}
         >
           {m.replyTo && !deleted && (
-            <ReplyQuote reply={m.replyTo} mine={mine} meId={meId} onClick={() => onAction({ type: "jump", messageId: m.replyTo!.id })} />
+            <ReplyQuote reply={m.replyTo} mine={tinted} meId={meId} onClick={() => onAction({ type: "jump", messageId: m.replyTo!.id })} />
           )}
 
           {deleted ? (
             <span className="text-sm">This message was deleted</span>
           ) : m.kind === "voice" ? (
-            <VoicePlayer id={m.id} src={m.localUrl ?? mediaUrl(m.roomId, m.id)} meta={m.meta} mine={mine} />
+            <VoicePlayer id={m.id} src={m.localUrl ?? mediaUrl(m.roomId, m.id)} meta={m.meta} mine={tinted} />
           ) : viewOnce ? (
-            <ViewOnceContent message={m} mine={mine} meId={meId} onOpen={() => onAction({ type: "open-view-once", message: m })} />
+            <ViewOnceContent message={m} mine={mine} tinted={tinted} meId={meId} onOpen={() => onAction({ type: "open-view-once", message: m })} />
           ) : m.kind === "image" ? (
             <ImageContent message={m} onOpen={(src) => onAction({ type: "open-image", message: m, src })} />
           ) : m.kind === "video" ? (
             <VideoContent message={m} />
           ) : m.kind === "file" ? (
-            <FileContent message={m} mine={mine} />
+            <FileContent message={m} mine={tinted} />
           ) : m.kind === "call" ? (
-            <CallContent message={m} mine={mine} onCallBack={(video) => onAction({ type: "call-back", video })} />
+            <CallContent message={m} mine={mine} tinted={tinted} onCallBack={(video) => onAction({ type: "call-back", video })} />
           ) : null}
 
           {!deleted && m.body && !viewOnce && (
-            <p className={`whitespace-pre-wrap ${visual ? "px-2.5 pt-1.5 pb-1" : ""}`}>{linkify(m.body, mine)}</p>
+            <p className={`whitespace-pre-wrap ${visual ? "px-2.5 pt-1.5 pb-1" : ""}`}>{linkify(m.body, tinted)}</p>
           )}
 
           {m.status === "pending" && isMedia && <UploadBadge progress={m.progress} />}
@@ -317,7 +326,17 @@ function FileContent({ message: m, mine }: { message: UiMessage; mine: boolean }
   );
 }
 
-function CallContent({ message: m, mine, onCallBack }: { message: UiMessage; mine: boolean; onCallBack: (video: boolean) => void }) {
+function CallContent({
+  message: m,
+  mine,
+  tinted,
+  onCallBack,
+}: {
+  message: UiMessage;
+  mine: boolean;
+  tinted: boolean;
+  onCallBack: (video: boolean) => void;
+}) {
   const call = m.meta?.call;
   const missed = call?.status === "missed" || call?.status === "declined";
   const Icon = call?.video ? VideoIcon : PhoneIcon;
@@ -331,14 +350,14 @@ function CallContent({ message: m, mine, onCallBack }: { message: UiMessage; min
     >
       <span
         className={`flex size-9 shrink-0 items-center justify-center rounded-full ${
-          mine ? "bg-current/15" : missed ? "bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400" : "bg-accent/15 text-accent-fg"
+          tinted ? "bg-current/15" : missed ? "bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400" : "bg-accent/15 text-accent-fg"
         }`}
       >
         <Icon className="size-4.5" />
       </span>
       <span>
         <span className="block text-sm font-medium">{mine ? label.replace("Missed", "Unanswered") : label}</span>
-        <span className={`text-xs ${mine ? "opacity-75" : "text-zinc-500 dark:text-zinc-400"}`}>Tap to call back</span>
+        <span className={`text-xs ${tinted ? "opacity-75" : "text-zinc-500 dark:text-zinc-400"}`}>Tap to call back</span>
       </span>
     </button>
   );
@@ -375,9 +394,11 @@ function ImageContent({ message: m, onOpen }: { message: UiMessage; onOpen: (src
 function ViewOnceContent({
   message: m,
   mine,
+  tinted,
   meId,
   onOpen,
 }: {
+  tinted: boolean;
   message: UiMessage;
   mine: boolean;
   meId: string;
@@ -397,14 +418,14 @@ function ViewOnceContent({
   }
   if (openedByMe) {
     return (
-      <span className="flex items-center gap-2 py-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+      <span className={`flex items-center gap-2 py-0.5 text-sm ${tinted ? "opacity-75" : "text-zinc-500 dark:text-zinc-400"}`}>
         <EyeIcon className="size-5" />
         Opened
       </span>
     );
   }
   return (
-    <button onClick={onOpen} className="flex items-center gap-2 py-0.5 text-sm font-medium text-accent-fg">
+    <button onClick={onOpen} className={`flex items-center gap-2 py-0.5 text-sm font-medium ${tinted ? "" : "text-accent-fg"}`}>
       <OnceIcon className="size-5" />
       Photo · Tap to view once
     </button>
