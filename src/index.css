@@ -236,3 +236,48 @@ body {
   -webkit-touch-callout: none;
   user-select: none;
 }
+
+/* ---------- Call screen ---------- */
+@keyframes call-ring {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+.call-ring {
+  animation: call-ring 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+.call-ring-delay {
+  animation-delay: 1.2s;
+}
+@keyframes call-glow {
+  0%, 100% { transform: translate(-10%, -6%) scale(1); }
+  50% { transform: translate(8%, 6%) scale(1.15); }
+}
+.call-glow {
+  animation: call-glow 14s ease-in-out infinite;
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+.slide-up {
+  animation: slide-up 220ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+@keyframes accept-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(16 185 129 / 0.55); }
+  60% { box-shadow: 0 0 0 18px rgb(16 185 129 / 0); }
+}
+.accept-pulse {
+  animation: accept-pulse 1.6s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .call-ring, .call-glow, .slide-up, .accept-pulse {
+    animation: none;
+  }
+}
+
+/* When a call is minimized, the app moves down to make room for the call bar (nothing gets covered). */
+.below-call-bar {
+  margin-top: var(--call-bar, 0px);
+  height: calc(100dvh - var(--call-bar, 0px));
+  transition: margin-top 200ms ease, height 200ms ease;
+}

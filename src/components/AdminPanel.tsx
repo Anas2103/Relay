@@ -19,7 +19,7 @@ export function AdminPanel({ me, onClose }: { me: User; onClose: () => void }) {
   }, [toast]);
 
   return (
-    <div className="flex h-dvh flex-col bg-zinc-50 dark:bg-zinc-950">
+    <div className="below-call-bar flex flex-col bg-zinc-50 dark:bg-zinc-950">
       <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 pt-4 md:px-6">
           <button

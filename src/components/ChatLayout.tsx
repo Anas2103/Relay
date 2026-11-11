@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CallInfo, ClientEvent, LobbyEvent, Me, Message, Room } from "../../shared/types";
+import type { CallInfo, ClientEvent, LobbyEvent, Me, Message, Room, Settings } from "../../shared/types";
 import { messagePreview } from "../../shared/types";
 import { api } from "../lib/api";
 import { calls } from "../lib/calls";
@@ -102,9 +102,25 @@ export function ChatLayout({
   const { status: lobbyStatus, send: lobbySend } = useLobbySocket(onLobbyEvent);
 
   // Calls use your noise suppression / echo cancellation settings.
+  // (Applies instantly to a call in progress, too.)
   useEffect(() => {
-    calls.voice = me.settings;
+    void calls.setVoice(me.settings);
   }, [me.settings]);
+
+  /** Voice settings changed from inside a call: save them like any other setting. */
+  const onVoiceChange = useCallback(
+    async (patch: Partial<Settings>) => {
+      const before = meRef.current;
+      onMeUpdated({ ...before, settings: { ...before.settings, ...patch } });
+      try {
+        const { user } = await api.account.update({ settings: patch });
+        onMeUpdated(user);
+      } catch {
+        onMeUpdated(before);
+      }
+    },
+    [onMeUpdated],
+  );
 
   // Calls use the app-wide socket for signaling, and log a record into the chat when they end.
   useEffect(() => {
@@ -177,7 +193,7 @@ export function ChatLayout({
   const [callPeerId, setCallPeerId] = useState<string | null>(null);
   useEffect(() => calls.subscribe(() => setCallPeerId(calls.getState().peerId)), []);
   const callPeer = rooms.find((r) => r.peer?.id === callPeerId)?.peer ?? null;
-  const callScreen = <CallScreen peer={callPeer} />;
+  const callScreen = <CallScreen peer={callPeer} voice={me.settings} onVoiceChange={onVoiceChange} />;
 
   if (adminOpen && me.role === "admin") {
     return (
@@ -189,7 +205,7 @@ export function ChatLayout({
   }
 
   return (
-    <div className="flex h-dvh overflow-hidden">
+    <div className="below-call-bar flex overflow-hidden">
       <div
         className={`w-full shrink-0 border-r border-zinc-200 md:block md:w-80 lg:w-96 dark:border-zinc-800 ${
           active ? "hidden" : "block"

@@ -355,6 +355,25 @@ export const ChevronDownIcon = (p: IconProps) => (
   </svg>
 );
 
+export const AudioLinesIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M2 10v3" />
+    <path d="M6 6v11" />
+    <path d="M10 3v18" />
+    <path d="M14 8v7" />
+    <path d="M18 5v13" />
+    <path d="M22 10v3" />
+  </svg>
+);
+export const MaximizeIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M15 3h6v6" />
+    <path d="M9 21H3v-6" />
+    <path d="m21 3-7 7" />
+    <path d="m3 21 7-7" />
+  </svg>
+);
+
 /** ✓ sent / ✓✓ read */
 export function Ticks({ read, className = "" }: { read: boolean; className?: string }) {
   return (

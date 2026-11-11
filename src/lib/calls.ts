@@ -1,6 +1,6 @@
 import type { CallEnvelope, CallInfo, CallSignal, IceCandidate, LobbyEvent } from "../../shared/types";
 import { api } from "./api";
-import { createAudioContext, micConstraints, processMic, type ProcessedMic, type VoiceSettings } from "./audio";
+import { createAudioContext, micConstraints, processMic, type AiEngine, type ProcessedMic, type VoiceSettings } from "./audio";
 import { canUseDevices, deviceProblem, type DeviceProblem } from "./media";
 import { startTone } from "./sound";
 
@@ -29,6 +29,9 @@ export interface CallState {
   endReason: string | null;
   /** Couldn't start the mic/camera. */
   problem: DeviceProblem | null;
+  /** Noise suppression actually running right now (AI can fall back to standard). */
+  voiceMode: VoiceSettings["noiseSuppression"] | null;
+  voiceEngine: AiEngine | null;
 }
 
 const IDLE: CallState = {
@@ -49,6 +52,8 @@ const IDLE: CallState = {
   reconnecting: false,
   endReason: null,
   problem: null,
+  voiceMode: null,
+  voiceEngine: null,
 };
 
 const RING_TIMEOUT_MS = 45_000;
@@ -101,6 +106,7 @@ class CallManager {
     this.audioCtx.resume().catch(() => {});
     this.rawMic = await raw;
     this.processedMic = await processMic(this.rawMic, this.voice, this.audioCtx);
+    this.set({ voiceMode: this.processedMic.mode, voiceEngine: this.processedMic.engine ?? null });
     return this.processedMic.stream;
   }
 
@@ -321,6 +327,39 @@ class CallManager {
   }
 
   // ---- in-call controls ----
+
+/**
+   * Changes noise suppression / echo / gain / gate in the middle of a call.
+   * Rebuilds the audio processing and swaps the outgoing track in place —
+   * no renegotiation, no dropped call.
+   */
+  async setVoice(next: VoiceSettings) {
+    const pick = (v: VoiceSettings): VoiceSettings => ({
+      noiseSuppression: v.noiseSuppression,
+      echoCancellation: v.echoCancellation,
+      autoGainControl: v.autoGainControl,
+      noiseGate: v.noiseGate,
+    });
+    const changed = JSON.stringify(pick(next)) !== JSON.stringify(pick(this.voice));
+    this.voice = pick(next);
+    const rawAudio = this.rawMic?.getAudioTracks()[0];
+    if (!changed || !rawAudio || !this.audioCtx) return;
+
+    await rawAudio.applyConstraints(micConstraints(this.voice)).catch(() => {});
+    const previous = this.processedMic;
+    const processed = await processMic(new MediaStream([rawAudio]), this.voice, this.audioCtx);
+    const track = processed.stream.getAudioTracks()[0];
+    track.enabled = this.state.micOn;
+    await this.pc?.getSenders().find((s) => s.track?.kind === "audio")?.replaceTrack(track).catch(() => {});
+    if (previous && previous.stream.getAudioTracks()[0] !== track) previous.dispose();
+    this.processedMic = processed;
+    const video = this.state.localStream?.getVideoTracks() ?? [];
+    this.set({
+      localStream: new MediaStream([track, ...video]),
+      voiceMode: processed.mode,
+      voiceEngine: processed.engine ?? null,
+    });
+  }
 
   toggleMic() {
     const track = this.state.localStream?.getAudioTracks()[0];
