@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { LIMITS, type User } from "../../shared/types";
+import { LIMITS, type Me } from "../../shared/types";
 import { api, ApiError } from "../lib/api";
 import { AlertIcon, Logo, Spinner } from "./ui";
 
@@ -10,7 +10,7 @@ const inputClass =
   "placeholder:text-zinc-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 " +
   "dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-indigo-400";
 
-export function AuthScreen({ onAuthed }: { onAuthed: (user: User) => void }) {
+export function AuthScreen({ onAuthed }: { onAuthed: (user: Me) => void }) {
   const [mode, setMode] = useState<Mode>("login");
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");

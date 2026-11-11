@@ -22,10 +22,18 @@
 
   // One Durable Object per chat room holds that room's live WebSocket connections.
   // SQLite-backed classes are available on the free plan.
+  // ChatRoom: one per conversation (live chat + that chat's photos and voice notes).
+  // Lobby: one for the whole app (online status, sidebar updates).
   "durable_objects": {
-    "bindings": [{ "name": "CHAT_ROOM", "class_name": "ChatRoom" }]
+    "bindings": [
+      { "name": "CHAT_ROOM", "class_name": "ChatRoom" },
+      { "name": "LOBBY", "class_name": "Lobby" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ChatRoom"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["ChatRoom"] },
+    { "tag": "v2", "new_sqlite_classes": ["Lobby"] }
+  ],
 
   "observability": { "enabled": true }
 }

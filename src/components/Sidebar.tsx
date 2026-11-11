@@ -1,32 +1,39 @@
-import { useEffect, useState } from "react";
-import type { Room, User } from "../../shared/types";
+import { memo, useEffect, useState } from "react";
+import type { Me, Room, User } from "../../shared/types";
 import { api, ApiError } from "../lib/api";
 import { formatListTime } from "../lib/format";
-import { roomTitle } from "./ChatLayout";
+import { roomTitle, type PresenceMap } from "./ChatLayout";
 import { Avatar, LogoutIcon, Logo, SearchIcon, SettingsIcon, ShieldIcon, Spinner, XIcon } from "./ui";
 
 interface Props {
-  me: User;
+  me: Me;
   rooms: Room[];
   loaded: boolean;
   activeId: string | null;
+  presence: PresenceMap;
+  connected: boolean;
   onSelect: (id: string) => void;
   onOpenDm: (username: string) => Promise<void>;
   onLogout: () => void;
   onOpenAdmin?: () => void;
-  onOpenAccount: () => void;
+  onOpenSettings: () => void;
 }
+
+const iconButton =
+  "rounded-lg p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100";
 
 export function Sidebar({
   me,
   rooms,
   loaded,
   activeId,
+  presence,
+  connected,
   onSelect,
   onOpenDm,
   onLogout,
   onOpenAdmin,
-  onOpenAccount,
+  onOpenSettings,
 }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<User[]>([]);
@@ -77,24 +84,22 @@ export function Sidebar({
         <div className="flex items-center gap-2.5">
           <Logo size={28} />
           <span className="text-lg font-semibold tracking-tight">Relay</span>
+          {!connected && loaded && (
+            <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400" role="status">
+              <Spinner className="size-3" /> Connecting
+            </span>
+          )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           {onOpenAdmin && (
-            <button
-              onClick={onOpenAdmin}
-              className="rounded-lg p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-indigo-600 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-indigo-400"
-              title="Admin panel"
-              aria-label="Admin panel"
-            >
+            <button onClick={onOpenAdmin} className={iconButton} title="Admin panel" aria-label="Admin panel">
               <ShieldIcon className="size-5" />
             </button>
           )}
-          <button
-            onClick={onLogout}
-            className="rounded-lg p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-            title="Sign out"
-            aria-label="Sign out"
-          >
+          <button onClick={onOpenSettings} className={iconButton} title="Settings" aria-label="Settings">
+            <SettingsIcon className="size-5" />
+          </button>
+          <button onClick={onLogout} className={iconButton} title="Sign out" aria-label="Sign out">
             <LogoutIcon className="size-5" />
           </button>
         </div>
@@ -108,7 +113,7 @@ export function Sidebar({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Find a friend by username"
             aria-label="Search users"
-            className="w-full rounded-xl bg-zinc-100 py-2.5 pr-9 pl-9 text-sm outline-none transition placeholder:text-zinc-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/40 dark:bg-zinc-800 dark:focus:bg-zinc-800"
+            className="w-full rounded-xl bg-zinc-100 py-2.5 pr-9 pl-9 text-sm outline-none transition placeholder:text-zinc-400 focus:bg-white focus:ring-2 focus:ring-bubble/40 dark:bg-zinc-800 dark:focus:bg-zinc-800"
           />
           {query && (
             <button
@@ -128,12 +133,7 @@ export function Sidebar({
 
       <nav className="flex-1 overflow-y-auto px-2 pb-2">
         {q ? (
-          <SearchResults
-            results={results}
-            searching={searching}
-            opening={opening}
-            onPick={startChat}
-          />
+          <SearchResults results={results} searching={searching} opening={opening} onPick={startChat} />
         ) : !loaded ? (
           <RoomSkeleton />
         ) : rooms.length === 0 ? (
@@ -146,7 +146,13 @@ export function Sidebar({
           <ul className="space-y-0.5">
             {rooms.map((room) => (
               <li key={room.id}>
-                <RoomItem room={room} me={me} active={room.id === activeId} onClick={() => onSelect(room.id)} />
+                <RoomItem
+                  room={room}
+                  meId={me.id}
+                  active={room.id === activeId}
+                  online={!!(room.peer && presence[room.peer.id]?.online)}
+                  onSelect={onSelect}
+                />
               </li>
             ))}
           </ul>
@@ -155,49 +161,83 @@ export function Sidebar({
 
       <footer className="border-t border-zinc-200 p-2 dark:border-zinc-800">
         <button
-          onClick={onOpenAccount}
+          onClick={onOpenSettings}
           className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-zinc-100 dark:hover:bg-zinc-800/70"
-          title="Account settings"
+          title="Profile & settings"
         >
-          <Avatar name={me.displayName} seed={me.id} size="sm" />
+          <Avatar name={me.displayName} seed={me.id} size="sm" user={me} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{me.displayName}</p>
             <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">@{me.username}</p>
           </div>
-          <SettingsIcon className="size-4.5 shrink-0 text-zinc-400" />
         </button>
       </footer>
     </aside>
   );
 }
 
-function RoomItem({ room, me, active, onClick }: { room: Room; me: User; active: boolean; onClick: () => void }) {
+const RoomItem = memo(function RoomItem({
+  room,
+  meId,
+  active,
+  online,
+  onSelect,
+}: {
+  room: Room;
+  meId: string;
+  active: boolean;
+  online: boolean;
+  onSelect: (id: string) => void;
+}) {
   const title = roomTitle(room);
   const last = room.lastMessage;
-  const preview = last ? `${last.userId === me.id ? "You: " : ""}${last.body}` : "No messages yet";
+  const unread = room.unreadCount > 0 && !active;
+  const preview = last ? `${last.userId === meId ? "You: " : ""}${last.preview}` : "No messages yet";
   return (
     <button
-      onClick={onClick}
+      onClick={() => onSelect(room.id)}
       aria-current={active ? "page" : undefined}
-      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
-        active ? "bg-indigo-50 dark:bg-indigo-950/50" : "hover:bg-zinc-100 dark:hover:bg-zinc-800/70"
+      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+        active ? "bg-bubble/10 dark:bg-bubble/20" : "hover:bg-zinc-100 dark:hover:bg-zinc-800/70"
       }`}
     >
-      <Avatar name={title} seed={room.peer?.id ?? room.id} />
+      <Avatar name={title} seed={room.peer?.id ?? room.id} user={room.peer} online={online} />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <p className="truncate text-sm font-medium">{title}</p>
+          <p className={`truncate text-sm ${unread ? "font-semibold" : "font-medium"}`}>{title}</p>
           {last && (
-            <span className="shrink-0 text-xs text-zinc-400 tabular-nums">{formatListTime(last.createdAt)}</span>
+            <span
+              className={`shrink-0 text-xs tabular-nums ${unread ? "font-semibold text-bubble-fg" : "text-zinc-400"}`}
+            >
+              {formatListTime(last.createdAt)}
+            </span>
           )}
         </div>
-        <p className={`truncate text-sm ${last ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-400 italic"}`}>
-          {preview}
-        </p>
+        <div className="flex items-center gap-2">
+          <p
+            className={`min-w-0 flex-1 truncate text-sm ${
+              unread
+                ? "font-medium text-zinc-800 dark:text-zinc-200"
+                : last
+                  ? "text-zinc-500 dark:text-zinc-400"
+                  : "text-zinc-400 italic"
+            }`}
+          >
+            {preview}
+          </p>
+          {unread && (
+            <span
+              className="pop-in flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-bubble px-1.5 text-[11px] font-semibold text-white tabular-nums"
+              aria-label={`${room.unreadCount} unread`}
+            >
+              {room.unreadCount > 99 ? "99+" : room.unreadCount}
+            </span>
+          )}
+        </div>
       </div>
     </button>
   );
-}
+});
 
 function SearchResults({
   results,
@@ -231,7 +271,7 @@ function SearchResults({
               disabled={opening !== null}
               className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-zinc-100 disabled:opacity-60 dark:hover:bg-zinc-800/70"
             >
-              <Avatar name={u.displayName} seed={u.id} />
+              <Avatar name={u.displayName} seed={u.id} user={u} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{u.displayName}</p>
                 <p className="truncate text-sm text-zinc-500 dark:text-zinc-400">@{u.username}</p>

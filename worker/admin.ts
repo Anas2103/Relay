@@ -1,6 +1,6 @@
 import type { AdminStats, AdminUser, AdminUserUpdate, AuditEntry, Role, User } from "../shared/types";
 import { hashPassword, requireAdmin } from "./auth";
-import type { Env } from "./env";
+import { lobby, room, type Env } from "./env";
 import { HttpError, json, readJson } from "./http";
 import { isUniqueViolation, validDisplayName, validPassword, validUsername } from "./validate";
 
@@ -106,9 +106,10 @@ async function revokeAccess(env: Env, userId: string): Promise<void> {
   const { results } = await env.DB.prepare("SELECT room_id FROM room_members WHERE user_id = ?1")
     .bind(userId)
     .all<{ room_id: string }>();
-  await Promise.all(
-    results.map((r) => env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName(r.room_id)).kick(userId).catch(() => 0)),
-  );
+  await Promise.all([
+    ...results.map((r) => room(env, r.room_id).kick(userId).catch(() => 0)),
+    lobby(env).kick(userId).catch(() => undefined),
+  ]);
 }
 
 // ---------- Handlers ----------
@@ -265,6 +266,15 @@ async function deleteUser(env: Env, admin: User, id: string): Promise<Response> 
   }
 
   await revokeAccess(env, id);
+
+  const { results: dms } = await env.DB.prepare(
+    `SELECT r.id, (SELECT user_id FROM room_members WHERE room_id = r.id AND user_id != ?1 LIMIT 1) AS other_id
+       FROM rooms r JOIN room_members m ON m.room_id = r.id
+      WHERE r.type = 'dm' AND m.user_id = ?1`,
+  )
+    .bind(id)
+    .all<{ id: string; other_id: string | null }>();
+
   // DMs involving this user are removed entirely (cascades to their members and messages).
   // Their messages in group chats are removed too, then the account itself.
   await env.DB.batch([
@@ -274,6 +284,11 @@ async function deleteUser(env: Env, admin: User, id: string): Promise<Response> 
     env.DB.prepare("DELETE FROM messages WHERE user_id = ?1").bind(id),
     env.DB.prepare("DELETE FROM users WHERE id = ?1").bind(id),
   ]);
+
+  // Remove the deleted DMs' photos/voice notes and refresh the other person's sidebar.
+  await Promise.all(dms.map((d) => room(env, d.id).wipeMedia().catch(() => undefined)));
+  const others = dms.map((d) => d.other_id).filter((x): x is string => !!x);
+  if (others.length) await lobby(env).notify(others, { type: "rooms-changed" });
 
   await audit(env, admin, "user.delete", target, `${target.messageCount} messages removed`);
   return json({ ok: true });

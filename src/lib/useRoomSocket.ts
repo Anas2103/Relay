@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ClientEvent, ServerEvent } from "../../shared/types";
+import type { ClientEvent, LobbyEvent, ServerEvent } from "../../shared/types";
 import { UNAUTHORIZED_EVENT } from "./api";
 
 export type SocketStatus = "connecting" | "open" | "reconnecting";
-export type SocketEvent = ServerEvent | { type: "connected" };
+
+const PING_MS = 25_000;
 
 /**
- * Keeps one WebSocket open to a room, reconnecting with exponential backoff.
- * Emits a synthetic "connected" event on every (re)connect so the caller can
- * catch up on anything missed while offline.
+ * Keeps one WebSocket open, reconnecting with exponential backoff and sending
+ * keep-alive pings (mobile networks silently drop idle connections). Emits a
+ * synthetic "connected" event on every (re)connect so the caller can catch up.
  */
-export function useRoomSocket(roomId: string, onEvent: (event: SocketEvent) => void) {
+function useSocket<E>(path: string, onEvent: (event: E | { type: "connected" }) => void) {
   const [status, setStatus] = useState<SocketStatus>("connecting");
   const wsRef = useRef<WebSocket | null>(null);
   const handlerRef = useRef(onEvent);
@@ -23,18 +24,22 @@ export function useRoomSocket(roomId: string, onEvent: (event: SocketEvent) => v
     let stopped = false;
     let attempt = 0;
     let timer: number | undefined;
+    let ping: number | undefined;
 
     const connect = () => {
       const proto = location.protocol === "https:" ? "wss" : "ws";
-      const ws = new WebSocket(`${proto}://${location.host}/api/rooms/${roomId}/ws`);
+      const ws = new WebSocket(`${proto}://${location.host}${path}`);
       wsRef.current = ws;
 
       ws.onopen = () => {
         attempt = 0;
         setStatus("open");
         handlerRef.current({ type: "connected" });
+        window.clearInterval(ping);
+        ping = window.setInterval(() => ws.readyState === WebSocket.OPEN && ws.send("ping"), PING_MS);
       };
       ws.onmessage = (ev) => {
+        if (ev.data === "pong") return;
         try {
           handlerRef.current(JSON.parse(ev.data));
         } catch {
@@ -42,6 +47,7 @@ export function useRoomSocket(roomId: string, onEvent: (event: SocketEvent) => v
         }
       };
       ws.onclose = (ev) => {
+        window.clearInterval(ping);
         if (wsRef.current === ws) wsRef.current = null;
         if (stopped) return;
         if (ev.code === 4001) {
@@ -58,26 +64,30 @@ export function useRoomSocket(roomId: string, onEvent: (event: SocketEvent) => v
     setStatus("connecting");
     connect();
 
-    // Reconnect immediately when the tab comes back online.
-    const onOnline = () => {
-      if (!wsRef.current) {
+    // Reconnect immediately when the device comes back online or the tab wakes up.
+    const reconnectNow = () => {
+      if (!wsRef.current && !stopped) {
         window.clearTimeout(timer);
         attempt = 0;
         connect();
       }
     };
-    window.addEventListener("online", onOnline);
+    const onVisible = () => document.visibilityState === "visible" && reconnectNow();
+    window.addEventListener("online", reconnectNow);
+    document.addEventListener("visibilitychange", onVisible);
 
     return () => {
       stopped = true;
       window.clearTimeout(timer);
-      window.removeEventListener("online", onOnline);
+      window.clearInterval(ping);
+      window.removeEventListener("online", reconnectNow);
+      document.removeEventListener("visibilitychange", onVisible);
       wsRef.current?.close();
       wsRef.current = null;
     };
-  }, [roomId]);
+  }, [path]);
 
-  const send = useCallback((event: ClientEvent): boolean => {
+  const send = useCallback((event: unknown): boolean => {
     const ws = wsRef.current;
     if (ws?.readyState !== WebSocket.OPEN) return false;
     ws.send(JSON.stringify(event));
@@ -85,4 +95,15 @@ export function useRoomSocket(roomId: string, onEvent: (event: SocketEvent) => v
   }, []);
 
   return { status, send };
+}
+
+export type SocketEvent = ServerEvent | { type: "connected" };
+
+export function useRoomSocket(roomId: string, onEvent: (event: SocketEvent) => void) {
+  const { status, send } = useSocket<ServerEvent>(`/api/rooms/${roomId}/ws`, onEvent);
+  return { status, send: send as (event: ClientEvent) => boolean };
+}
+
+export function useLobbySocket(onEvent: (event: LobbyEvent | { type: "connected" }) => void) {
+  return useSocket<LobbyEvent>("/api/lobby", onEvent).status;
 }

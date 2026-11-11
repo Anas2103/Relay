@@ -1,4 +1,6 @@
-import type { SVGProps } from "react";
+import { useState, type SVGProps } from "react";
+import type { User } from "../../shared/types";
+import { avatarUrl } from "../lib/api";
 
 export function Logo({ size = 32 }: { size?: number }) {
   return (
@@ -42,27 +44,50 @@ export function Avatar({
   seed,
   size = "md",
   online,
+  user,
 }: {
   name: string;
   seed: string;
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   online?: boolean;
+  /** When given and the user has a picture, it's shown instead of initials. */
+  user?: Pick<User, "id" | "avatarVersion"> | null;
 }) {
-  const dims = { sm: "size-8 text-xs", md: "size-10 text-sm", lg: "size-12 text-base" }[size];
+  const dims = {
+    xs: "size-6 text-[10px]",
+    sm: "size-8 text-xs",
+    md: "size-10 text-sm",
+    lg: "size-12 text-base",
+    xl: "size-24 text-3xl",
+  }[size];
+  const dot = { xs: "size-2", sm: "size-2.5", md: "size-3", lg: "size-3.5", xl: "size-5" }[size];
+  const src = user ? avatarUrl(user) : null;
+  const [failed, setFailed] = useState<string | null>(null);
+
   return (
     <span className="relative inline-flex shrink-0">
-      <span
-        className={`${dims} ${colorFor(seed)} inline-flex items-center justify-center rounded-full font-semibold text-white select-none`}
-        aria-hidden="true"
-      >
-        {initials(name)}
-      </span>
-      {online !== undefined && (
+      {src && failed !== src ? (
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          onError={() => setFailed(src)}
+          className={`${dims} rounded-full bg-zinc-200 object-cover dark:bg-zinc-800`}
+        />
+      ) : (
         <span
-          className={`absolute right-0 bottom-0 size-3 rounded-full ring-2 ring-white dark:ring-zinc-900 ${
-            online ? "bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-600"
-          }`}
-          aria-label={online ? "Online" : "Offline"}
+          className={`${dims} ${colorFor(seed)} inline-flex items-center justify-center rounded-full font-semibold text-white select-none`}
+          aria-hidden="true"
+        >
+          {initials(name)}
+        </span>
+      )}
+      {online && (
+        <span
+          className={`absolute right-0 bottom-0 ${dot} rounded-full bg-emerald-500 ring-2 ring-white dark:ring-zinc-900`}
+          aria-label="Online"
         />
       )}
     </span>
@@ -153,6 +178,118 @@ export const SettingsIcon = (p: IconProps) => (
     <circle cx="12" cy="12" r="3" />
   </svg>
 );
+export const MicIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect x="9" y="2" width="6" height="12" rx="3" />
+    <path d="M19 10v1a7 7 0 0 1-14 0v-1" />
+    <path d="M12 18v4" />
+  </svg>
+);
+export const ImageIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <circle cx="9" cy="9" r="2" />
+    <path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
+  </svg>
+);
+export const PlayIcon = (p: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...p}>
+    <path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11.04-6.86a1 1 0 0 0 0-1.72L9.5 4.28A1 1 0 0 0 8 5.14z" />
+  </svg>
+);
+export const PauseIcon = (p: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...p}>
+    <rect x="6" y="4" width="4" height="16" rx="1" />
+    <rect x="14" y="4" width="4" height="16" rx="1" />
+  </svg>
+);
+export const TrashIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M3 6h18" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+  </svg>
+);
+export const ReplyIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M9 17 4 12l5-5" />
+    <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+  </svg>
+);
+export const EditIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+  </svg>
+);
+export const CopyIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect x="9" y="9" width="13" height="13" rx="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+);
+export const SmileIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+    <path d="M9 9h.01" />
+    <path d="M15 9h.01" />
+  </svg>
+);
+export const OnceIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <circle cx="12" cy="12" r="10" strokeDasharray="4 3" />
+    <path d="M11 9l2-1v8" />
+  </svg>
+);
+export const EyeIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+export const CameraIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z" />
+    <circle cx="12" cy="13" r="3" />
+  </svg>
+);
+export const SunIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+  </svg>
+);
+export const MoonIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z" />
+  </svg>
+);
+export const MonitorIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect x="2" y="3" width="20" height="14" rx="2" />
+    <path d="M8 21h8M12 17v4" />
+  </svg>
+);
+export const ArrowDownIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M12 5v14" />
+    <path d="m19 12-7 7-7-7" />
+  </svg>
+);
+
+/** ✓ sent / ✓✓ read */
+export function Ticks({ read, className = "" }: { read: boolean; className?: string }) {
+  return (
+    <svg viewBox="0 0 20 12" className={`h-3 w-4 ${className}`} fill="none" aria-label={read ? "Read" : "Sent"}>
+      <path d="M1 6.5 4.5 10 11 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      {read && (
+        <path d="M8.5 9.2 9.3 10 15.8 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      )}
+    </svg>
+  );
+}
+
 export const XIcon = (p: IconProps) => (
   <svg {...base} {...p}>
     <path d="M18 6 6 18" />

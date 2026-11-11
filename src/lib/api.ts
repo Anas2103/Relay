@@ -3,9 +3,12 @@ import type {
   AdminUser,
   AdminUserUpdate,
   AuditEntry,
+  Me,
   Message,
+  Profile,
   Role,
   Room,
+  Settings,
   User,
 } from "../../shared/types";
 
@@ -21,16 +24,25 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  options: { method?: string; body?: unknown; raw?: Blob; signal?: AbortSignal } = {},
+): Promise<T> {
   let res: Response;
   try {
     res = await fetch(path, {
       method: options.method ?? "GET",
-      headers: options.body !== undefined ? { "Content-Type": "application/json" } : undefined,
-      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      headers: options.raw
+        ? { "Content-Type": options.raw.type || "application/octet-stream" }
+        : options.body !== undefined
+          ? { "Content-Type": "application/json" }
+          : undefined,
+      body: options.raw ?? (options.body !== undefined ? JSON.stringify(options.body) : undefined),
       credentials: "same-origin",
+      signal: options.signal,
     });
-  } catch {
+  } catch (err) {
+    if ((err as Error).name === "AbortError") throw err;
     throw new ApiError(0, "Can't reach the server. Check your connection.");
   }
   const data = await res.json().catch(() => ({}));
@@ -41,24 +53,51 @@ async function request<T>(path: string, options: { method?: string; body?: unkno
   return data as T;
 }
 
+export function avatarUrl(user: Pick<User, "id" | "avatarVersion">): string | null {
+  return user.avatarVersion ? `/api/users/${user.id}/avatar?v=${user.avatarVersion}` : null;
+}
+
+export function mediaUrl(roomId: string, messageId: string): string {
+  return `/api/rooms/${roomId}/messages/${messageId}/media`;
+}
+
+/** Fetches a file as a Blob, surfacing API errors (e.g. "already opened"). */
+export async function fetchMedia(url: string): Promise<Blob> {
+  const res = await fetch(url, { credentials: "same-origin" });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, data.error ?? "Couldn't load this file.");
+  }
+  return res.blob();
+}
+
 export const api = {
-  me: () => request<{ user: User }>("/api/me"),
+  me: () => request<{ user: Me }>("/api/me"),
   register: (username: string, password: string, displayName: string) =>
-    request<{ user: User }>("/api/auth/register", { method: "POST", body: { username, password, displayName } }),
+    request<{ user: Me }>("/api/auth/register", { method: "POST", body: { username, password, displayName } }),
   login: (username: string, password: string) =>
-    request<{ user: User }>("/api/auth/login", { method: "POST", body: { username, password } }),
+    request<{ user: Me }>("/api/auth/login", { method: "POST", body: { username, password } }),
   logout: () => request<{ ok: true }>("/api/auth/logout", { method: "POST", body: {} }),
+
   searchUsers: (q: string) => request<{ users: User[] }>(`/api/users/search?q=${encodeURIComponent(q)}`),
+  profile: (id: string) => request<{ profile: Profile }>(`/api/users/${id}`),
+
   rooms: () => request<{ rooms: Room[] }>("/api/rooms"),
   openDm: (username: string) => request<{ room: Room }>("/api/rooms/dm", { method: "POST", body: { username } }),
   messages: (roomId: string, before?: { createdAt: number; id: string }) => {
     const qs = before ? `?before=${before.createdAt}&beforeId=${encodeURIComponent(before.id)}` : "";
-    return request<{ messages: Message[]; hasMore: boolean }>(`/api/rooms/${roomId}/messages${qs}`);
+    return request<{ messages: Message[]; hasMore: boolean; readState: Record<string, number> }>(
+      `/api/rooms/${roomId}/messages${qs}`,
+    );
   },
+  uploadMedia: (roomId: string, kind: "image" | "voice", file: Blob, signal?: AbortSignal) =>
+    request<{ mediaId: string }>(`/api/rooms/${roomId}/media?kind=${kind}`, { method: "POST", raw: file, signal }),
 
   account: {
-    updateProfile: (displayName: string) =>
-      request<{ user: User }>("/api/account", { method: "PATCH", body: { displayName } }),
+    update: (data: { displayName?: string; bio?: string; settings?: Partial<Settings> }) =>
+      request<{ user: Me }>("/api/account", { method: "PATCH", body: data }),
+    uploadAvatar: (file: Blob) => request<{ user: Me }>("/api/account/avatar", { method: "PUT", raw: file }),
+    removeAvatar: () => request<{ user: Me }>("/api/account/avatar", { method: "DELETE", body: {} }),
     changePassword: (currentPassword: string, newPassword: string) =>
       request<{ ok: true }>("/api/account/password", { method: "POST", body: { currentPassword, newPassword } }),
   },

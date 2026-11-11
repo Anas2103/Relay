@@ -1,4 +1,4 @@
-import type { Role, User } from "../shared/types";
+import { BUBBLE_COLORS, DEFAULT_SETTINGS, type Me, type Role, type Settings, type User } from "../shared/types";
 import type { Env } from "./env";
 import { HttpError } from "./http";
 
@@ -104,13 +104,63 @@ export async function getSessionUser(request: Request, env: Env): Promise<User |
   const token = readCookie(request, SESSION_COOKIE);
   if (!token) return null;
   const row = await env.DB.prepare(
-    `SELECT u.id, u.username, u.display_name, u.role
+    `SELECT u.id, u.username, u.display_name, u.role, u.avatar_version
        FROM sessions s JOIN users u ON u.id = s.user_id
       WHERE s.token_hash = ?1 AND s.expires_at > ?2 AND u.suspended_at IS NULL`,
   )
     .bind(await sha256Hex(token), Date.now())
-    .first<{ id: string; username: string; display_name: string; role: Role }>();
-  return row ? { id: row.id, username: row.username, displayName: row.display_name, role: row.role } : null;
+    .first<{ id: string; username: string; display_name: string; role: Role; avatar_version: number | null }>();
+  return row
+    ? {
+        id: row.id,
+        username: row.username,
+        displayName: row.display_name,
+        role: row.role,
+        avatarVersion: row.avatar_version,
+      }
+    : null;
+}
+
+/** The signed-in user's full profile including private settings. */
+export async function loadMe(env: Env, userId: string): Promise<Me> {
+  const row = await env.DB.prepare(
+    "SELECT id, username, display_name, role, avatar_version, bio, settings FROM users WHERE id = ?1",
+  )
+    .bind(userId)
+    .first<{
+      id: string;
+      username: string;
+      display_name: string;
+      role: Role;
+      avatar_version: number | null;
+      bio: string;
+      settings: string;
+    }>();
+  if (!row) throw new HttpError(401, "Please sign in.");
+  return {
+    id: row.id,
+    username: row.username,
+    displayName: row.display_name,
+    role: row.role,
+    avatarVersion: row.avatar_version,
+    bio: row.bio,
+    settings: parseSettings(row.settings),
+  };
+}
+
+export function parseSettings(raw: string | null): Settings {
+  let parsed: Partial<Settings> = {};
+  try {
+    parsed = JSON.parse(raw ?? "{}");
+  } catch {
+    // fall back to defaults
+  }
+  return {
+    theme: parsed.theme === "light" || parsed.theme === "dark" ? parsed.theme : "system",
+    bubbleColor: parsed.bubbleColor && parsed.bubbleColor in BUBBLE_COLORS ? parsed.bubbleColor : DEFAULT_SETTINGS.bubbleColor,
+    sounds: typeof parsed.sounds === "boolean" ? parsed.sounds : DEFAULT_SETTINGS.sounds,
+    notifications: typeof parsed.notifications === "boolean" ? parsed.notifications : DEFAULT_SETTINGS.notifications,
+  };
 }
 
 export async function requireUser(request: Request, env: Env): Promise<User> {
