@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { CALL_SIGNAL_TYPES, type CallEnvelope, type LobbyEvent } from "../shared/types";
+import { CALL_REACTIONS, CALL_SIGNAL_TYPES, type CallEnvelope, type LobbyEvent } from "../shared/types";
 import type { Env } from "./env";
 
 interface LobbyAttachment {
@@ -76,7 +76,8 @@ export class Lobby extends DurableObject<Env> {
       typeof callId !== "string" ||
       callId.length > 64 ||
       !signal ||
-      !(CALL_SIGNAL_TYPES as readonly string[]).includes(signal.type)
+      !(CALL_SIGNAL_TYPES as readonly string[]).includes(signal.type) ||
+      (signal.type === "reaction" && !(CALL_REACTIONS as readonly string[]).includes(signal.emoji))
     ) {
       return;
     }

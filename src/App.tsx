@@ -10,11 +10,13 @@ import { clearAllDrafts } from "./lib/drafts";
 import { clearPasscode, LOCK_EVENT, passcodeFor } from "./lib/passcode";
 import { disablePush, registerServiceWorker } from "./lib/pwa";
 import { applyAppearance } from "./lib/theme";
+import { useUpdateAvailable } from "./lib/update";
 
 export default function App() {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
   const [locked, setLocked] = useState(false);
+  const updateAvailable = useUpdateAvailable();
 
   const updateMe = useCallback((next: Me) => {
     setMe(next);
@@ -103,6 +105,31 @@ export default function App() {
         <ChatLayout me={me} onMeUpdated={updateMe} onLogout={logout} />
       </div>
       {locked && <LockScreen onUnlock={() => setLocked(false)} onForgot={logout} />}
+      {updateAvailable && !locked && <UpdateBanner />}
     </>
+  );
+}
+
+/** A new version was deployed while this tab stayed open. */
+function UpdateBanner() {
+  const [hidden, setHidden] = useState(false);
+  if (hidden) return null;
+  return (
+    <div
+      role="status"
+      className="pop-in fixed inset-x-0 z-[60] mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-3 rounded-full bg-zinc-900 py-1.5 pr-1.5 pl-4 text-sm text-white shadow-2xl ring-1 ring-white/10 dark:bg-zinc-100 dark:text-zinc-900"
+      style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}
+    >
+      <span className="min-w-0 truncate">✨ Relay was updated</span>
+      <button
+        onClick={() => location.reload()}
+        className="shrink-0 rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-ink hover:opacity-90"
+      >
+        Reload
+      </button>
+      <button onClick={() => setHidden(true)} aria-label="Later" className="shrink-0 rounded-full px-2 py-1 text-xs opacity-70 hover:opacity-100">
+        Later
+      </button>
+    </div>
   );
 }

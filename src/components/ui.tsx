@@ -383,6 +383,34 @@ export const MaximizeIcon = (p: IconProps) => (
   </svg>
 );
 
+export const MinimizeIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M4 14h6v6" />
+    <path d="M20 10h-6V4" />
+    <path d="m14 10 7-7" />
+    <path d="m3 21 7-7" />
+  </svg>
+);
+export const ScreenShareIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M13 3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3" />
+    <path d="M8 21h8M12 17v4" />
+    <path d="m17 8 5-5M17 3h5v5" />
+  </svg>
+);
+export const PipIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+    <rect x="12" y="12" width="7" height="5" rx="1" />
+  </svg>
+);
+export const VolumeIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M11 5 6 9H2v6h4l5 4z" />
+    <path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14" />
+  </svg>
+);
+
 /** ✓ sent / ✓✓ read */
 export function Ticks({ read, className = "" }: { read: boolean; className?: string }) {
   return (

@@ -375,7 +375,17 @@ export function ChatLayout({
   const [callPeerId, setCallPeerId] = useState<string | null>(null);
   useEffect(() => calls.subscribe(() => setCallPeerId(calls.getState().peerId)), []);
   const callPeer = rooms.find((r) => r.peer?.id === callPeerId)?.peer ?? null;
-  const callScreen = <CallScreen peer={callPeer} voice={me.settings} onVoiceChange={onVoiceChange} />;
+  const callScreen = (
+    <CallScreen
+      peer={callPeer}
+      voice={me.settings}
+      onVoiceChange={onVoiceChange}
+      onOpenChat={(id) => {
+        setAdminOpen(false);
+        selectRoom(id);
+      }}
+    />
+  );
 
   // Maintenance mode: everyone but admins waits.
   if (lockedOut) {

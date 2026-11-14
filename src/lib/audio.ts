@@ -6,6 +6,7 @@ import rnnoiseWasmUrl from "@sapphi-red/web-noise-suppressor/rnnoise.wasm?url";
 import rnnoiseSimdWasmUrl from "@sapphi-red/web-noise-suppressor/rnnoise_simd.wasm?url";
 import rnnoiseWorkletUrl from "@sapphi-red/web-noise-suppressor/rnnoiseWorklet.js?url";
 import type { Settings } from "../../shared/types";
+import { deviceConstraint, devicePrefs, liveChoice } from "./devices";
 
 export type VoiceSettings = Pick<Settings, "noiseSuppression" | "echoCancellation" | "autoGainControl" | "noiseGate">;
 
@@ -14,8 +15,9 @@ export type VoiceSettings = Pick<Settings, "noiseSuppression" | "echoCancellatio
  * In AI mode the browser's noise filter is turned off so the two don't fight
  * (like Discord, where Krisp replaces "Standard").
  */
-export function micConstraints(v: VoiceSettings): MediaTrackConstraints {
+export function micConstraints(v: VoiceSettings, deviceId = liveChoice("mic")): MediaTrackConstraints {
   return {
+    ...(deviceId ? { deviceId: deviceConstraint("mic", deviceId) } : {}),
     echoCancellation: v.echoCancellation,
     autoGainControl: v.autoGainControl,
     noiseSuppression: v.noiseSuppression === "standard",
@@ -70,6 +72,8 @@ export interface ProcessedMic {
   mode: VoiceSettings["noiseSuppression"];
   /** Which neural network is running in AI mode. */
   engine?: AiEngine;
+  /** Live mic volume control, when the audio runs through Web Audio. */
+  setVolume?: (percent: number) => void;
   dispose: () => void;
 }
 
@@ -79,10 +83,16 @@ export interface ProcessedMic {
  * can't run it (e.g. Firefox with a 44.1 kHz mic), it quietly falls back to the
  * browser's standard noise suppression instead of failing.
  */
-export async function processMic(raw: MediaStream, v: VoiceSettings, ctx: AudioContext): Promise<ProcessedMic> {
+export async function processMic(
+  raw: MediaStream,
+  v: VoiceSettings,
+  ctx: AudioContext,
+  /** Mic volume in percent; defaults to the slider in Settings → Voice & video. */
+  volume = devicePrefs.get().micVolume,
+): Promise<ProcessedMic> {
   const audio = raw.getAudioTracks()[0];
   const passthrough = (mode: ProcessedMic["mode"]): ProcessedMic => ({ stream: raw, mode, dispose: () => {} });
-  if (!audio || (v.noiseSuppression !== "ai" && !v.noiseGate)) return passthrough(v.noiseSuppression);
+  if (!audio || (v.noiseSuppression !== "ai" && !v.noiseGate && volume === 100)) return passthrough(v.noiseSuppression);
 
   const nodes: AudioNode[] = [];
   try {
@@ -117,6 +127,13 @@ export async function processMic(raw: MediaStream, v: VoiceSettings, ctx: AudioC
       nodes.push(gate);
     }
 
+    // Mic volume last, so the noise gate judges your real level.
+    const gain = ctx.createGain();
+    gain.gain.value = volume / 100;
+    last.connect(gain);
+    last = gain;
+    nodes.push(gain);
+
     const destination = ctx.createMediaStreamDestination();
     last.connect(destination);
     ctx.resume().catch(() => {});
@@ -128,6 +145,7 @@ export async function processMic(raw: MediaStream, v: VoiceSettings, ctx: AudioC
       stream: new MediaStream([processed, ...raw.getVideoTracks()]),
       mode: v.noiseSuppression,
       engine,
+      setVolume: (percent) => gain.gain.setTargetAtTime(percent / 100, ctx.currentTime, 0.03),
       dispose: () => {
         processed.stop();
         for (const n of nodes) {

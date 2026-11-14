@@ -687,7 +687,10 @@ export type CallSignal =
   | { type: "invite"; sdp: string; video: boolean }
   | { type: "accept"; sdp: string }
   | { type: "ice"; candidate: IceCandidate }
-  | { type: "media"; audio: boolean; video: boolean }
+  /** Mic/camera state. `screen`: the video is a shared screen (show it whole, not cropped). */
+  | { type: "media"; audio: boolean; video: boolean; screen?: boolean }
+  /** A floating emoji during the call (one of CALL_REACTIONS). */
+  | { type: "reaction"; emoji: string }
   | { type: "decline" }
   | { type: "busy" }
   | { type: "cancel" }
@@ -697,7 +700,10 @@ export type CallSignal =
   /** Sent by the server to your other tabs when you answer/decline on one device. */
   | { type: "handled" };
 
-export const CALL_SIGNAL_TYPES = ["invite", "accept", "ice", "media", "decline", "busy", "cancel", "end"] as const;
+export const CALL_SIGNAL_TYPES = ["invite", "accept", "ice", "media", "reaction", "decline", "busy", "cancel", "end"] as const;
+
+/** Emoji you can send during a call. */
+export const CALL_REACTIONS = ["👍", "❤️", "😂", "😮", "👏", "🎉", "👋", "🙏"] as const;
 
 /** Browser -> Lobby. */
 export interface CallEnvelope {

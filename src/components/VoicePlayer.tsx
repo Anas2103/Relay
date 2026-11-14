@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import type { MediaMeta } from "../../shared/types";
+import { applySpeaker, liveChoice } from "../lib/devices";
 import { formatDuration } from "../lib/media";
 import { PauseIcon, PlayIcon, Spinner } from "./ui";
 
@@ -53,6 +54,7 @@ export function VoicePlayer({ id, src, meta, mine }: { id: string; src: string; 
     }
     window.dispatchEvent(new CustomEvent(PLAY_EVENT, { detail: id }));
     audio.playbackRate = rate;
+    await applySpeaker(audio, liveChoice("speaker")); // your chosen speaker (Settings → Voice & video)
     setLoading(audio.readyState < 2);
     try {
       await audio.play();

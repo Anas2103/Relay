@@ -27,8 +27,10 @@ import { api, ApiError } from "../lib/api";
 import { createAudioContext, micConstraints, processMic, type VoiceSettings } from "../lib/audio";
 import { hasAnySecretKeys } from "../lib/e2e";
 import { deviceProblem, prepareAvatar, type DeviceProblem } from "../lib/media";
+import { canPickSpeaker, deviceConstraint, devicePrefs, liveChoice, playTestSound, refreshDevices, RINGTONES, unlockDeviceNames, type DeviceOption } from "../lib/devices";
+import { useDeviceList, useDevicePrefs } from "../lib/useDevices";
 import { canInstall, disablePush, enablePush, install, isInstalled, onInstallChange, pushStatus, type PushStatus } from "../lib/pwa";
-import { playMessageSound } from "../lib/sound";
+import { playMessageSound, previewRingtone } from "../lib/sound";
 import { ConfirmDialog } from "./Dialogs";
 import { PasswordStrength } from "./PasswordStrength";
 import { SecuritySettings } from "./SecuritySettings";
@@ -68,7 +70,7 @@ const SECTIONS: { id: Section; label: string; hint: string; icon: ReactNode; col
   { id: "chats", label: "Chats & text", hint: "Text size, font, layout, keys", icon: <ChatIcon />, color: "bg-emerald-500" },
   { id: "notifications", label: "Notifications", hint: "Alerts, sounds, install app", icon: <BellIcon />, color: "bg-rose-500" },
   { id: "privacy", label: "Privacy & security", hint: "2-step, devices, passcode, blocked", icon: <LockIcon />, color: "bg-amber-500" },
-  { id: "voice", label: "Voice & video", hint: "Noise suppression, mic test", icon: <MicIcon />, color: "bg-violet-500" },
+  { id: "voice", label: "Voice & video", hint: "Mic, speaker, camera, noise suppression", icon: <MicIcon />, color: "bg-violet-500" },
   { id: "data", label: "Your data", hint: "Export or delete your account", icon: <DatabaseIcon />, color: "bg-zinc-500" },
 ];
 
@@ -860,6 +862,8 @@ function VoiceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void }
   const s = me.settings;
   return (
     <div className="space-y-7">
+      <DevicesSection />
+
       <section>
         <SectionTitle title="Noise suppression" hint="Used in calls and voice messages. Everything runs on your device." />
         <div className="mt-3 space-y-2" role="radiogroup" aria-label="Noise suppression">
@@ -932,8 +936,241 @@ function VoiceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void }
   );
 }
 
+/** Pick the mic, speaker and camera (saved on this device), with a speaker test and a camera preview. */
+function DevicesSection() {
+  const prefs = useDevicePrefs();
+  const list = useDeviceList();
+  const [unlocking, setUnlocking] = useState(false);
+  const [problem, setProblem] = useState<DeviceProblem | null>(null);
+  const [preview, setPreview] = useState(false);
+  const [testing, setTesting] = useState(false);
+
+  async function unlock() {
+    setUnlocking(true);
+    try {
+      await unlockDeviceNames(false);
+      await unlockDeviceNames(true).catch(() => {}); // no camera is fine
+    } catch (err) {
+      setProblem(deviceProblem(err));
+    } finally {
+      setUnlocking(false);
+    }
+  }
+
+  async function testSpeaker() {
+    setTesting(true);
+    await playTestSound(liveChoice("speaker"), prefs.outputVolume).catch(() => {});
+    window.setTimeout(() => setTesting(false), 900);
+  }
+
+  return (
+    <section className="space-y-4">
+      <SectionTitle title="Devices" hint="Which microphone, speaker and camera to use. Saved on this device, and you can also change them during a call." />
+      {!list.labelled && navigator.mediaDevices && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-accent/10 p-3 text-sm">
+          <span className="min-w-0 flex-1">Your browser hides device names until you allow access once.</span>
+          <button
+            onClick={() => void unlock()}
+            disabled={unlocking}
+            className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
+          >
+            {unlocking ? "Asking…" : "Show my devices"}
+          </button>
+        </div>
+      )}
+      <DevicePicker label="Microphone" value={liveChoice("mic")} options={list.mics} onPick={(id) => devicePrefs.set({ mic: id })} />
+      <Slider
+        label="Mic volume"
+        hint="Boost a quiet mic, or turn down a loud one."
+        value={prefs.micVolume}
+        min={0}
+        max={200}
+        step={5}
+        unit="%"
+        onChange={(v) => devicePrefs.set({ micVolume: v })}
+      />
+      {canPickSpeaker ? (
+        <DevicePicker
+          label="Speaker"
+          value={liveChoice("speaker")}
+          options={list.speakers}
+          onPick={(id) => devicePrefs.set({ speaker: id })}
+          extra={
+            <button
+              onClick={() => void testSpeaker()}
+              className="shrink-0 rounded-xl bg-zinc-100 px-3 text-sm font-medium hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+            >
+              {testing ? "Playing…" : "Test"}
+            </button>
+          }
+        />
+      ) : (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">This browser plays calls through your system's speaker — change it in your device's sound settings.</p>
+          <button
+            onClick={() => void testSpeaker()}
+            className="shrink-0 rounded-xl bg-zinc-100 px-3 py-2 text-sm font-medium hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+          >
+            {testing ? "Playing…" : "Test sound"}
+          </button>
+        </div>
+      )}
+      <Slider
+        label="Call volume"
+        hint="How loud the other person is."
+        value={prefs.outputVolume}
+        min={0}
+        max={100}
+        step={5}
+        unit="%"
+        onChange={(v) => devicePrefs.set({ outputVolume: v })}
+      />
+      <DevicePicker label="Camera" value={liveChoice("camera")} options={list.cameras} onPick={(id) => devicePrefs.set({ camera: id })}
+        extra={
+          <button
+            onClick={() => setPreview((p) => !p)}
+            className={`shrink-0 rounded-xl px-3 text-sm font-medium ${preview ? "bg-accent text-accent-ink" : "bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"}`}
+          >
+            {preview ? "Stop" : "Preview"}
+          </button>
+        }
+      />
+      {preview && <CameraPreview cameraId={liveChoice("camera")} mirror={prefs.mirror} onProblem={(p) => { setProblem(p); setPreview(false); }} />}
+      <ToggleRow
+        title="Mirror my camera"
+        description="Show your own video like a mirror. Only on your screen — others always see you the right way round."
+        checked={prefs.mirror}
+        onChange={() => devicePrefs.set({ mirror: !prefs.mirror })}
+      />
+      <Segmented
+        label="Video quality I send"
+        value={prefs.videoQuality}
+        options={[
+          ["auto", "Auto"],
+          ["hd", "HD"],
+          ["saver", "Data saver"],
+        ]}
+        onPick={(v) => devicePrefs.set({ videoQuality: v })}
+      />
+      <ToggleRow
+        title="Push-to-talk"
+        description="In calls your mic stays off until you hold Space (or press and hold the mic button). Great in noisy places."
+        checked={prefs.pushToTalk}
+        onChange={() => devicePrefs.set({ pushToTalk: !prefs.pushToTalk })}
+      />
+      <ToggleRow
+        title="Answer video calls with my camera off"
+        description="Your camera only turns on when you tap it. You can still pick “Answer with video” on the call screen."
+        checked={prefs.joinCameraOff}
+        onChange={() => devicePrefs.set({ joinCameraOff: !prefs.joinCameraOff })}
+      />
+      {problem && <DeviceHelp problem={problem} device="microphone" onClose={() => setProblem(null)} />}
+
+      <div className="space-y-3 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+        <SectionTitle title="Ringtone" hint="What you hear when someone calls you. Phones also vibrate." />
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Ringtone">
+          {RINGTONES.map(([tone, label]) => (
+            <button
+              key={tone}
+              role="radio"
+              aria-checked={prefs.ringtone === tone}
+              onClick={() => {
+                devicePrefs.set({ ringtone: tone });
+                previewRingtone(tone, prefs.ringVolume);
+              }}
+              className={`rounded-xl px-3 py-2.5 text-left text-sm font-medium ring-1 transition ${
+                prefs.ringtone === tone ? "bg-accent/10 ring-2 ring-accent" : "ring-zinc-200 hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {prefs.ringtone !== "vibrate" && (
+          <Slider
+            label="Ringtone volume"
+            value={prefs.ringVolume}
+            min={0}
+            max={100}
+            step={5}
+            unit="%"
+            onChange={(v) => devicePrefs.set({ ringVolume: v })}
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function DevicePicker({
+  label,
+  value,
+  options,
+  onPick,
+  extra,
+}: {
+  label: string;
+  value: string;
+  options: DeviceOption[];
+  onPick: (id: string) => void;
+  extra?: ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-medium">{label}</span>
+      <span className="mt-1.5 flex gap-2">
+        <select
+          value={options.some((o) => o.id === value) ? value : ""}
+          onChange={(e) => onPick(e.target.value)}
+          className="h-10 w-full min-w-0 rounded-xl bg-white px-3 text-sm ring-1 ring-zinc-200 outline-none focus:ring-2 focus:ring-accent dark:bg-zinc-800 dark:ring-zinc-700"
+        >
+          <option value="">System default</option>
+          {options.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        {extra}
+      </span>
+      {options.length === 0 && <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">None found — plug one in, or allow access above.</span>}
+    </label>
+  );
+}
+
+function CameraPreview({ cameraId, mirror, onProblem }: { cameraId: string; mirror: boolean; onProblem: (p: DeviceProblem) => void }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    let cancelled = false;
+    navigator.mediaDevices
+      .getUserMedia({ video: cameraId ? { deviceId: deviceConstraint("camera", cameraId) } : true })
+      .then((s) => {
+        if (cancelled) return s.getTracks().forEach((t) => t.stop());
+        stream = s;
+        if (ref.current) {
+          ref.current.srcObject = s;
+          ref.current.play().catch(() => {});
+        }
+        void refreshDevices();
+      })
+      .catch((err) => !cancelled && onProblem(deviceProblem(err)));
+    return () => {
+      cancelled = true;
+      stream?.getTracks().forEach((t) => t.stop());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraId]);
+  return (
+    <div className="overflow-hidden rounded-2xl bg-zinc-900">
+      <video ref={ref} autoPlay playsInline muted className={`aspect-video w-full object-cover ${mirror ? "-scale-x-100" : ""}`} />
+    </div>
+  );
+}
+
 /** Like Discord's "Let's check": a live level meter with your settings applied, and optional listen-back. */
 function MicTest({ voice }: { voice: VoiceSettings }) {
+  const prefs = useDevicePrefs();
   const [running, setRunning] = useState(false);
   const [level, setLevel] = useState(0);
   const [mode, setMode] = useState<string | null>(null);
@@ -943,7 +1180,7 @@ function MicTest({ voice }: { voice: VoiceSettings }) {
   const session = useRef<{ stop: () => void; setListen: (on: boolean) => void } | null>(null);
 
   // Restart with new settings when they change mid-test.
-  const key = JSON.stringify(voice);
+  const key = JSON.stringify([voice, prefs.mic, prefs.micVolume, prefs.speaker]);
   useEffect(() => {
     if (!running) return;
     session.current?.stop();
@@ -955,6 +1192,9 @@ function MicTest({ voice }: { voice: VoiceSettings }) {
 
   async function start() {
     const ctx = createAudioContext();
+    // "Hear yourself" plays on the chosen speaker (Chrome/Edge).
+    const speaker = liveChoice("speaker");
+    if (speaker) void (ctx as AudioContext & { setSinkId?: (id: string) => Promise<void> }).setSinkId?.(speaker).catch(() => {});
     let raw: MediaStream;
     try {
       raw = await navigator.mediaDevices.getUserMedia({ audio: micConstraints(voice) });

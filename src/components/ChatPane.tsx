@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { toggleSpeak } from "../lib/speak";
 import { bubbleLook, disappearLabel, SLOW_MODE_OPTIONS, type MediaKind, type MediaMeta, type Me, type Message, type MessageKind, type PollInfo, type Room, type ScheduledMessage, type User } from "../../shared/types";
 import { api, ApiError, fetchMedia, mediaUrl } from "../lib/api";
 import { formatDayDivider, formatRelative, sameDay } from "../lib/format";
@@ -796,6 +797,9 @@ export function ChatPane({
           () => setNotice("Copied"),
           () => setNotice("Couldn't copy."),
         );
+        break;
+      case "speak":
+        toggleSpeak(m.id, m.body);
         break;
       case "edit":
         setReplyTo(null);

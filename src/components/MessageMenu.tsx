@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { UiMessage } from "./MessageBubble";
-import { AlertIcon, CopyIcon, EditIcon, EyeIcon, ForwardIcon, PinIcon, ReplyIcon, SelectIcon, StarIcon, TrashIcon } from "./ui";
+import { canSpeak, isSpeaking } from "../lib/speak";
+import { AlertIcon, CopyIcon, EditIcon, EyeIcon, ForwardIcon, PinIcon, ReplyIcon, SelectIcon, StarIcon, TrashIcon, VolumeIcon } from "./ui";
 
 export const QUICK_REACTIONS = ["❤️", "😂", "😮", "😢", "🙏", "👍"];
 
-export type MenuAction = "reply" | "copy" | "edit" | "delete" | "pin" | "star" | "forward" | "select" | "report" | "seen" | { react: string };
+export type MenuAction = "reply" | "copy" | "edit" | "delete" | "pin" | "star" | "forward" | "select" | "report" | "seen" | "speak" | { react: string };
 
 /** Reaction bar + actions, anchored next to the long-pressed / right-clicked bubble. */
 export function MessageMenu({
@@ -93,6 +94,9 @@ export function MessageMenu({
         <div className="p-1 text-sm">
           <MenuItem icon={<ReplyIcon className="size-4" />} label="Reply" onClick={() => onAction("reply")} />
           {canCopy && <MenuItem icon={<CopyIcon className="size-4" />} label="Copy text" onClick={() => onAction("copy")} />}
+          {canSpeak && !locked && message.body.trim() && message.kind !== "call" && (
+            <MenuItem icon={<VolumeIcon className="size-4" />} label={isSpeaking(message.id) ? "Stop reading" : "Read aloud"} onClick={() => onAction("speak")} />
+          )}
           {canForward && <MenuItem icon={<ForwardIcon className="size-4" />} label="Forward" onClick={() => onAction("forward")} />}
           {canPin && (
             <MenuItem icon={<PinIcon className="size-4" />} label={message.pinnedAt ? "Unpin" : "Pin for everyone"} onClick={() => onAction("pin")} />

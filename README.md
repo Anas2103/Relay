@@ -46,6 +46,12 @@ Real-time chat in the spirit of Telegram: groups, **end-to-end encrypted secret 
 - **Voice and video calls** over WebRTC, peer-to-peer and encrypted (DTLS-SRTP); the server only relays the setup messages
 - Ringing on all your devices (stops everywhere once you answer on one), mute, camera on/off, front/back camera, minimize to keep chatting
 - **AI noise suppression** running on your device (GTCRN or RNNoise in an AudioWorklet), switchable mid-call without dropping it, plus echo cancellation, gain control, a noise gate and the option to clean up the other person's voice too
+- **Choose your microphone, speaker and camera** (in Settings or mid-call, without dropping the call), mic boost up to 200%, call volume, speaker test and camera preview. Unplug a headset and the call carries on with the default mic; plug one in and Relay offers to switch to it
+- **Turn a voice call into a video call**, **screen sharing** (desktop), **answer without video**, video quality (Auto / HD / Data saver)
+- **Floating emoji reactions**, **push-to-talk** (hold Space or the mic button), "You're muted" hint when you talk while muted, speaking indicators
+- Live **connection bars** (delay, packet loss, direct or relayed), with a tip to drop video when the line gets weak
+- **Decline with a message** ("I'll call you back…"), **Call again / Message** after a missed or declined call, 5 **ringtones** with volume (phones also vibrate)
+- M / V / Space shortcuts, keeps the screen awake, full screen and picture-in-picture on desktop
 - Call history in the chat ("Missed video call", "Voice call · 3:20"); tap to call back
 - Works with free public STUN; optional Cloudflare TURN relay for restrictive networks
 
@@ -76,6 +82,8 @@ Real-time chat in the spirit of Telegram: groups, **end-to-end encrypted secret 
 
 **App**
 - Installable (PWA) on phones and desktops, unread badge on the app icon, push notifications that never contain message content
+- **Always up to date**: every build gets an id; tabs left open notice a new deploy, offer "Reload", and switch over by themselves when they're in the background and no call is on (drafts are kept)
+- **Read aloud** any message with your device's own voice (Arabic and French get a matching voice)
 - Layouts built for every size: bottom sheets on phones, side panels and popovers on desktop, safe areas for notches
 
 **Admin & owner**
