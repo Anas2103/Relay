@@ -29,6 +29,7 @@ import { hasAnySecretKeys } from "../lib/e2e";
 import { deviceProblem, prepareAvatar, type DeviceProblem } from "../lib/media";
 import { canPickSpeaker, deviceConstraint, devicePrefs, liveChoice, playTestSound, refreshDevices, RINGTONES, unlockDeviceNames, type DeviceOption } from "../lib/devices";
 import { useDeviceList, useDevicePrefs } from "../lib/useDevices";
+import { offlineEnabled, setOfflineEnabled } from "../lib/offline";
 import { canInstall, disablePush, enablePush, install, isInstalled, onInstallChange, pushStatus, type PushStatus } from "../lib/pwa";
 import { playMessageSound, previewRingtone } from "../lib/sound";
 import { ConfirmDialog } from "./Dialogs";
@@ -1458,6 +1459,7 @@ function PrivacyTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void
             : "Only people you've accepted a friend request with. Strangers never see it."}
         </p>
         <ToggleRow title="Typing indicator" description={`Let others see "typing…" while you write.`} checked={s.sendTyping} onChange={() => save({ sendTyping: !s.sendTyping })} />
+        <OfflineToggle />
         {error && <StatusLine status={{ kind: "error", text: error }} />}
       </section>
 
@@ -1774,6 +1776,22 @@ function DataTab({ me }: { me: Me }) {
 }
 
 // ---------- Shared ----------
+
+/** Offline copy of chats on this device (wiped on sign-out). */
+function OfflineToggle() {
+  const [on, setOn] = useState(offlineEnabled());
+  return (
+    <ToggleRow
+      title="Keep chats on this device"
+      description="Your chat list and recent messages are saved here, so Relay opens and shows them even with no internet. Removed when you sign out. Turn off on shared computers."
+      checked={on}
+      onChange={() => {
+        void setOfflineEnabled(!on);
+        setOn(!on);
+      }}
+    />
+  );
+}
 
 function ToggleRow({
   title,

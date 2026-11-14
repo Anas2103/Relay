@@ -2,11 +2,22 @@
 // the app is closed, and opens Relay when one is tapped.
 //
 // Privacy: pushes carry NO message content (the push service only learns "something
-// happened"), so the notification is generic. Nothing is cached here: chats always
-// come fresh from the server, and nothing private is left on disk by this worker.
+// happened"), so the notification is generic. This worker only caches the app's own
+// code (HTML, scripts, styles, icons) so Relay opens without a connection — never
+// anything from /api. (The optional offline copy of chats lives in IndexedDB, is
+// wiped on sign-out and can be turned off in Privacy & security.)
+
+const SHELL = "relay-shell-v1";
 
 self.addEventListener("install", () => self.skipWaiting());
-self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+self.addEventListener("activate", (event) =>
+  event.waitUntil(
+    (async () => {
+      for (const key of await caches.keys()) if (key !== SHELL) await caches.delete(key);
+      await self.clients.claim();
+    })(),
+  ),
+);
 
 self.addEventListener("push", (event) => {
   event.waitUntil(
@@ -37,5 +48,62 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
-// A fetch handler is part of what makes browsers offer "Install". Pass everything through.
-self.addEventListener("fetch", () => {});
+// The app shell: pages are network-first (always the newest version when online),
+// hashed /assets/ files are cache-first (their names change with every build).
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
+  if (req.method !== "GET") return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith("/api/") || url.pathname === "/version.json" || url.pathname === "/sw.js") return;
+
+  if (req.mode === "navigate") {
+    event.respondWith(
+      (async () => {
+        try {
+          const res = await fetch(req);
+          if (res.ok) (await caches.open(SHELL)).put("/", res.clone());
+          return res;
+        } catch {
+          return (await caches.match("/")) ?? Response.error();
+        }
+      })(),
+    );
+    return;
+  }
+
+  if (url.pathname.startsWith("/assets/")) {
+    event.respondWith(
+      (async () => {
+        const hit = await caches.match(req);
+        if (hit) return hit;
+        const res = await fetch(req);
+        if (res.ok) await putAsset(req, res.clone());
+        return res;
+      })(),
+    );
+    return;
+  }
+
+  // Icons, manifest, theme script (files at the root): use the network, fall back to the last copy.
+  if (url.pathname.lastIndexOf("/") !== 0) return;
+  event.respondWith(
+    (async () => {
+      try {
+        const res = await fetch(req);
+        if (res.ok) (await caches.open(SHELL)).put(req, res.clone());
+        return res;
+      } catch {
+        return (await caches.match(req)) ?? Response.error();
+      }
+    })(),
+  );
+});
+
+/** Old builds' files pile up over time; keep the newest ~200 (oldest are dropped first). */
+async function putAsset(req, res) {
+  const cache = await caches.open(SHELL);
+  await cache.put(req, res);
+  const keys = (await cache.keys()).filter((k) => new URL(k.url).pathname.startsWith("/assets/"));
+  for (const old of keys.slice(0, Math.max(0, keys.length - 200))) await cache.delete(old);
+}

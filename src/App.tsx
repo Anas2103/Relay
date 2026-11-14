@@ -6,6 +6,7 @@ import { Logo } from "./components/ui";
 import { api, UNAUTHORIZED_EVENT } from "./lib/api";
 import { wipeAllKeys } from "./lib/e2e";
 import { clearAllDrafts } from "./lib/drafts";
+import { clearOffline } from "./lib/offline";
 import { clearPasscode, LOCK_EVENT, passcodeFor } from "./lib/passcode";
 import { disablePush, registerServiceWorker } from "./lib/pwa";
 import { applyAppearance } from "./lib/theme";
@@ -83,6 +84,7 @@ export default function App() {
     await wipeAllKeys();
     clearPasscode();
     clearAllDrafts();
+    await clearOffline();
     await api.logout().catch(() => {});
     setLocked(false);
     setMe(null);

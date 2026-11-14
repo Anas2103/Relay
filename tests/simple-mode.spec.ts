@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { openFriendChat, PHONE, resetRateLimits, signUp, uniq } from "./helpers";
+import { openFriendChat, PHONE, resetRateLimits, signUp, uniq, closeBrowsers } from "./helpers";
+
+test.afterAll(closeBrowsers);
 
 test.beforeAll(() => resetRateLimits());
 

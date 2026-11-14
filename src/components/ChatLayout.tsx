@@ -3,6 +3,7 @@ import { isMuted, type CallInfo, type ClientEvent, type LobbyEvent, type Me, typ
 import { messagePreview } from "../../shared/types";
 import { api, ApiError, UNAUTHORIZED_EVENT } from "../lib/api";
 import { calls } from "../lib/calls";
+import { connection } from "../lib/offline";
 import { adoptKey, createDeviceKey, e2eSupported, forgetKey } from "../lib/e2e";
 import { plainText } from "../lib/richText";
 import { playMessageSound } from "../lib/sound";
@@ -107,6 +108,15 @@ export function ChatLayout({
       setRoomsLoaded(true);
     }
   }, []);
+
+  // Normally the chat list loads when the live connection opens. With no network that
+  // never happens, so show the copy saved on this device instead.
+  useEffect(() => {
+    if (connection.offline()) void refreshRooms();
+    return connection.subscribe(() => {
+      if (connection.offline()) void refreshRooms();
+    });
+  }, [refreshRooms]);
 
   // Live app-wide events: presence, new messages in other chats, new chats.
   const onLobbyEvent = useCallback(

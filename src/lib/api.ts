@@ -25,9 +25,30 @@ import type { Sticker,
   Settings,
   User,
 } from "../../shared/types";
+import { offlineGet, offlinePut, setReachable } from "./offline";
 
 /** Fired when the session is no longer valid (signed out elsewhere, suspended, deleted). */
 export const UNAUTHORIZED_EVENT = "relay:unauthorized";
+
+/**
+ * Runs a request; on success keeps a copy for offline use, and when the server
+ * can't be reached at all, answers from that copy instead (marked `offline`).
+ */
+async function cached<T extends object>(key: string, load: () => Promise<T>): Promise<T & { offline?: boolean }> {
+  try {
+    const value = await load();
+    setReachable(true);
+    offlinePut(key, value);
+    return value as T & { offline?: boolean };
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 0) {
+      setReachable(false);
+      const copy = await offlineGet<T>(key);
+      if (copy) return { ...copy, offline: true };
+    }
+    throw err;
+  }
+}
 
 export class ApiError extends Error {
   constructor(
@@ -128,7 +149,7 @@ export async function fetchMedia(url: string): Promise<Blob> {
 }
 
 export const api = {
-  me: () => request<{ user: Me }>("/api/me"),
+  me: () => cached("me", () => request<{ user: Me }>("/api/me")),
   register: (username: string, password: string, displayName: string) =>
     request<{ user: Me }>("/api/auth/register", { method: "POST", body: { username, password, displayName } }),
   /** Returns the user, or a challenge when two-step verification is on. */
@@ -144,7 +165,7 @@ export const api = {
   blocked: () => request<{ blocked: BlockedUser[] }>("/api/blocks"),
   profile: (id: string) => request<{ profile: Profile }>(`/api/users/${id}`),
 
-  rooms: () => request<{ rooms: Room[] }>("/api/rooms"),
+  rooms: () => cached("rooms", () => request<{ rooms: Room[] }>("/api/rooms")),
   openDm: (username: string) => request<{ room: Room }>("/api/rooms/dm", { method: "POST", body: { username } }),
   acceptRequest: (roomId: string) => request<{ room: Room }>(`/api/rooms/${roomId}/accept`, { method: "POST", body: {} }),
   declineRequest: (roomId: string) => request<{ ok: true }>(`/api/rooms/${roomId}/decline`, { method: "POST", body: {} }),
@@ -210,7 +231,9 @@ export const api = {
         : opts.before
           ? `?before=${opts.before.createdAt}&beforeId=${encodeURIComponent(opts.before.id)}`
           : "";
-    return request<MessagePage>(`/api/rooms/${roomId}/messages${qs}`);
+    const load = () => request<MessagePage>(`/api/rooms/${roomId}/messages${qs}`);
+    // The latest page of each chat is kept for offline use.
+    return qs ? load() : cached(`messages:${roomId}`, load);
   },
   search: (roomId: string, q: string, filters: { type?: GalleryTab | "all"; from?: string; since?: number } = {}) =>
     request<{ messages: Message[] }>(

@@ -86,6 +86,7 @@ Real-time chat in the spirit of Telegram: groups, **end-to-end encrypted secret 
 
 **App**
 - Installable (PWA) on phones and desktops, unread badge on the app icon, push notifications that never contain message content
+- **Works offline**: the app's code is cached by the service worker (never anything from /api), and your chat list and recent messages are kept on the device (IndexedDB), so Relay opens and shows your chats with no signal. Messages written offline wait and go out on reconnect. Wiped on sign-out; can be turned off per device
 - **Always up to date**: every build gets an id; tabs left open notice a new deploy, offer "Reload", and switch over by themselves when they're in the background and no call is on (drafts are kept)
 - **Read aloud** any message with your device's own voice (Arabic and French get a matching voice)
 - Layouts built for every size: bottom sheets on phones, side panels and popovers on desktop, safe areas for notches

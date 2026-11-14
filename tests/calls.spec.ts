@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
-import { call, openFriendChat, PHONE, resetRateLimits, signUp, sleep, uniq } from "./helpers";
+import { call, openFriendChat, PHONE, resetRateLimits, signUp, sleep, uniq, closeBrowsers } from "./helpers";
+
+test.afterAll(closeBrowsers);
 
 /*
  * Real WebRTC calls between a desktop browser (Ann) and a phone-sized one (Ben),

@@ -1,4 +1,5 @@
-import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { connection } from "../lib/offline";
 import { isMuted, MUTE_FOREVER, type Me, type Message, type Room, type SiteSettings, type User } from "../../shared/types";
 import { api, ApiError } from "../lib/api";
 import { useDrafts } from "../lib/drafts";
@@ -95,6 +96,7 @@ export function Sidebar({
   callPill,
   onJump,
 }: Props) {
+  const offline = useSyncExternalStore(connection.subscribe, connection.offline);
   const [showRequests, setShowRequests] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
   const [query, setQuery] = useState("");
@@ -271,10 +273,17 @@ export function Sidebar({
         <div className="flex min-w-0 items-center gap-2.5">
           <Logo size={28} />
           <span className="text-lg font-semibold tracking-tight">Relay</span>
-          {!connected && loaded && (
-            <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400" role="status">
-              <Spinner className="size-3" /> Connecting
+          {offline ? (
+            <span className="flex items-center gap-1 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200" role="status" title="Showing chats saved on this device. Messages you write are sent when you're back online.">
+              <span className="size-1.5 rounded-full bg-zinc-500" /> Offline
             </span>
+          ) : (
+            !connected &&
+            loaded && (
+              <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400" role="status">
+                <Spinner className="size-3" /> Connecting
+              </span>
+            )
           )}
         </div>
         {callPill}

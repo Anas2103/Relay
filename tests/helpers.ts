@@ -1,5 +1,12 @@
 import { execSync } from "node:child_process";
-import type { Browser, BrowserContextOptions, Page } from "@playwright/test";
+import type { Browser, BrowserContext, BrowserContextOptions, Page } from "@playwright/test";
+
+/** Browsers opened by signUp; each test file closes them with `test.afterAll(closeBrowsers)`. */
+const opened = new Set<BrowserContext>();
+export async function closeBrowsers() {
+  for (const ctx of opened) await ctx.close().catch(() => {});
+  opened.clear();
+}
 
 /** Sign-ups are rate limited per IP; tests create many accounts, so start each file clean. */
 export function resetRateLimits() {
@@ -19,6 +26,7 @@ export const PHONE: BrowserContextOptions = {
 /** Creates an account in a fresh browser and lands in the chat list. */
 export async function signUp(browser: Browser, name: string, opts: BrowserContextOptions = {}): Promise<Page> {
   const ctx = await browser.newContext({ permissions: ["microphone", "camera"], viewport: { width: 1280, height: 800 }, ...opts });
+  opened.add(ctx);
   const page = await ctx.newPage();
   await page.goto("/");
   await page.getByRole("button", { name: "Sign up" }).click();

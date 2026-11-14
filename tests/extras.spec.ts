@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
-import { openFriendChat, PHONE, resetRateLimits, signUp, uniq } from "./helpers";
+import { openFriendChat, PHONE, resetRateLimits, signUp, uniq, closeBrowsers } from "./helpers";
+
+test.afterAll(closeBrowsers);
 
 test.describe.configure({ mode: "serial" });
 

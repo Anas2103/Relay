@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { toggleSpeak } from "../lib/speak";
+import { connection } from "../lib/offline";
 import { LocationPreview } from "./LocationCard";
 import { addToStickers, stickerUrl } from "./StickerPanel";
 import { bubbleLook, disappearLabel, SLOW_MODE_OPTIONS, type MediaKind, type MediaMeta, type Me, type Message, type MessageKind, type GeoPoint, type PollInfo, type Sticker, type Room, type ScheduledMessage, type User } from "../../shared/types";
@@ -539,6 +540,8 @@ export function ChatPane({
         }
         // Still connecting: keep it as "Sending…" and send it as soon as we're connected.
         window.clearTimeout(out.giveUp);
+        // No network at all: wait as long as it takes (it goes out on reconnect), like Telegram.
+        if (!navigator.onLine || connection.offline()) return;
         out.giveUp = window.setTimeout(() => {
           const still = outgoing.current.get(clientId);
           if (still && !still.sent) patch(clientId, (m) => ({ ...m, status: "failed", progress: undefined }));

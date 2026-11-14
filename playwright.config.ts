@@ -31,10 +31,19 @@ export default defineConfig({
     },
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], permissions: ["microphone", "camera"] } }],
-  webServer: {
-    command: "npm run db:migrate:local && npx vite --port 5173 --strictPort",
-    url: "http://localhost:5173",
-    reuseExistingServer: !process.env.CI,
-    timeout: 180_000,
-  },
+  webServer: [
+    {
+      command: "npm run db:migrate:local && npx vite --port 5173 --strictPort",
+      url: "http://localhost:5173",
+      reuseExistingServer: !process.env.CI,
+      timeout: 180_000,
+    },
+    // The production build, for what only exists there: the offline app shell and auto-update.
+    {
+      command: "npx vite build && npx vite preview --port 4173 --strictPort",
+      url: "http://localhost:4173",
+      reuseExistingServer: !process.env.CI,
+      timeout: 240_000,
+    },
+  ],
 });
