@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { UiMessage } from "./MessageBubble";
 import { canSpeak, isSpeaking } from "../lib/speak";
-import { AlertIcon, CopyIcon, EditIcon, EyeIcon, ForwardIcon, PinIcon, ReplyIcon, SelectIcon, StarIcon, TrashIcon, VolumeIcon, ClockIcon, SmileIcon } from "./ui";
+import { AlertIcon, CopyIcon, EditIcon, EyeIcon, ForwardIcon, PinIcon, ReplyIcon, SelectIcon, StarIcon, TrashIcon, VolumeIcon, ClockIcon, SmileIcon, GlobeIcon } from "./ui";
 
 export const QUICK_REACTIONS = ["❤️", "😂", "😮", "😢", "🙏", "👍"];
 
-export type MenuAction = "reply" | "copy" | "edit" | "delete" | "pin" | "star" | "forward" | "select" | "report" | "seen" | "speak" | "remind" | "sticker" | { react: string };
+export type MenuAction = "reply" | "copy" | "edit" | "delete" | "pin" | "star" | "forward" | "select" | "report" | "seen" | "speak" | "remind" | "sticker" | "translate" | { react: string };
 
 /** Reaction bar + actions, anchored next to the long-pressed / right-clicked bubble. */
 export function MessageMenu({
@@ -16,6 +16,7 @@ export function MessageMenu({
   starred,
   canForward,
   canRemind,
+  canTranslate,
   seenCount,
   onAction,
   onClose,
@@ -30,6 +31,8 @@ export function MessageMenu({
   canForward: boolean;
   /** Not in secret chats (the reminder would be stored unencrypted). */
   canRemind?: boolean;
+  /** Not in secret chats (the server would have to read it). */
+  canTranslate?: boolean;
   onAction: (action: MenuAction) => void;
   onClose: () => void;
 }) {
@@ -101,6 +104,9 @@ export function MessageMenu({
           {canCopy && <MenuItem icon={<CopyIcon className="size-4" />} label="Copy text" onClick={() => onAction("copy")} />}
           {canSpeak && !locked && message.body.trim() && message.kind !== "call" && (
             <MenuItem icon={<VolumeIcon className="size-4" />} label={isSpeaking(message.id) ? "Stop reading" : "Read aloud"} onClick={() => onAction("speak")} />
+          )}
+          {canTranslate && !locked && (message.kind === "voice" ? message.transcript?.state === "done" || !!message.transcriptText : !!message.body.trim() && !message.meta?.location) && message.kind !== "call" && (
+            <MenuItem icon={<GlobeIcon className="size-4" />} label={message.translation ? "Translate again" : "Translate"} onClick={() => onAction("translate")} />
           )}
           {message.kind === "image" && !message.meta?.viewOnce && !locked && !message.meta?.sticker && (
             <MenuItem icon={<SmileIcon className="size-4" />} label="Add to stickers" onClick={() => onAction("sticker")} />

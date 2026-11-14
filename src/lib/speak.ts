@@ -1,3 +1,5 @@
+import { TRANSLATE_LANGUAGES, type TranslateLang } from "../../shared/types";
+
 /**
  * "Read aloud": reads a message with the device's own text-to-speech voice
  * (nothing is sent anywhere). Handy for long messages or tired eyes.
@@ -46,4 +48,12 @@ export function toggleSpeak(id: string, text: string): void {
   };
   speakingId = id;
   speechSynthesis.speak(u);
+}
+
+/** The language to translate into: your setting, else this device's language, else English. */
+export function translateTarget(setting: string): TranslateLang {
+  const supported = TRANSLATE_LANGUAGES.map(([c]) => c) as readonly string[];
+  if (supported.includes(setting)) return setting as TranslateLang;
+  const device = (navigator.language || "en").slice(0, 2).toLowerCase();
+  return (supported.includes(device) ? device : "en") as TranslateLang;
 }

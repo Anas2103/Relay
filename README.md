@@ -63,7 +63,8 @@ Real-time chat in the spirit of Telegram: groups, **end-to-end encrypted secret 
 - **Documents and videos** up to 20 MB, with upload progress; videos stream with byte ranges (instant seeking, iPhone-compatible)
 - **Search** a whole conversation and **jump to any message**, however old (history loads around it in both directions)
 - **Contact info** with Media, Files, Links and Voice tabs
-- **Voice messages**: tap to record with a live waveform; playback with seek and 1× / 1.5× / 2× speed
+- **Voice messages**: tap to record with a live waveform; playback with seek and 1× / 1.5× / 2× speed; **"Aa · Transcribe"** turns one into text (Whisper on Cloudflare Workers AI), saved so it's only ever done once
+- **Translate** any message (or a voice message's transcript) into 14 languages, with the source language detected automatically. Uses the free Workers AI allowance; never for secret chats, whose text the server can't read
 - **Photos**: compressed in the browser (a 4 MB photo becomes ~250 KB, with EXIF/GPS stripped), paste or drag-and-drop, captions
 - **View-once photos**: each recipient can open them exactly once, enforced by the server; deleted after everyone has seen them
 - Replies with quoted previews, emoji reactions, edit, delete for everyone

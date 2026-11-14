@@ -316,6 +316,8 @@ export interface Settings {
   sendTyping: boolean;
   /** Notifications show the message text (off: just who it's from). */
   notificationPreview: boolean;
+  /** Language for "Translate" ("" = this device's language). */
+  translateTo: string;
 
   // ---- Privacy ----
   lastSeen: LastSeenVisibility;
@@ -338,6 +340,7 @@ export const DEFAULT_SETTINGS: Settings = {
   noiseGate: false,
   cleanIncoming: false,
   simpleMode: false,
+  translateTo: "",
   uiScale: 100,
   messageSize: 15,
   font: "system",
@@ -656,6 +659,25 @@ export interface CallInfo {
   duration?: number;
 }
 
+/** Languages you can translate messages into: [code, name]. */
+export const TRANSLATE_LANGUAGES = [
+  ["en", "English"],
+  ["fr", "French"],
+  ["ar", "Arabic"],
+  ["es", "Spanish"],
+  ["de", "German"],
+  ["it", "Italian"],
+  ["pt", "Portuguese"],
+  ["nl", "Dutch"],
+  ["tr", "Turkish"],
+  ["ru", "Russian"],
+  ["zh", "Chinese"],
+  ["ja", "Japanese"],
+  ["ko", "Korean"],
+  ["hi", "Hindi"],
+] as const;
+export type TranslateLang = (typeof TRANSLATE_LANGUAGES)[number][0];
+
 export interface Sticker {
   id: string;
   width: number;
@@ -769,6 +791,8 @@ export interface Message {
   expiresAt: number | null;
   /** Polls: userId -> the options they picked. */
   votes?: Record<string, number[]>;
+  /** Voice messages: the text, once someone asked for it ("Transcribe"). */
+  transcriptText?: string;
   /** Echoed back to the sender so the optimistic copy can be replaced. */
   clientId?: string;
 }

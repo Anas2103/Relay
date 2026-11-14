@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { toggleSpeak } from "../lib/speak";
 import { connection } from "../lib/offline";
+import { translateTarget } from "../lib/speak";
 import { LocationPreview } from "./LocationCard";
 import { addToStickers, stickerUrl } from "./StickerPanel";
 import { bubbleLook, disappearLabel, SLOW_MODE_OPTIONS, type MediaKind, type MediaMeta, type Me, type Message, type MessageKind, type GeoPoint, type PollInfo, type Sticker, type Room, type ScheduledMessage, type User } from "../../shared/types";
@@ -783,6 +784,18 @@ export function ChatPane({
           setEditing(null);
           setReplyTo(a.message);
           break;
+        case "transcribe": {
+          const target = a.message;
+          patch(target.id, (m) => ({ ...m, transcript: { state: "loading" } }));
+          api.transcribe(target.roomId, target.id).then(
+            (r) => patch(target.id, (m) => ({ ...m, transcript: { state: "done", text: r.text } })),
+            (err) => patch(target.id, (m) => ({ ...m, transcript: { state: "error", text: err instanceof ApiError ? err.message : "Couldn't transcribe this." } })),
+          );
+          break;
+        }
+        case "hide-translation":
+          patch(a.message.id, (m) => ({ ...m, translation: undefined }));
+          break;
         case "retry":
           patch(a.message.id, (m) => ({ ...m, status: "pending" }));
           {
@@ -852,6 +865,15 @@ export function ChatPane({
       case "remind":
         setReminding(m);
         break;
+      case "translate": {
+        const lang = translateTarget(me.settings.translateTo);
+        patch(m.id, (x) => ({ ...x, translation: { state: "loading" } }));
+        api.translate(m.roomId, m.id, lang).then(
+          (r) => patch(m.id, (x) => ({ ...x, translation: { state: "done", text: r.text } })),
+          (err) => patch(m.id, (x) => ({ ...x, translation: { state: "error", text: err instanceof ApiError ? err.message : "Couldn't translate this." } })),
+        );
+        break;
+      }
       case "speak":
         toggleSpeak(m.id, m.body);
         break;
@@ -1427,6 +1449,7 @@ export function ChatPane({
               !room.secret && !menu.message.locked && menu.message.kind !== "call" && !menu.message.meta?.viewOnce && !menu.message.deletedAt
             }
             canRemind={!room.secret && !menu.message.locked && !menu.message.deletedAt}
+            canTranslate={!room.secret && !menu.message.deletedAt}
             onAction={onMenuAction}
             onClose={() => setMenu(null)}
           />

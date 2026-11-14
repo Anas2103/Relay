@@ -3,6 +3,8 @@ import type { ChatRoom } from "./room";
 
 export interface Env {
   DB: D1Database;
+  /** Workers AI (voice transcripts, translation). Optional: those features switch off without it. */
+  AI?: Ai;
   CHAT_ROOM: DurableObjectNamespace<ChatRoom>;
   LOBBY: DurableObjectNamespace<Lobby>;
   /** Optional Cloudflare TURN relay for calls on restrictive networks (set with `wrangler secret put`). */

@@ -27,5 +27,6 @@ export default defineConfig({
       },
     },
   },
-  plugins: [react(), tailwindcss(), cloudflare(), versionFile()],
+  // In CI there's no Cloudflare login, so remote-only bindings (Workers AI) are left out.
+  plugins: [react(), tailwindcss(), cloudflare({ remoteBindings: !process.env.CI }), versionFile()],
 });

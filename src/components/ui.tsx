@@ -383,6 +383,12 @@ export const MaximizeIcon = (p: IconProps) => (
   </svg>
 );
 
+export const GlobeIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" />
+  </svg>
+);
 export const MapPinIcon = (p: IconProps) => (
   <svg {...base} {...p}>
     <path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z" />

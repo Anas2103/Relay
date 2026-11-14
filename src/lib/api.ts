@@ -169,6 +169,10 @@ export const api = {
   openDm: (username: string) => request<{ room: Room }>("/api/rooms/dm", { method: "POST", body: { username } }),
   acceptRequest: (roomId: string) => request<{ room: Room }>(`/api/rooms/${roomId}/accept`, { method: "POST", body: {} }),
   declineRequest: (roomId: string) => request<{ ok: true }>(`/api/rooms/${roomId}/decline`, { method: "POST", body: {} }),
+  transcribe: (roomId: string, messageId: string) =>
+    request<{ text: string; language: string | null }>(`/api/rooms/${roomId}/messages/${messageId}/transcript`, { method: "POST", body: {} }),
+  translate: (roomId: string, messageId: string, lang: string) =>
+    request<{ text: string }>(`/api/rooms/${roomId}/messages/${messageId}/translate`, { method: "POST", body: { lang } }),
   stickers: () => request<{ stickers: Sticker[] }>("/api/stickers"),
   addSticker: (blob: Blob, width: number, height: number) =>
     request<{ sticker: Sticker }>(`/api/stickers?w=${width}&h=${height}`, { method: "POST", raw: blob }),

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import {
+import { TRANSLATE_LANGUAGES,
   bubbleLook,
   colorInfo,
   DARK_THEMES,
@@ -633,6 +633,26 @@ function ChatsTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void }
       <section className="space-y-4">
         <SectionTitle title="Messages" />
         <ToggleRow title="Big emoji" description="Messages of just 1 to 3 emoji are shown large, without a bubble." checked={s.bigEmoji} onChange={() => save({ bigEmoji: !s.bigEmoji })} />
+        <label className="-mx-2 flex items-center justify-between gap-4 rounded-xl px-2 py-1.5">
+          <span className="min-w-0">
+            <span className="block text-sm font-medium">Translate messages into</span>
+            <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
+              Long-press any message → Translate. Done by Cloudflare's AI; never for secret chats.
+            </span>
+          </span>
+          <select
+            value={s.translateTo}
+            onChange={(e) => save({ translateTo: e.target.value })}
+            className="h-9 shrink-0 rounded-xl bg-white px-2 text-sm ring-1 ring-zinc-200 outline-none focus:ring-2 focus:ring-accent dark:bg-zinc-800 dark:ring-zinc-700"
+          >
+            <option value="">This device's language</option>
+            {TRANSLATE_LANGUAGES.map(([code, name]) => (
+              <option key={code} value={code}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
         <ToggleRow
           title="Link previews"
           description="Show the title of web pages people send. Fetched by our server, so the site never sees your IP. Never in secret chats."

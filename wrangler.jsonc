@@ -10,6 +10,9 @@
     "run_worker_first": ["/api/*"]
   },
 
+  // Workers AI: voice message transcripts and translation (free daily allowance).
+  "ai": { "binding": "AI" },
+
   // Free D1 (SQLite) database.
   "d1_databases": [
     {

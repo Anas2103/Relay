@@ -1,4 +1,4 @@
-import {
+import { TRANSLATE_LANGUAGES,
   DEFAULT_SETTINGS,
   isBubbleStyle,
   isAccentColor,
@@ -229,6 +229,7 @@ export function parseSettings(raw: string | null): Settings {
     linkPreviews: bool(parsed.linkPreviews, d.linkPreviews),
     sendTyping: bool(parsed.sendTyping, d.sendTyping),
     notificationPreview: bool(parsed.notificationPreview, d.notificationPreview),
+    translateTo: TRANSLATE_LANGUAGES.some(([c]) => c === parsed.translateTo) ? (parsed.translateTo as string) : "",
     lastSeen: oneOf(parsed.lastSeen, ["contacts", "nobody"], d.lastSeen),
     presence: oneOf(parsed.presence, ["online", "dnd", "invisible"], d.presence),
   };

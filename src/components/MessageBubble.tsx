@@ -34,7 +34,14 @@ export type UiMessage = Message & {
   progress?: number;
   /** Secret chats: this device can't decrypt it. */
   locked?: boolean;
+  /** Voice messages: the transcript, once asked for. */
+  transcript?: AiText;
+  /** "Translate": the translated text, shown under the original. */
+  translation?: AiText;
 };
+
+/** Text made on request by the server's AI: loading, done, or failed (with the reason). */
+export type AiText = { state: "loading" } | { state: "done"; text: string } | { state: "error"; text: string };
 
 export type BubbleAction =
   | { type: "menu"; message: UiMessage; rect: DOMRect }
@@ -46,7 +53,9 @@ export type BubbleAction =
   | { type: "jump"; messageId: string }
   | { type: "call-back"; video: boolean }
   | { type: "select"; message: UiMessage }
-  | { type: "vote"; message: UiMessage; options: number[] };
+  | { type: "vote"; message: UiMessage; options: number[] }
+  | { type: "transcribe"; message: UiMessage }
+  | { type: "hide-translation"; message: UiMessage };
 
 interface Props {
   message: UiMessage;
@@ -204,7 +213,21 @@ export const MessageBubble = memo(function MessageBubble({
               <LockIcon className="size-3.5" /> Encrypted for another device
             </span>
           ) : m.kind === "voice" ? (
-            <VoicePlayer id={m.id} src={m.localUrl ?? mediaUrl(m.roomId, m.id)} meta={m.meta} mine={tinted} />
+            <>
+              <VoicePlayer id={m.id} src={m.localUrl ?? mediaUrl(m.roomId, m.id)} meta={m.meta} mine={tinted} />
+              {!m.status && !m.transcript && !m.transcriptText && (
+                <button
+                  onClick={() => onAction({ type: "transcribe", message: m })}
+                  className={`mt-1 rounded-full px-2.5 py-0.5 text-xs font-semibold transition ${tinted ? "bg-white/20 hover:bg-white/30" : "bg-accent/15 text-accent-fg hover:bg-accent/25"}`}
+                  aria-label="Show the text of this voice message"
+                >
+                  Aa · Transcribe
+                </button>
+              )}
+              {(m.transcript || m.transcriptText) && (
+                <AiTextBlock value={m.transcript ?? { state: "done", text: m.transcriptText! }} tinted={tinted} label="Transcript" />
+              )}
+            </>
           ) : viewOnce ? (
             <ViewOnceContent message={m} mine={mine} tinted={tinted} meId={meId} onOpen={() => onAction({ type: "open-view-once", message: m })} />
           ) : m.kind === "image" ? (
@@ -231,6 +254,15 @@ export const MessageBubble = memo(function MessageBubble({
             </p>
           )}
           {link && <LinkCard url={link} tinted={tinted} />}
+          {m.translation && (
+            <AiTextBlock
+              value={m.translation}
+              tinted={tinted}
+              label="Translated"
+              onHide={() => onAction({ type: "hide-translation", message: m })}
+              padded={visual}
+            />
+          )}
 
           {m.status === "pending" && isMedia && <UploadBadge progress={m.progress} />}
         </div>
@@ -438,6 +470,27 @@ function CallContent({
         <span className={`text-xs ${tinted ? "opacity-75" : "text-zinc-500 dark:text-zinc-400"}`}>Tap to call back</span>
       </span>
     </button>
+  );
+}
+
+/** A transcript or translation under a message. */
+function AiTextBlock({ value, tinted, label, onHide, padded }: { value: AiText; tinted: boolean; label: string; onHide?: () => void; padded?: boolean }) {
+  return (
+    <div className={`mt-1.5 border-t pt-1.5 text-[0.95em] ${tinted ? "border-current/20" : "border-zinc-200 dark:border-zinc-700"} ${padded ? "mx-2.5 mb-1.5" : ""}`}>
+      <span className={`flex items-center justify-between gap-3 text-[11px] font-semibold tracking-wide uppercase ${tinted ? "opacity-75" : "text-zinc-500 dark:text-zinc-400"}`}>
+        {value.state === "loading" ? (label === "Transcript" ? "Transcribing…" : "Translating…") : label}
+        {onHide && value.state !== "loading" && (
+          <button onClick={onHide} className="normal-case underline-offset-2 hover:underline">
+            Show original
+          </button>
+        )}
+      </span>
+      {value.state === "loading" ? (
+        <span className="mt-1 block h-3 w-40 max-w-full animate-pulse rounded bg-current/15" />
+      ) : (
+        <p className={`mt-0.5 whitespace-pre-wrap ${value.state === "error" ? "italic opacity-80" : ""}`}>{value.text}</p>
+      )}
+    </div>
   );
 }
 

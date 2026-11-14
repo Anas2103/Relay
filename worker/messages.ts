@@ -102,13 +102,18 @@ export async function hydrateMessages(db: D1Database, rows: MessageRow[]): Promi
   const placeholders = ids.map((_, i) => `?${i + 1}`).join(",");
 
   const pollIds = rows.filter((r) => r.kind === "poll").map((r) => r.id);
-  const [reactions, views, votes] = await db.batch<{ message_id: string; user_id: string; emoji?: string; option_idx?: number }>([
+  const voiceIds = rows.filter((r) => r.kind === "voice").map((r) => r.id);
+  const [reactions, views, votes, transcripts] = await db.batch<{ message_id: string; user_id: string; emoji?: string; option_idx?: number; text?: string }>([
     db.prepare(`SELECT message_id, user_id, emoji FROM message_reactions WHERE message_id IN (${placeholders})`).bind(...ids),
     db.prepare(`SELECT message_id, user_id FROM media_views WHERE message_id IN (${placeholders})`).bind(...ids),
     pollIds.length
       ? db.prepare(`SELECT message_id, user_id, option_idx FROM poll_votes WHERE message_id IN (${pollIds.map((_, i) => `?${i + 1}`).join(",")})`).bind(...pollIds)
       : db.prepare("SELECT NULL AS message_id WHERE 0"),
+    voiceIds.length
+      ? db.prepare(`SELECT message_id, text FROM transcripts WHERE message_id IN (${voiceIds.map((_, i) => `?${i + 1}`).join(",")})`).bind(...voiceIds)
+      : db.prepare("SELECT NULL AS message_id WHERE 0"),
   ]);
+  const transcriptMap = new Map(transcripts.results.map((t) => [t.message_id, t.text!]));
   const voteMap = new Map<string, Record<string, number[]>>();
   for (const v of votes.results) {
     const entry = voteMap.get(v.message_id) ?? {};
@@ -127,7 +132,11 @@ export async function hydrateMessages(db: D1Database, rows: MessageRow[]): Promi
     viewMap.set(v.message_id, [...(viewMap.get(v.message_id) ?? []), v.user_id]);
   }
 
-  return rows.map((r) => rowToMessage(r, reactionMap.get(r.id) ?? {}, viewMap.get(r.id) ?? [], voteMap.get(r.id)));
+  return rows.map((r) => {
+    const m = rowToMessage(r, reactionMap.get(r.id) ?? {}, viewMap.get(r.id) ?? [], voteMap.get(r.id));
+    const t = transcriptMap.get(r.id);
+    return t ? { ...m, transcriptText: t } : m;
+  });
 }
 
 export async function loadMessage(db: D1Database, id: string): Promise<Message | null> {

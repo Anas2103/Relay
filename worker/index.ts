@@ -1,4 +1,5 @@
 import { routeAccount } from "./account";
+import { transcribe, translate } from "./ai";
 import { routeStickers } from "./stickers";
 import { routeAdmin } from "./admin";
 import {
@@ -191,6 +192,8 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
   }
   if ((match = p.match(new RegExp(`^/api/rooms/${ID}/pinned$`))) && m === "GET") return listPinned(request, env, match[1]);
   if ((match = p.match(new RegExp(`^/api/rooms/${ID}/starred$`))) && m === "GET") return listStarred(request, env, match[1]);
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/messages/${ID}/transcript$`))) && m === "POST") return transcribe(request, env, match[1], match[2]);
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/messages/${ID}/translate$`))) && m === "POST") return translate(request, env, match[1], match[2]);
   if ((match = p.match(new RegExp(`^/api/rooms/${ID}/messages/${ID}/star$`)))) {
     if (m === "POST") return setStar(request, env, match[1], match[2], true);
     if (m === "DELETE") return setStar(request, env, match[1], match[2], false);
