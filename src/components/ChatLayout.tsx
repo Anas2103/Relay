@@ -137,7 +137,7 @@ export function ChatLayout({
             const updated: Room = {
               ...r,
               lastMessage: e.lastMessage,
-              unreadCount: mine || isOpen ? r.unreadCount : r.unreadCount + 1,
+              unreadCount: (mine && !e.reminder) || isOpen ? r.unreadCount : r.unreadCount + 1,
               mentions: mentioned && !isOpen ? r.mentions + 1 : r.mentions,
             };
             return [updated, ...prev.filter((x) => x.id !== e.roomId)];
@@ -145,7 +145,9 @@ export function ChatLayout({
           if (!room) refreshRooms();
           // Muted chats stay quiet, except when someone @mentions or replies to you (like Telegram).
           const quiet = e.silent || (room ? isMuted(room) && !mentioned : false);
-          if (!mine && !quiet && (!isOpen || away)) {
+          if (e.reminder && (!isOpen || away)) {
+            notify(meRef.current, "⏰ Reminder", e.lastMessage.preview, () => setActiveId(e.roomId));
+          } else if (!mine && !quiet && (!isOpen || away)) {
             const title = room?.type === "group" ? `${e.fromName} · ${roomTitle(room)}` : e.fromName;
             notify(meRef.current, mentioned && room?.type === "group" ? `${title} mentioned you` : title, e.lastMessage.preview, () => setActiveId(e.roomId));
           }

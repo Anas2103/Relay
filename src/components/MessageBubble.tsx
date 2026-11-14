@@ -4,6 +4,7 @@ import { api, mediaUrl } from "../lib/api";
 import { formatTime } from "../lib/format";
 import { formatDuration } from "../lib/media";
 import { RichText } from "../lib/richText";
+import { LocationCard } from "./LocationCard";
 import {
   CheckIcon,
   DownloadIcon,
@@ -212,11 +213,13 @@ export const MessageBubble = memo(function MessageBubble({
             <FileContent message={m} mine={tinted} />
           ) : m.kind === "call" ? (
             <CallContent message={m} mine={mine} tinted={tinted} onCallBack={(video) => onAction({ type: "call-back", video })} />
+          ) : m.meta?.location && !m.locked ? (
+            <LocationCard point={m.meta.location} tinted={tinted} />
           ) : m.kind === "poll" ? (
             <PollContent message={m} meId={meId} tinted={tinted} onVote={(options) => onAction({ type: "vote", message: m, options })} />
           ) : null}
 
-          {!deleted && m.body && !viewOnce && !m.locked && m.kind !== "poll" && (
+          {!deleted && m.body && !viewOnce && !m.locked && m.kind !== "poll" && !m.meta?.location && (
             <p className={`whitespace-pre-wrap ${visual ? "px-2.5 pt-1.5 pb-1" : ""} ${emojiOnly ? "big-emoji" : ""}`}>
               {emojiOnly ? m.body : <RichText text={m.body} tinted={tinted} me={meUsername} />}
             </p>

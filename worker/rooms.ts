@@ -293,17 +293,34 @@ export async function searchMessages(request: Request, env: Env, url: URL, roomI
   const me = await requireUser(request, env);
   await assertMember(env, roomId, me.id);
   const q = (url.searchParams.get("q") ?? "").trim().slice(0, 100);
-  if (!q) return json({ messages: [] });
+  // Filters: what kind of message, who sent it, and how recent.
+  const type = url.searchParams.get("type") || "all";
+  const from = url.searchParams.get("from") ?? "";
+  const since = Number(url.searchParams.get("since")) || 0;
+  if (type !== "all" && !Object.hasOwn(GALLERY_FILTERS, type)) throw new HttpError(400, "Unknown filter.");
+  if (from.length > 64) throw new HttpError(400, "Unknown person.");
+  // Nothing to look for: no words and no filter.
+  if (!q && type === "all" && !from) return json({ messages: [] });
 
-  const { results } = await env.DB.prepare(
-    `${MESSAGE_SELECT}
-      WHERE m.room_id = ?1 AND m.deleted_at IS NULL AND ${NOT_EXPIRED} AND (
-        (m.kind IN ('text', 'image', 'video') AND m.body LIKE ?2 ESCAPE '\\' AND ${NOT_VIEW_ONCE})
-        OR (m.kind = 'file' AND json_extract(m.meta, '$.name') LIKE ?2 ESCAPE '\\')
-      )
-      ORDER BY m.created_at DESC, m.id DESC LIMIT 50`,
-  )
-    .bind(roomId, likePattern(q))
+  const where = ["m.room_id = ?1", "m.deleted_at IS NULL", NOT_EXPIRED];
+  const binds: (string | number)[] = [roomId];
+  if (q) {
+    binds.push(likePattern(q));
+    const p = `?${binds.length}`;
+    where.push(`((m.kind IN ('text', 'image', 'video') AND m.body LIKE ${p} ESCAPE '\\' AND ${NOT_VIEW_ONCE})
+      OR (m.kind = 'file' AND json_extract(m.meta, '$.name') LIKE ${p} ESCAPE '\\'))`);
+  }
+  if (type !== "all") where.push(`(${GALLERY_FILTERS[type as GalleryTab]})`);
+  if (from) {
+    binds.push(from);
+    where.push(`m.user_id = ?${binds.length}`);
+  }
+  if (since > 0) {
+    binds.push(since);
+    where.push(`m.created_at >= ?${binds.length}`);
+  }
+  const { results } = await env.DB.prepare(`${MESSAGE_SELECT} WHERE ${where.join(" AND ")} ORDER BY m.created_at DESC, m.id DESC LIMIT 50`)
+    .bind(...binds)
     .all<MessageRow>();
   return json({ messages: await hydrateMessages(env.DB, results) });
 }

@@ -25,7 +25,7 @@ import {
 import type { VoiceSettings } from "../lib/audio";
 import { DeviceHelp } from "./DeviceHelp";
 import type { UiMessage } from "./MessageBubble";
-import { Avatar, BellOffIcon, ChartIcon, ClockIcon } from "./ui";
+import { Avatar, BellOffIcon, ChartIcon, ClockIcon, MapPinIcon } from "./ui";
 import {
   CameraIcon,
   EditIcon,
@@ -59,6 +59,8 @@ interface Props {
   mentionables?: User[];
   /** Opens the "New poll" dialog. */
   onCreatePoll?: () => void;
+  /** Shares your current location. */
+  onShareLocation?: () => void;
   /** Opens "Schedule message" with this text. */
   onSchedule?: (body: string) => void;
   onSaveEdit: (body: string) => void;
@@ -107,6 +109,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
     draftKey,
     mentionables,
     onCreatePoll,
+    onShareLocation,
     onSchedule,
   },
   ref,
@@ -521,6 +524,17 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
                       <AttachItem icon={<ImageIcon className="size-5" />} color="bg-violet-500" label="Photos & videos" onClick={() => mediaInputRef.current?.click()} />
                       <AttachItem icon={<CameraIcon className="size-5" />} color="bg-rose-500" label="Camera" onClick={() => cameraInputRef.current?.click()} />
                       <AttachItem icon={<FileIcon className="size-5" />} color="bg-sky-500" label="Document" onClick={() => docInputRef.current?.click()} />
+                      {onShareLocation && (
+                        <AttachItem
+                          icon={<MapPinIcon className="size-5" />}
+                          color="bg-emerald-500"
+                          label="Location"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            onShareLocation();
+                          }}
+                        />
+                      )}
                       {onCreatePoll && (
                         <AttachItem
                           icon={<ChartIcon className="size-5" />}

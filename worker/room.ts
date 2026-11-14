@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import {
+import { type GeoPoint,
   E2E_RE,
   isEncrypted,
   LIMITS,
@@ -166,8 +166,17 @@ export class ChatRoom extends DurableObject<Env> {
     if (!row) return;
     this.sql.exec("DELETE FROM scheduled WHERE id = ?", id);
     const att: Attachment = { userId: row.user_id, username: row.username, displayName: row.display_name, roomId: row.room_id, tokens: BUCKET_SIZE, refilledAt: Date.now() };
+    // Like Telegram: a scheduled message in Saved Messages is a reminder, so it alerts you.
+    const room = await this.env.DB.prepare("SELECT dm_key FROM rooms WHERE id = ?1").bind(row.room_id).first<{ dm_key: string | null }>();
+    const reminder = !!room?.dm_key?.startsWith("saved:");
     try {
-      await this.onSend(null, att, { type: "send", clientId: id, kind: "text", body: row.body, replyToId: row.reply_to_id ?? undefined, silent: row.silent === 1 }, id);
+      await this.onSend(
+        null,
+        att,
+        { type: "send", clientId: id, kind: "text", body: row.body, replyToId: row.reply_to_id ?? undefined, silent: row.silent === 1 },
+        id,
+        reminder,
+      );
     } catch (err) {
       // The chat changed in the meantime (left the group, blocked, admins-only…): the message is dropped.
       console.log("scheduled message not sent:", err instanceof Error ? err.message : err);
@@ -506,6 +515,8 @@ export class ChatRoom extends DurableObject<Env> {
     att: Attachment,
     event: Extract<ClientEvent, { type: "send" }>,
     clientId: string,
+    /** A reminder firing: alert the author too. */
+    reminder = false,
   ): Promise<void> {
     const kind: MessageKind = (["image", "voice", "video", "file", "call", "poll"] as const).includes(event.kind as never)
       ? event.kind
@@ -570,6 +581,10 @@ export class ChatRoom extends DurableObject<Env> {
       };
     } else if (kind === "poll") {
       meta = { mime: "", size: 0, poll: sanitizePoll((event.meta as { poll?: unknown } | undefined)?.poll) };
+    } else if (kind === "text" && (event.meta as { location?: unknown } | undefined)?.location !== undefined) {
+      // A location would sit in plain text next to the ciphertext, so secret chats can't share one.
+      if (await this.isSecret(att.roomId)) throw new UserError("Locations can't be shared in secret chats.");
+      meta = { mime: "", size: 0, location: sanitizeLocation((event.meta as { location?: unknown }).location) };
     } else if (kind !== "text") {
       mediaId = typeof event.mediaId === "string" ? event.mediaId : null;
       const media = mediaId
@@ -667,6 +682,7 @@ export class ChatRoom extends DurableObject<Env> {
       lastMessage: { preview: messagePreview(message), createdAt: now, userId: att.userId },
       ...(silent ? { silent: true } : {}),
       ...(mentions.length ? { mentions } : {}),
+      ...(reminder ? { reminder: true } : {}),
     });
 
     // People with the app closed get a push notification (no message content in it), unless they
@@ -674,7 +690,7 @@ export class ChatRoom extends DurableObject<Env> {
     if (pushConfigured(this.env) && !silent) {
       const mentioned = new Set(mentions);
       const recipients = people
-        .filter((p) => p.user_id !== att.userId && p.dnd !== 1 && (p.muted !== 1 || mentioned.has(p.user_id)))
+        .filter((p) => (p.user_id !== att.userId || reminder) && p.dnd !== 1 && (p.muted !== 1 || mentioned.has(p.user_id) || reminder))
         .map((p) => p.user_id);
       const online = new Set(await hub.onlineAmong(recipients));
       const offline = recipients.filter((id) => !online.has(id));
@@ -883,6 +899,23 @@ function sanitizePoll(raw: unknown): PollInfo {
     throw new UserError(`A poll needs ${LIMITS.pollOptionsMin} to ${LIMITS.pollOptionsMax} answers.`);
   }
   return { options, multiple: input.multiple === true };
+}
+
+function sanitizeLocation(raw: unknown): GeoPoint {
+  const input = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const lat = Number(input.lat);
+  const lng = Number(input.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+    throw new UserError("Invalid location.");
+  }
+  const accuracy = Number(input.accuracy);
+  // ~1 m precision is plenty; more digits would only add noise.
+  const round = (v: number) => Math.round(v * 1e5) / 1e5;
+  return {
+    lat: round(lat),
+    lng: round(lng),
+    accuracy: Number.isFinite(accuracy) && accuracy > 0 ? Math.min(Math.round(accuracy), 100_000) : undefined,
+  };
 }
 
 /** Keeps only well-formed metadata; size and type always come from the stored file. */

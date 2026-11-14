@@ -656,6 +656,13 @@ export interface CallInfo {
   duration?: number;
 }
 
+export interface GeoPoint {
+  lat: number;
+  lng: number;
+  /** Metres. */
+  accuracy?: number;
+}
+
 export interface MediaMeta {
   mime: string;
   size: number;
@@ -673,6 +680,8 @@ export interface MediaMeta {
   call?: CallInfo;
   /** Sent with "Forward". */
   forwarded?: boolean;
+  /** A shared location (text messages only, never in secret chats). */
+  location?: GeoPoint;
   /** Poll messages only. */
   poll?: PollInfo;
   /** Sent without sound (no alerts for the people receiving it). */
@@ -764,7 +773,7 @@ export type ClientEvent =
       body: string;
       mediaId?: string;
       /** Client-measured details; size and type are always taken from the stored file. */
-      meta?: Pick<MediaMeta, "width" | "height" | "duration" | "waveform" | "viewOnce" | "call" | "forwarded" | "poll">;
+      meta?: Pick<MediaMeta, "width" | "height" | "duration" | "waveform" | "viewOnce" | "call" | "forwarded" | "poll" | "location">;
       replyToId?: string;
       /** No alerts or sounds for the people receiving it. */
       silent?: boolean;
@@ -824,6 +833,8 @@ export type LobbyEvent =
       silent?: boolean;
       /** People @mentioned in it (they get alerted even in muted chats). */
       mentions?: string[];
+      /** A reminder you set (a scheduled message in Saved Messages): alert its author. */
+      reminder?: boolean;
     }
   /** Security alert for your other devices ("New sign-in on Chrome · Windows"). */
   | { type: "security"; title: string; text: string }

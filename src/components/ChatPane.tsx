@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { toggleSpeak } from "../lib/speak";
-import { bubbleLook, disappearLabel, SLOW_MODE_OPTIONS, type MediaKind, type MediaMeta, type Me, type Message, type MessageKind, type PollInfo, type Room, type ScheduledMessage, type User } from "../../shared/types";
+import { LocationPreview } from "./LocationCard";
+import { bubbleLook, disappearLabel, SLOW_MODE_OPTIONS, type MediaKind, type MediaMeta, type Me, type Message, type MessageKind, type GeoPoint, type PollInfo, type Room, type ScheduledMessage, type User } from "../../shared/types";
 import { api, ApiError, fetchMedia, mediaUrl } from "../lib/api";
 import { formatDayDivider, formatRelative, sameDay } from "../lib/format";
 import type { PreparedImage, PreparedVideo, Recording } from "../lib/media";
@@ -39,6 +40,7 @@ import {
 // Opened on demand, so they download only when first used.
 const ChatInfo = lazy(() => import("./ChatInfo").then((m) => ({ default: m.ChatInfo })));
 const SearchPanel = lazy(() => import("./SearchPanel").then((m) => ({ default: m.SearchPanel })));
+const RemindDialog = lazy(() => import("./RemindDialog").then((m) => ({ default: m.RemindDialog })));
 const PollDialog = lazy(() => import("./PollDialog").then((m) => ({ default: m.PollDialog })));
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
@@ -79,7 +81,7 @@ interface Outgoing {
   replyToId?: string;
   blob?: Blob;
   name?: string;
-  meta?: Pick<MediaMeta, "width" | "height" | "duration" | "waveform" | "viewOnce" | "poll">;
+  meta?: Pick<MediaMeta, "width" | "height" | "duration" | "waveform" | "viewOnce" | "poll" | "location">;
   mediaId?: string;
   /** No alerts or sounds for the people receiving it. */
   silent?: boolean;
@@ -640,6 +642,23 @@ export function ChatPane({
 
   const sendPoll = (question: string, poll: PollInfo) => queue({ kind: "poll", body: question, meta: { poll } });
 
+  // ---- Share location: ask the device, show it, send only after you confirm ----
+  const [locating, setLocating] = useState<GeoPoint | "finding" | null>(null);
+  const [reminding, setReminding] = useState<UiMessage | null>(null);
+  const shareLocation = () => {
+    if (!("geolocation" in navigator)) return setNotice("This device can't share its location.");
+    setLocating("finding");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setLocating({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
+      (err) => {
+        setLocating(null);
+        setNotice(err.code === err.PERMISSION_DENIED ? "Location access is blocked. Allow it in your browser's site settings." : "Couldn't find your location. Try again outside or near a window.");
+      },
+      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 30_000 },
+    );
+  };
+  const sendLocation = (point: GeoPoint) => queue({ kind: "text", body: "📍 Location", replyToId: replyTo?.id, meta: { location: point } });
+
   const sendFile = (file: File) =>
     queue({ kind: "file", body: "", replyToId: replyTo?.id, blob: file, name: file.name }, URL.createObjectURL(file));
 
@@ -799,6 +818,9 @@ export function ChatPane({
           () => setNotice("Copied"),
           () => setNotice("Couldn't copy."),
         );
+        break;
+      case "remind":
+        setReminding(m);
         break;
       case "speak":
         toggleSpeak(m.id, m.body);
@@ -1078,6 +1100,14 @@ export function ChatPane({
             <SearchPanel
               roomId={room.id}
               meId={me.id}
+              people={
+                room.peer
+                  ? [
+                      { id: me.id, name: "Me" },
+                      { id: room.peer.id, name: room.peer.displayName },
+                    ]
+                  : members.map((u) => ({ id: u.id, name: u.displayName }))
+              }
               onClose={() => setSearchOpen(false)}
               onPick={(id) => {
                 setSearchOpen(false);
@@ -1315,6 +1345,7 @@ export function ChatPane({
           draftKey={room.secret ? undefined : room.id}
           mentionables={room.type === "group" ? members : undefined}
           onCreatePoll={room.secret || room.saved ? undefined : () => setPollOpen(true)}
+          onShareLocation={room.secret ? undefined : shareLocation}
           onSchedule={scheduleMessage}
           meId={me.id}
           replyTo={replyTo}
@@ -1364,6 +1395,7 @@ export function ChatPane({
             canForward={
               !room.secret && !menu.message.locked && menu.message.kind !== "call" && !menu.message.meta?.viewOnce && !menu.message.deletedAt
             }
+            canRemind={!room.secret && !menu.message.locked && !menu.message.deletedAt}
             onAction={onMenuAction}
             onClose={() => setMenu(null)}
           />
@@ -1402,6 +1434,41 @@ export function ChatPane({
             readers={members.filter((u) => u.id !== me.id && (readState[u.id] ?? 0) >= seenBy.createdAt)}
             unread={members.filter((u) => u.id !== me.id && (readState[u.id] ?? 0) < seenBy.createdAt)}
             onClose={() => setSeenBy(null)}
+          />
+        )}
+        {reminding && (
+          <Suspense fallback={null}>
+            <RemindDialog
+              excerpt={
+                reminding.body ||
+                (reminding.kind === "image" ? "📷 Photo" : reminding.kind === "video" ? "🎬 Video" : reminding.kind === "voice" ? "🎤 Voice message" : reminding.kind === "file" ? `📄 ${reminding.meta?.name ?? "File"}` : "Message")
+              }
+              chatName={title}
+              onDone={setNotice}
+              onClose={() => setReminding(null)}
+            />
+          </Suspense>
+        )}
+        {locating && (
+          <ConfirmDialog
+            title="Share your location?"
+            message={
+              locating === "finding" ? (
+                "Finding where you are…"
+              ) : (
+                <span className="block space-y-3">
+                  <LocationPreview point={locating} />
+                  <span className="block">Everyone in this chat will see this spot{locating.accuracy ? ` (accurate to about ${Math.round(locating.accuracy)} m)` : ""}.</span>
+                </span>
+              )
+            }
+            confirmLabel="Send location"
+            confirmDisabled={locating === "finding"}
+            onConfirm={() => {
+              if (locating !== "finding") sendLocation(locating);
+              setLocating(null);
+            }}
+            onClose={() => setLocating(null)}
           />
         )}
         {confirmBulkDelete && (

@@ -443,6 +443,7 @@ export function ConfirmDialog({
   message,
   confirmLabel,
   danger,
+  confirmDisabled,
   onConfirm,
   onClose,
 }: {
@@ -450,6 +451,8 @@ export function ConfirmDialog({
   message: ReactNode;
   confirmLabel: string;
   danger?: boolean;
+  /** e.g. while something is still loading. */
+  confirmDisabled?: boolean;
   onConfirm: () => Promise<void> | void;
   onClose: () => void;
 }) {
@@ -465,7 +468,7 @@ export function ConfirmDialog({
             Cancel
           </button>
           <button
-            disabled={busy}
+            disabled={busy || confirmDisabled}
             onClick={async () => {
               setBusy(true);
               setError(null);

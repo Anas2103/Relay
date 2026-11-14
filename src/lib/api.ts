@@ -208,8 +208,10 @@ export const api = {
           : "";
     return request<MessagePage>(`/api/rooms/${roomId}/messages${qs}`);
   },
-  search: (roomId: string, q: string) =>
-    request<{ messages: Message[] }>(`/api/rooms/${roomId}/search?q=${encodeURIComponent(q)}`),
+  search: (roomId: string, q: string, filters: { type?: GalleryTab | "all"; from?: string; since?: number } = {}) =>
+    request<{ messages: Message[] }>(
+      `/api/rooms/${roomId}/search?q=${encodeURIComponent(q)}&type=${filters.type ?? "all"}&from=${encodeURIComponent(filters.from ?? "")}&since=${filters.since ?? 0}`,
+    ),
   gallery: (roomId: string, tab: GalleryTab, before?: Cursor) =>
     request<{ messages: Message[]; hasMore: boolean }>(
       `/api/rooms/${roomId}/gallery?tab=${tab}${before ? `&before=${before.createdAt}&beforeId=${encodeURIComponent(before.id)}` : ""}`,
