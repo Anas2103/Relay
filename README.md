@@ -195,3 +195,15 @@ npx wrangler secret put VAPID_PRIVATE_KEY
 - [x] Owner / admin roles, maintenance mode
 - [ ] Automated tests in CI
 - [ ] Native mobile app (the PWA works today)
+
+---
+
+## More projects
+
+- [**CarsRental**](https://github.com/Anas2103/CarsRental) — car rental manager with roles and PayPal (Laravel · React)
+- [**E-Commerce**](https://github.com/Anas2103/Ecommerce) — multi-vendor store with Stripe & PayPal (Laravel · React) · [live demo](https://anas2103-ecommerce.vercel.app)
+- [**HireMatch**](https://github.com/Anas2103/AiJobBoard) — AI job board that scores CVs against jobs (Laravel · React · OpenAI)
+- [**SmartCourse**](https://github.com/Anas2103/SmartCoursePlatform) — online course platform with Stripe and certificates (Laravel · React)
+- [**Student & Course Manager**](https://github.com/Anas2103/StudentsCourseManager) — school management with 4 roles (Laravel · React)
+
+More about me on my [GitHub profile](https://github.com/Anas2103).
