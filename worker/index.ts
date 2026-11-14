@@ -1,4 +1,5 @@
 import { routeAccount } from "./account";
+import { routeStickers } from "./stickers";
 import { routeAdmin } from "./admin";
 import {
   createSession,
@@ -127,6 +128,7 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
   }
 
   if (p.startsWith("/api/push/")) return routePush(request, env, url);
+  if (p === "/api/stickers" || p.startsWith("/api/stickers/")) return routeStickers(request, env, p);
   if (p === "/api/link-preview" && m === "GET") return linkPreview(request, env, url);
   if (p.startsWith("/api/admin/")) return routeAdmin(request, env, url);
   if (p === "/api/lobby" && m === "GET") return connectLobby(request, env, url);

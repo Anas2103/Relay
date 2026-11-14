@@ -940,6 +940,7 @@ function sanitizeMeta(
     meta.height = int(input.height, 10_000);
     if (kind === "video") meta.duration = seconds(input.duration, 24 * 3600);
     if (input.viewOnce === true) meta.viewOnce = true;
+    if (kind === "image" && input.sticker === true && input.viewOnce !== true) meta.sticker = true;
   } else {
     meta.duration = seconds(input.duration, LIMITS.voiceMaxSeconds + 2);
     if (Array.isArray(input.waveform)) {

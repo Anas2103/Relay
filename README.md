@@ -23,6 +23,7 @@ Real-time chat in the spirit of Telegram: groups, **end-to-end encrypted secret 
 - **Ctrl/⌘+K quick switcher** and Alt+↑/↓ to move between chats
 - **Scheduled messages**, kept and sent by the chat's own server even when your device is off
 - **Search across all your chats** (never secret chats), jumping straight to the message. In a chat, **filter** by type (photos & videos, files, links, voice), by person and by date, with or without words
+- **Stickers**: your own collection (up to 120, synced to your account), made from any picture or from a photo in a chat ("Add to stickers"); transparent cut-outs stay transparent, shown big without a bubble
 - **Share your location** (after a preview you confirm), drawn as a small map without loading third-party map tiles, so nobody outside the chat learns who looked; "Open in Maps" on any device
 - **Remind me** about any message (in 20 minutes, tonight, tomorrow, next Monday or any time): a reminder lands in Saved Messages with a notification, even if Relay is closed
 - **"Seen by"** in groups, an **"Unread messages"** divider, **group photos** and a shareable **profile link** (`/?u=username`)

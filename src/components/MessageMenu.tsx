@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { UiMessage } from "./MessageBubble";
 import { canSpeak, isSpeaking } from "../lib/speak";
-import { AlertIcon, CopyIcon, EditIcon, EyeIcon, ForwardIcon, PinIcon, ReplyIcon, SelectIcon, StarIcon, TrashIcon, VolumeIcon, ClockIcon } from "./ui";
+import { AlertIcon, CopyIcon, EditIcon, EyeIcon, ForwardIcon, PinIcon, ReplyIcon, SelectIcon, StarIcon, TrashIcon, VolumeIcon, ClockIcon, SmileIcon } from "./ui";
 
 export const QUICK_REACTIONS = ["❤️", "😂", "😮", "😢", "🙏", "👍"];
 
-export type MenuAction = "reply" | "copy" | "edit" | "delete" | "pin" | "star" | "forward" | "select" | "report" | "seen" | "speak" | "remind" | { react: string };
+export type MenuAction = "reply" | "copy" | "edit" | "delete" | "pin" | "star" | "forward" | "select" | "report" | "seen" | "speak" | "remind" | "sticker" | { react: string };
 
 /** Reaction bar + actions, anchored next to the long-pressed / right-clicked bubble. */
 export function MessageMenu({
@@ -101,6 +101,9 @@ export function MessageMenu({
           {canCopy && <MenuItem icon={<CopyIcon className="size-4" />} label="Copy text" onClick={() => onAction("copy")} />}
           {canSpeak && !locked && message.body.trim() && message.kind !== "call" && (
             <MenuItem icon={<VolumeIcon className="size-4" />} label={isSpeaking(message.id) ? "Stop reading" : "Read aloud"} onClick={() => onAction("speak")} />
+          )}
+          {message.kind === "image" && !message.meta?.viewOnce && !locked && !message.meta?.sticker && (
+            <MenuItem icon={<SmileIcon className="size-4" />} label="Add to stickers" onClick={() => onAction("sticker")} />
           )}
           {canRemind && message.kind !== "call" && (
             <MenuItem icon={<ClockIcon className="size-4" />} label="Remind me" onClick={() => onAction("remind")} />

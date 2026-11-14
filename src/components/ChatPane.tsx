@@ -1,7 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { toggleSpeak } from "../lib/speak";
 import { LocationPreview } from "./LocationCard";
-import { bubbleLook, disappearLabel, SLOW_MODE_OPTIONS, type MediaKind, type MediaMeta, type Me, type Message, type MessageKind, type GeoPoint, type PollInfo, type Room, type ScheduledMessage, type User } from "../../shared/types";
+import { addToStickers, stickerUrl } from "./StickerPanel";
+import { bubbleLook, disappearLabel, SLOW_MODE_OPTIONS, type MediaKind, type MediaMeta, type Me, type Message, type MessageKind, type GeoPoint, type PollInfo, type Sticker, type Room, type ScheduledMessage, type User } from "../../shared/types";
 import { api, ApiError, fetchMedia, mediaUrl } from "../lib/api";
 import { formatDayDivider, formatRelative, sameDay } from "../lib/format";
 import type { PreparedImage, PreparedVideo, Recording } from "../lib/media";
@@ -81,7 +82,7 @@ interface Outgoing {
   replyToId?: string;
   blob?: Blob;
   name?: string;
-  meta?: Pick<MediaMeta, "width" | "height" | "duration" | "waveform" | "viewOnce" | "poll" | "location">;
+  meta?: Pick<MediaMeta, "width" | "height" | "duration" | "waveform" | "viewOnce" | "poll" | "location" | "sticker">;
   mediaId?: string;
   /** No alerts or sounds for the people receiving it. */
   silent?: boolean;
@@ -657,6 +658,29 @@ export function ChatPane({
       { enableHighAccuracy: true, timeout: 15_000, maximumAge: 30_000 },
     );
   };
+  // ---- Stickers ----
+  const sendSticker = async (sticker: Sticker) => {
+    try {
+      const res = await fetch(stickerUrl(sticker.id));
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      queue({ kind: "image", body: "", blob, meta: { width: sticker.width, height: sticker.height, sticker: true } }, URL.createObjectURL(blob));
+    } catch {
+      setNotice("Couldn't send that sticker.");
+    }
+  };
+  const saveAsSticker = async (m: UiMessage) => {
+    setNotice("Adding to your stickers…");
+    try {
+      const res = await fetch(m.localUrl ?? mediaUrl(m.roomId, m.id));
+      if (!res.ok) throw new Error("Couldn't load the photo.");
+      await addToStickers(await res.blob());
+      setNotice("Added to your stickers");
+    } catch (err) {
+      setNotice(err instanceof Error && err.message ? err.message : "Couldn't add that sticker.");
+    }
+  };
+
   const sendLocation = (point: GeoPoint) => queue({ kind: "text", body: "📍 Location", replyToId: replyTo?.id, meta: { location: point } });
 
   const sendFile = (file: File) =>
@@ -818,6 +842,9 @@ export function ChatPane({
           () => setNotice("Copied"),
           () => setNotice("Couldn't copy."),
         );
+        break;
+      case "sticker":
+        void saveAsSticker(m);
         break;
       case "remind":
         setReminding(m);
@@ -1346,6 +1373,7 @@ export function ChatPane({
           mentionables={room.type === "group" ? members : undefined}
           onCreatePoll={room.secret || room.saved ? undefined : () => setPollOpen(true)}
           onShareLocation={room.secret ? undefined : shareLocation}
+          onSendSticker={room.secret ? undefined : (s) => void sendSticker(s)}
           onSchedule={scheduleMessage}
           meId={me.id}
           replyTo={replyTo}

@@ -67,6 +67,34 @@ export async function prepareImage(file: File): Promise<PreparedImage> {
   throw new Error("This image is too large.");
 }
 
+/**
+ * A sticker from a photo: fits in 512×512 and keeps transparency (WebP), small
+ * enough to send instantly. Cut-out PNGs stay cut out.
+ */
+export async function prepareSticker(source: Blob): Promise<PreparedImage> {
+  if (!source.type.startsWith("image/")) throw new Error("That file isn't an image.");
+  const bitmap = await createImageBitmap(source, { imageOrientation: "from-image" }).catch(() => {
+    throw new Error("Couldn't read this image.");
+  });
+  let max = 512;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = drawToCanvas(bitmap, width, height);
+    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/webp", 0.85));
+    // Older Safari can't make WebP; PNG keeps transparency.
+    const out = blob && blob.type === "image/webp" ? blob : await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/png"));
+    if (out && out.size <= LIMITS.stickerMaxBytes) {
+      bitmap.close();
+      return { blob: out, width, height };
+    }
+    max = Math.round(max * 0.75);
+  }
+  bitmap.close();
+  throw new Error("This image is too detailed for a sticker.");
+}
+
 /** Square, centered 256×256 profile picture. */
 export async function prepareAvatar(file: File): Promise<Blob> {
   if (!file.type.startsWith("image/")) throw new Error("That file isn't an image.");

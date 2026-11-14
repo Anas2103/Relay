@@ -8,7 +8,7 @@ import {
   type ClipboardEvent,
   type KeyboardEvent,
 } from "react";
-import { BLOCKED_EXTENSIONS, fileExtension, formatBytes, LIMITS, type User } from "../../shared/types";
+import { type Sticker, BLOCKED_EXTENSIONS, fileExtension, formatBytes, LIMITS, type User } from "../../shared/types";
 import { getDraft, setDraft as saveDraft } from "../lib/drafts";
 import {
   canUseDevices,
@@ -25,7 +25,8 @@ import {
 import type { VoiceSettings } from "../lib/audio";
 import { DeviceHelp } from "./DeviceHelp";
 import type { UiMessage } from "./MessageBubble";
-import { Avatar, BellOffIcon, ChartIcon, ClockIcon, MapPinIcon } from "./ui";
+import { Avatar, BellOffIcon, ChartIcon, ClockIcon, MapPinIcon, SmileIcon } from "./ui";
+import { StickerPanel } from "./StickerPanel";
 import {
   CameraIcon,
   EditIcon,
@@ -61,6 +62,8 @@ interface Props {
   onCreatePoll?: () => void;
   /** Shares your current location. */
   onShareLocation?: () => void;
+  /** Sends one of your stickers (not in secret chats). */
+  onSendSticker?: (sticker: Sticker) => void;
   /** Opens "Schedule message" with this text. */
   onSchedule?: (body: string) => void;
   onSaveEdit: (body: string) => void;
@@ -110,6 +113,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
     mentionables,
     onCreatePoll,
     onShareLocation,
+    onSendSticker,
     onSchedule,
   },
   ref,
@@ -122,6 +126,8 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
   const [preparing, setPreparing] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [stickersOpen, setStickersOpen] = useState(false);
+  const showStickerButton = !!onSendSticker && !editing && !draft.trim();
   const [problem, setProblem] = useState<DeviceProblem | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
@@ -604,6 +610,29 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
                   ))}
                 </ul>
               )}
+              {showStickerButton && (
+                <button
+                  type="button"
+                  onClick={() => setStickersOpen((o) => !o)}
+                  aria-expanded={stickersOpen}
+                  aria-label="Stickers"
+                  title="Stickers"
+                  className={`absolute right-1.5 bottom-1.5 z-10 flex size-8 items-center justify-center rounded-full transition hover:text-accent-fg ${
+                    stickersOpen ? "text-accent-fg" : "text-zinc-400"
+                  }`}
+                >
+                  <SmileIcon className="size-5" />
+                </button>
+              )}
+              {stickersOpen && onSendSticker && (
+                <StickerPanel
+                  onPick={(s) => {
+                    setStickersOpen(false);
+                    onSendSticker(s);
+                  }}
+                  onClose={() => setStickersOpen(false)}
+                />
+              )}
               <textarea
                 ref={inputRef}
                 value={draft}
@@ -616,7 +645,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
                 placeholder={editing ? "Edit message" : (placeholder ?? "Message")}
                 aria-label="Message"
                 enterKeyHint="send"
-                className={`msg-text no-scrollbar block w-full resize-none overflow-hidden rounded-[1.375rem] border bg-zinc-50 px-4 py-2.5 leading-6 placeholder:truncate outline-none transition placeholder:text-zinc-400 focus:bg-white focus:ring-4 dark:bg-zinc-800 dark:focus:bg-zinc-800 ${
+                className={`msg-text no-scrollbar block w-full resize-none overflow-hidden rounded-[1.375rem] border bg-zinc-50 py-2.5 pl-4 ${showStickerButton ? "pr-11" : "pr-4"} leading-6 placeholder:truncate outline-none transition placeholder:text-zinc-400 focus:bg-white focus:ring-4 dark:bg-zinc-800 dark:focus:bg-zinc-800 ${
                   tooLong
                     ? "border-red-400 focus:ring-red-500/15"
                     : "border-zinc-200 focus:border-accent focus:ring-accent/15 dark:border-zinc-700"

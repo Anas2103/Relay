@@ -123,6 +123,8 @@ export const MessageBubble = memo(function MessageBubble({
     : `bubble-shape ${startsGroup ? "" : "join-tl"} ${endsGroup ? "" : "join-bl"}`;
   // Only 1–3 emoji: shown large, without a bubble (like Telegram).
   const emojiOnly = bigEmoji && !deleted && m.kind === "text" && !m.replyTo && !m.locked && isEmojiOnly(m.body);
+  // Stickers: shown on their own, without a bubble.
+  const sticker = !deleted && m.kind === "image" && !!m.meta?.sticker && !m.replyTo && !m.body;
   const link = linkPreviews && !deleted && !m.locked && m.kind === "text" && !m.status ? firstUrl(m.body) : null;
 
   // Bubbles with a color behind them (mine, or theirs when shown) tint their contents from their text color.
@@ -130,7 +132,7 @@ export const MessageBubble = memo(function MessageBubble({
   const tinted = (mine || theirs) && !deleted;
   const surface = deleted
     ? "bg-transparent text-zinc-500 italic ring-1 ring-zinc-300 dark:text-zinc-400 dark:ring-zinc-700"
-    : emojiOnly
+    : emojiOnly || sticker
       ? "bg-transparent"
       : mine
       ? m.status === "failed"
@@ -181,9 +183,9 @@ export const MessageBubble = memo(function MessageBubble({
           onTouchEnd={cancelPress}
           onTouchMove={cancelPress}
           onDoubleClick={() => !deleted && !m.status && onAction({ type: "react", message: m, emoji: "❤️" })}
-          style={theirs && !emojiOnly ? { background: tint!.background, color: tint!.ink } : undefined}
+          style={theirs && !emojiOnly && !sticker ? { background: tint!.background, color: tint!.ink } : undefined}
           className={`msg-text relative max-w-[min(85vw,28rem)] leading-relaxed break-words ${corners} ${surface} ${
-            emojiOnly ? "px-1" : imageOnly ? "overflow-hidden p-0" : visual && !deleted ? "overflow-hidden p-1" : "bubble-pad"
+            emojiOnly ? "px-1" : sticker ? "p-0" : imageOnly ? "overflow-hidden p-0" : visual && !deleted ? "overflow-hidden p-1" : "bubble-pad"
           } ${m.status === "pending" ? "opacity-80" : ""} select-text`}
         >
           {m.meta?.forwarded && !deleted && (
@@ -206,7 +208,11 @@ export const MessageBubble = memo(function MessageBubble({
           ) : viewOnce ? (
             <ViewOnceContent message={m} mine={mine} tinted={tinted} meId={meId} onOpen={() => onAction({ type: "open-view-once", message: m })} />
           ) : m.kind === "image" ? (
-            <ImageContent message={m} onOpen={(src) => onAction({ type: "open-image", message: m, src })} />
+            sticker ? (
+              <StickerContent message={m} />
+            ) : (
+              <ImageContent message={m} onOpen={(src) => onAction({ type: "open-image", message: m, src })} />
+            )
           ) : m.kind === "video" ? (
             <VideoContent message={m} />
           ) : m.kind === "file" ? (
@@ -432,6 +438,24 @@ function CallContent({
         <span className={`text-xs ${tinted ? "opacity-75" : "text-zinc-500 dark:text-zinc-400"}`}>Tap to call back</span>
       </span>
     </button>
+  );
+}
+
+function StickerContent({ message: m }: { message: UiMessage }) {
+  const src = m.localUrl ?? mediaUrl(m.roomId, m.id);
+  const w = m.meta?.width ?? 160;
+  const h = m.meta?.height ?? 160;
+  const scale = Math.min(1, 160 / Math.max(w, h));
+  return (
+    <img
+      src={src}
+      alt="Sticker"
+      loading="lazy"
+      decoding="async"
+      draggable={false}
+      className="block object-contain drop-shadow-sm"
+      style={{ width: Math.round(w * scale), height: Math.round(h * scale) }}
+    />
   );
 }
 

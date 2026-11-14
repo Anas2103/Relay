@@ -1,4 +1,4 @@
-import type {
+import type { Sticker,
   AdminReport,
   AdminRoom,
   GroupBan,
@@ -148,6 +148,10 @@ export const api = {
   openDm: (username: string) => request<{ room: Room }>("/api/rooms/dm", { method: "POST", body: { username } }),
   acceptRequest: (roomId: string) => request<{ room: Room }>(`/api/rooms/${roomId}/accept`, { method: "POST", body: {} }),
   declineRequest: (roomId: string) => request<{ ok: true }>(`/api/rooms/${roomId}/decline`, { method: "POST", body: {} }),
+  stickers: () => request<{ stickers: Sticker[] }>("/api/stickers"),
+  addSticker: (blob: Blob, width: number, height: number) =>
+    request<{ sticker: Sticker }>(`/api/stickers?w=${width}&h=${height}`, { method: "POST", raw: blob }),
+  removeSticker: (id: string) => request<{ ok: true }>(`/api/stickers/${id}`, { method: "DELETE" }),
   openSaved: () => request<{ room: Room }>("/api/rooms/saved", { method: "POST", body: {} }),
   deleteChat: (roomId: string) => request<{ ok: true }>(`/api/rooms/${roomId}`, { method: "DELETE", body: {} }),
   updatePrefs: (roomId: string, data: { pinned?: boolean; archived?: boolean; mutedUntil?: number | null }) =>

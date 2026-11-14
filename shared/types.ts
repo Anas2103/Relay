@@ -656,6 +656,13 @@ export interface CallInfo {
   duration?: number;
 }
 
+export interface Sticker {
+  id: string;
+  width: number;
+  height: number;
+  createdAt: number;
+}
+
 export interface GeoPoint {
   lat: number;
   lng: number;
@@ -680,6 +687,8 @@ export interface MediaMeta {
   call?: CallInfo;
   /** Sent with "Forward". */
   forwarded?: boolean;
+  /** Photo sent as a sticker: shown big, without a bubble. */
+  sticker?: boolean;
   /** A shared location (text messages only, never in secret chats). */
   location?: GeoPoint;
   /** Poll messages only. */
@@ -773,7 +782,7 @@ export type ClientEvent =
       body: string;
       mediaId?: string;
       /** Client-measured details; size and type are always taken from the stored file. */
-      meta?: Pick<MediaMeta, "width" | "height" | "duration" | "waveform" | "viewOnce" | "call" | "forwarded" | "poll" | "location">;
+      meta?: Pick<MediaMeta, "width" | "height" | "duration" | "waveform" | "viewOnce" | "call" | "forwarded" | "poll" | "location" | "sticker">;
       replyToId?: string;
       /** No alerts or sounds for the people receiving it. */
       silent?: boolean;
@@ -860,6 +869,9 @@ export const LIMITS = {
     file: 20_000_000,
   } satisfies Record<MediaKind, number>,
   avatarMaxBytes: 200_000,
+  /** Your sticker collection. */
+  stickersMax: 120,
+  stickerMaxBytes: 250_000,
   imageMaxDimension: 1600,
   voiceMaxSeconds: 300,
   fileNameMax: 120,
@@ -895,6 +907,7 @@ export function fileExtension(name: string): string {
 export function messagePreview(m: { kind: MessageKind; body: string; deletedAt?: number | null; meta?: MediaMeta | null }): string {
   if (m.deletedAt) return "Message deleted";
   if (isEncrypted(m.body)) return "🔒 Encrypted message";
+  if (m.kind === "image" && m.meta?.sticker) return "✨ Sticker";
   if (m.kind === "image") return m.meta?.viewOnce ? "📷 View-once photo" : m.body ? `📷 ${m.body}` : "📷 Photo";
   if (m.kind === "video") return m.meta?.viewOnce ? "🎥 View-once video" : m.body ? `🎥 ${m.body}` : "🎥 Video";
   if (m.kind === "voice") return "🎤 Voice message";
