@@ -7,11 +7,10 @@ import { adoptKey, createDeviceKey, e2eSupported, forgetKey } from "../lib/e2e";
 import { plainText } from "../lib/richText";
 import { playMessageSound } from "../lib/sound";
 import { useLobbySocket } from "../lib/useRoomSocket";
-import { CallPill, CallScreen, useCallMinimized } from "./CallScreen";
+import { CallPill, useCallMinimized } from "./CallPill";
 import { ChatPane } from "./ChatPane";
 import { ConfirmDialog, NewGroupDialog } from "./Dialogs";
 import { InviteDialog, readInviteFromUrl, readProfileFromUrl } from "./InviteDialog";
-import { QuickSwitcher } from "./QuickSwitcher";
 import { roomTitle } from "./RoomAvatar";
 import { Sidebar } from "./Sidebar";
 import { ChatIcon, KeyIcon, LockIcon, Logo, WrenchIcon, XIcon } from "./ui";
@@ -20,6 +19,9 @@ export { roomTitle };
 
 // Loaded only when opened, so the chat starts faster on phones.
 const AdminPanel = lazy(() => import("./AdminPanel").then((m) => ({ default: m.AdminPanel })));
+// Loaded on demand, so the app opens faster on phones.
+const CallScreen = lazy(() => import("./CallScreen").then((m) => ({ default: m.CallScreen })));
+const QuickSwitcher = lazy(() => import("./QuickSwitcher").then((m) => ({ default: m.QuickSwitcher })));
 const SettingsDialog = lazy(() => import("./SettingsDialog").then((m) => ({ default: m.SettingsDialog })));
 
 export interface Presence {
@@ -373,18 +375,30 @@ export function ChatLayout({
 
   const callMinimized = useCallMinimized();
   const [callPeerId, setCallPeerId] = useState<string | null>(null);
-  useEffect(() => calls.subscribe(() => setCallPeerId(calls.getState().peerId)), []);
+  const [callOn, setCallOn] = useState(false);
+  useEffect(
+    () =>
+      calls.subscribe(() => {
+        const s = calls.getState();
+        setCallPeerId(s.peerId);
+        setCallOn(s.phase !== "idle");
+      }),
+    [],
+  );
   const callPeer = rooms.find((r) => r.peer?.id === callPeerId)?.peer ?? null;
-  const callScreen = (
-    <CallScreen
-      peer={callPeer}
-      voice={me.settings}
-      onVoiceChange={onVoiceChange}
-      onOpenChat={(id) => {
-        setAdminOpen(false);
-        selectRoom(id);
-      }}
-    />
+  // The call screen's code only downloads once a call starts (or rings).
+  const callScreen = callOn && (
+    <Suspense fallback={null}>
+      <CallScreen
+        peer={callPeer}
+        voice={me.settings}
+        onVoiceChange={onVoiceChange}
+        onOpenChat={(id) => {
+          setAdminOpen(false);
+          selectRoom(id);
+        }}
+      />
+    </Suspense>
   );
 
   // Maintenance mode: everyone but admins waits.
@@ -481,7 +495,11 @@ export function ChatLayout({
         </Suspense>
       )}
       {newGroupOpen && <NewGroupDialog rooms={rooms} onCreated={upsertAndOpen} onClose={() => setNewGroupOpen(false)} />}
-      {switcherOpen && <QuickSwitcher rooms={rooms} me={me} onPick={selectRoom} onClose={() => setSwitcherOpen(false)} />}
+      {switcherOpen && (
+        <Suspense fallback={null}>
+          <QuickSwitcher rooms={rooms} me={me} onPick={selectRoom} onClose={() => setSwitcherOpen(false)} />
+        </Suspense>
+      )}
       {profileLink && (
         <ConfirmDialog
           title={profileLink.toLowerCase() === me.username.toLowerCase() ? "That's you!" : `Chat with @${profileLink}?`}

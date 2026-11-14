@@ -19,5 +19,13 @@ function versionFile(): Plugin {
 
 export default defineConfig({
   define: { __BUILD_ID__: JSON.stringify(BUILD_ID) },
+  build: {
+    rolldownOptions: {
+      output: {
+        // React rarely changes, so it gets its own file that stays cached across Relay updates.
+        codeSplitting: { groups: [{ name: "react", test: /node_modules[\/](react|react-dom|scheduler)[\/]/ }] },
+      },
+    },
+  },
   plugins: [react(), tailwindcss(), cloudflare(), versionFile()],
 });

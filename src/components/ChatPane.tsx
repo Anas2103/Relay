@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { toggleSpeak } from "../lib/speak";
 import { bubbleLook, disappearLabel, SLOW_MODE_OPTIONS, type MediaKind, type MediaMeta, type Me, type Message, type MessageKind, type PollInfo, type Room, type ScheduledMessage, type User } from "../../shared/types";
 import { api, ApiError, fetchMedia, mediaUrl } from "../lib/api";
@@ -9,17 +9,14 @@ import { useRoomSocket, type SocketEvent } from "../lib/useRoomSocket";
 import { useSecret } from "../lib/useSecret";
 import type { SecretState } from "../lib/e2e";
 import { type Presence } from "./ChatLayout";
-import { CallPill, useCallMinimized } from "./CallScreen";
-import { ChatInfo } from "./ChatInfo";
+import { CallPill, useCallMinimized } from "./CallPill";
 import { Composer, type ComposerHandle } from "./Composer";
 import { ConfirmDialog, ForwardDialog } from "./Dialogs";
-import { PollDialog } from "./PollDialog";
 import { ReportDialog, ScheduleDialog, ScheduledSheet, SeenBySheet } from "./ChatExtras";
 import { ImageViewer } from "./ImageViewer";
 import { MessageBubble, type BubbleAction, type UiMessage } from "./MessageBubble";
 import { MessageMenu, type MenuAction } from "./MessageMenu";
 import { RoomAvatar, roomTitle } from "./RoomAvatar";
-import { SearchPanel } from "./SearchPanel";
 import {
   AlertIcon,
   ArrowDownIcon,
@@ -38,6 +35,11 @@ import {
   VideoIcon,
   XIcon,
 } from "./ui";
+
+// Opened on demand, so they download only when first used.
+const ChatInfo = lazy(() => import("./ChatInfo").then((m) => ({ default: m.ChatInfo })));
+const SearchPanel = lazy(() => import("./SearchPanel").then((m) => ({ default: m.SearchPanel })));
+const PollDialog = lazy(() => import("./PollDialog").then((m) => ({ default: m.PollDialog })));
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 const TYPING_EXPIRE_MS = 5000;
@@ -1072,15 +1074,17 @@ export function ChatPane({
         </header>
 
         {searchOpen && (
-          <SearchPanel
-            roomId={room.id}
-            meId={me.id}
-            onClose={() => setSearchOpen(false)}
-            onPick={(id) => {
-              setSearchOpen(false);
-              jumpTo(id);
-            }}
-          />
+          <Suspense fallback={null}>
+            <SearchPanel
+              roomId={room.id}
+              meId={me.id}
+              onClose={() => setSearchOpen(false)}
+              onPick={(id) => {
+                setSearchOpen(false);
+                jumpTo(id);
+              }}
+            />
+          </Suspense>
         )}
 
         {currentPin && (
@@ -1366,7 +1370,11 @@ export function ChatPane({
         )}
 
         {forwarding && <ForwardDialog rooms={rooms} fromRoomId={room.id} onPick={forwardTo} onClose={() => setForwarding(null)} />}
-        {pollOpen && <PollDialog onCreate={sendPoll} onClose={() => setPollOpen(false)} />}
+        {pollOpen && (
+          <Suspense fallback={null}>
+            <PollDialog onCreate={sendPoll} onClose={() => setPollOpen(false)} />
+          </Suspense>
+        )}
         {reporting && (
           <ReportDialog
             target={{
@@ -1422,30 +1430,32 @@ export function ChatPane({
       </section>
 
       {infoOpen && (
-        <ChatInfo
-          room={room}
-          me={me}
-          presence={peerPresence}
-          onClose={() => setInfoOpen(false)}
-          onJump={(id) => {
-            setInfoOpen(false);
-            jumpTo(id);
-          }}
-          onOpenImage={(src, caption) => setViewer({ src, caption })}
-          onCall={onStartCall}
-          onBlock={onBlock}
-          onUnblock={onUnblock}
-          rooms={rooms}
-          secretState={secret.state}
-          pinned={pinView}
-          onPrefs={onPrefs}
-          onDelete={onDelete}
-          onRoomUpdated={onRoomUpdated}
-          onRoomsChanged={onRoomsChanged}
-          onStartSecret={onStartSecret}
-          onOpenRoom={onOpenRoom}
-          readable={readable}
-        />
+        <Suspense fallback={null}>
+          <ChatInfo
+            room={room}
+            me={me}
+            presence={peerPresence}
+            onClose={() => setInfoOpen(false)}
+            onJump={(id) => {
+              setInfoOpen(false);
+              jumpTo(id);
+            }}
+            onOpenImage={(src, caption) => setViewer({ src, caption })}
+            onCall={onStartCall}
+            onBlock={onBlock}
+            onUnblock={onUnblock}
+            rooms={rooms}
+            secretState={secret.state}
+            pinned={pinView}
+            onPrefs={onPrefs}
+            onDelete={onDelete}
+            onRoomUpdated={onRoomUpdated}
+            onRoomsChanged={onRoomsChanged}
+            onStartSecret={onStartSecret}
+            onOpenRoom={onOpenRoom}
+            readable={readable}
+          />
+        </Suspense>
       )}
     </div>
   );

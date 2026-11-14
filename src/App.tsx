@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import type { Me } from "../shared/types";
-import { AuthScreen } from "./components/AuthScreen";
 import { ChatLayout } from "./components/ChatLayout";
 import { LockScreen } from "./components/LockScreen";
 import { Logo } from "./components/ui";
@@ -11,6 +10,9 @@ import { clearPasscode, LOCK_EVENT, passcodeFor } from "./lib/passcode";
 import { disablePush, registerServiceWorker } from "./lib/pwa";
 import { applyAppearance } from "./lib/theme";
 import { useUpdateAvailable } from "./lib/update";
+
+// Signed-in people (almost everyone, almost always) never download the sign-in screen.
+const AuthScreen = lazy(() => import("./components/AuthScreen").then((m) => ({ default: m.AuthScreen })));
 
 export default function App() {
   const [me, setMe] = useState<Me | null>(null);
@@ -96,7 +98,13 @@ export default function App() {
     );
   }
 
-  if (!me) return <AuthScreen onAuthed={updateMe} />;
+  if (!me) {
+    return (
+      <Suspense fallback={<div className="flex h-full items-center justify-center"><Logo size={48} /></div>}>
+        <AuthScreen onAuthed={updateMe} />
+      </Suspense>
+    );
+  }
 
   return (
     <>
