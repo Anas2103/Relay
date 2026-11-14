@@ -285,6 +285,9 @@ export interface Settings {
   /** Also run AI noise suppression on the other person's voice, on your side. */
   cleanIncoming: boolean;
 
+  /** Simple mode: big text and buttons, fewer options on screen (great for parents and grandparents). */
+  simpleMode: boolean;
+
   // ---- Text & layout ----
   /** Whole-app size, in percent (85–125). */
   uiScale: number;
@@ -334,6 +337,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoGainControl: true,
   noiseGate: false,
   cleanIncoming: false,
+  simpleMode: false,
   uiScale: 100,
   messageSize: 15,
   font: "system",

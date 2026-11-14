@@ -565,3 +565,8 @@ body {
   0%, 70% { opacity: 1; }
   100% { opacity: 0; }
 }
+
+/* Simple mode: hide the extras, keep the essentials big and clear */
+[data-simple="on"] .simple-hide {
+  display: none !important;
+}

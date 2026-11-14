@@ -63,6 +63,8 @@ export function MessageMenu({
   const canCopy = !locked && (message.kind === "text" || !!message.body);
   const canEdit = mine && message.kind === "text" && !locked;
   const canPin = message.kind !== "call";
+  // Simple mode keeps only the everyday actions.
+  const simple = document.documentElement.dataset.simple === "on";
 
   return (
     <div
@@ -98,12 +100,12 @@ export function MessageMenu({
             <MenuItem icon={<VolumeIcon className="size-4" />} label={isSpeaking(message.id) ? "Stop reading" : "Read aloud"} onClick={() => onAction("speak")} />
           )}
           {canForward && <MenuItem icon={<ForwardIcon className="size-4" />} label="Forward" onClick={() => onAction("forward")} />}
-          {canPin && (
+          {canPin && !simple && (
             <MenuItem icon={<PinIcon className="size-4" />} label={message.pinnedAt ? "Unpin" : "Pin for everyone"} onClick={() => onAction("pin")} />
           )}
-          <MenuItem icon={<StarIcon className="size-4" filled={starred} />} label={starred ? "Unstar" : "Star"} onClick={() => onAction("star")} />
+          {!simple && <MenuItem icon={<StarIcon className="size-4" filled={starred} />} label={starred ? "Unstar" : "Star"} onClick={() => onAction("star")} />}
           {canEdit && <MenuItem icon={<EditIcon className="size-4" />} label="Edit" onClick={() => onAction("edit")} />}
-          <MenuItem icon={<SelectIcon className="size-4" />} label="Select" onClick={() => onAction("select")} />
+          {!simple && <MenuItem icon={<SelectIcon className="size-4" />} label="Select" onClick={() => onAction("select")} />}
           {seenCount !== undefined && <MenuItem icon={<EyeIcon className="size-4" />} label={seenCount ? `Seen by ${seenCount}` : "Not seen yet"} onClick={() => onAction("seen")} />}
           {!mine && message.kind !== "call" && <MenuItem icon={<AlertIcon className="size-4" />} label="Report" danger onClick={() => onAction("report")} />}
           {mine && (

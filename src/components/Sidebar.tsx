@@ -361,7 +361,7 @@ export function Sidebar({
       </div>
 
       {!q && !showArchive && loaded && main.length > 0 && (
-        <div className="no-scrollbar fade-x flex shrink-0 gap-1.5 overflow-x-auto px-3 pb-2 md:px-4" role="tablist" aria-label="Chat folders">
+        <div className="simple-hide no-scrollbar fade-x flex shrink-0 gap-1.5 overflow-x-auto px-3 pb-2 md:px-4" role="tablist" aria-label="Chat folders">
           {folders.map(([f, label, count]) => (
             <button
               key={f}
@@ -469,7 +469,7 @@ export function Sidebar({
           </div>
         ) : (
           <>
-            {s.showOnlineRow && onlineNow.length > 0 && folder === "all" && (
+            {s.showOnlineRow && !s.simpleMode && onlineNow.length > 0 && folder === "all" && (
               <div className="mb-2 px-2">
                 <p className="mb-1.5 px-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">Online now</p>
                 <ul className="no-scrollbar flex gap-3 overflow-x-auto pb-1">

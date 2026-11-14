@@ -14,6 +14,7 @@
     root.setAttribute("data-light-theme", saved.lightTheme || "classic");
     root.setAttribute("data-dark-theme", saved.darkTheme || "classic");
     root.setAttribute("data-motion", saved.motion || "on");
+    root.setAttribute("data-simple", saved.simple || "off");
     var vars = dark ? saved.dark : saved.light;
     for (var k in vars) root.style.setProperty(k, vars[k]);
   }

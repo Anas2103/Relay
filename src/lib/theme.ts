@@ -21,10 +21,11 @@ type Appearance = Pick<
   | "avatarShape"
   | "timeFormat"
   | "animations"
+  | "simpleMode"
 >;
 const KEYS: (keyof Appearance)[] = [
   "theme", "lightTheme", "darkTheme", "accentColor", "bubbleColor", "wallpaper", "uiScale", "messageSize",
-  "font", "bubbleRadius", "density", "chatWidth", "avatarShape", "timeFormat", "animations",
+  "font", "bubbleRadius", "density", "chatWidth", "avatarShape", "timeFormat", "animations", "simpleMode",
 ];
 let current: Appearance | null = null;
 
@@ -40,7 +41,9 @@ const AVATAR = { circle: "9999px", rounded: "30%", square: "12%" } as const;
 function variables(a: Appearance, dark: boolean): Record<string, string> {
   const accent = colorInfo(a.accentColor);
   const bubble = bubbleLook(a.bubbleColor);
-  const d = DENSITY[a.density] ?? DENSITY.comfortable;
+  // Simple mode: at least 115% size, 19px messages and roomy spacing.
+  const simple = !!a.simpleMode;
+  const d = simple ? DENSITY.spacious : (DENSITY[a.density] ?? DENSITY.comfortable);
   return {
     "--accent": accent.hex,
     "--accent-ink": accent.ink,
@@ -49,8 +52,8 @@ function variables(a: Appearance, dark: boolean): Record<string, string> {
     "--bubble-bg": bubble.background,
     "--bubble-ink": bubble.ink,
     "--font-sans": (FONTS[a.font] ?? FONTS.system).stack,
-    "--ui-scale": String((a.uiScale || 100) / 100),
-    "--msg-size": `${a.messageSize || 15}px`,
+    "--ui-scale": String((simple ? Math.max(a.uiScale || 100, 115) : a.uiScale || 100) / 100),
+    "--msg-size": `${simple ? Math.max(a.messageSize || 15, 19) : a.messageSize || 15}px`,
     "--bubble-radius": `${a.bubbleRadius ?? 18}px`,
     "--group-gap": d.gap,
     "--bubble-py": d.py,
@@ -74,6 +77,7 @@ function render() {
   root.dataset.lightTheme = current.lightTheme;
   root.dataset.darkTheme = current.darkTheme;
   root.dataset.motion = current.animations ? "on" : "off";
+  root.dataset.simple = current.simpleMode ? "on" : "off";
   for (const [k, v] of Object.entries(variables(current, dark))) root.style.setProperty(k, v);
   // Browser UI color (address bar on phones) follows the theme style.
   const surface = getComputedStyle(root).getPropertyValue(dark ? "--color-zinc-900" : "--color-white").trim();
@@ -100,6 +104,7 @@ export function applyAppearance(settings: Settings, animate = false) {
         lightTheme: next.lightTheme,
         darkTheme: next.darkTheme,
         motion: next.animations ? "on" : "off",
+        simple: next.simpleMode ? "on" : "off",
         light: variables(next, false),
         dark: variables(next, true),
       }),

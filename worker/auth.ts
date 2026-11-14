@@ -212,6 +212,7 @@ export function parseSettings(raw: string | null): Settings {
     autoGainControl: bool(parsed.autoGainControl, d.autoGainControl),
     noiseGate: bool(parsed.noiseGate, d.noiseGate),
     cleanIncoming: bool(parsed.cleanIncoming, d.cleanIncoming),
+    simpleMode: bool(parsed.simpleMode, d.simpleMode),
     uiScale: num(parsed.uiScale, 85, 125, d.uiScale),
     messageSize: num(parsed.messageSize, 12, 22, d.messageSize),
     font: typeof parsed.font === "string" && Object.hasOwn(FONTS, parsed.font) ? (parsed.font as Settings["font"]) : d.font,

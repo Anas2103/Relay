@@ -380,6 +380,28 @@ function AppearanceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => v
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
+      <button
+        role="switch"
+        aria-checked={s.simpleMode}
+        onClick={() => save({ simpleMode: !s.simpleMode })}
+        className={`flex w-full items-center gap-4 rounded-2xl p-4 text-left ring-1 transition ${
+          s.simpleMode ? "bg-accent/10 ring-2 ring-accent" : "ring-zinc-200 hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800"
+        }`}
+      >
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-accent text-xl font-bold text-accent-ink" aria-hidden="true">
+          Aa
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-base font-semibold">Simple mode</span>
+          <span className="mt-0.5 block text-sm text-zinc-500 dark:text-zinc-400">
+            Bigger text and buttons, fewer options on screen. Perfect for parents and grandparents.
+          </span>
+        </span>
+        <span className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${s.simpleMode ? "bg-accent" : "bg-zinc-300 dark:bg-zinc-700"}`}>
+          <span className={`absolute top-0.5 left-0.5 size-6 rounded-full bg-white shadow transition-transform ${s.simpleMode ? "translate-x-5" : ""}`} />
+        </span>
+      </button>
+
       <AppearancePreview me={me} />
 
       <section>

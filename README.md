@@ -73,6 +73,7 @@ Real-time chat in the spirit of Telegram: groups, **end-to-end encrypted secret 
 - Instant sidebar updates, desktop notifications and message sounds for other chats
 
 **Personalization** (synced across devices, applied before first paint)
+- **Simple mode** for parents and grandparents: bigger text and buttons, roomy spacing, and the extras (folders, "Online now", pin/star/select) tucked away
 - System / light / dark, with 10 light and 12 dark styles, 20 wallpapers
 - App color and bubble color from a palette, 16 gradients or **any custom color** (readable text worked out automatically to WCAG AA)
 - Message text size, whole-app size, 6 fonts, bubble corner roundness, spacing density, chat width, round/rounded/square avatars, 12/24-hour time, animations on/off
