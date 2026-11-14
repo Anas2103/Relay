@@ -1,6 +1,6 @@
 import {
   isBubbleStyle,
-  isColorName,
+  isAccentColor,
   isDarkTheme,
   isLightTheme,
   isWallpaper,
@@ -14,12 +14,13 @@ import {
   parseSettings,
   rateLimit,
   requireUser,
-  revokeOtherSessions,
+  type SessionUser,
   verifyPassword,
 } from "./auth";
 import { lobby, type Env } from "./env";
 import { HttpError, json, readJson } from "./http";
 import { readUpload } from "./media";
+import { routeSecurity, signOutOtherDevices } from "./security";
 import { str, validDisplayName, validPassword } from "./validate";
 
 const FIFTEEN_MIN = 15 * 60 * 1000;
@@ -34,6 +35,8 @@ export async function routeAccount(request: Request, env: Env, url: URL): Promis
   if (p === "/api/account/password" && m === "POST") return changePassword(request, env, me);
   if (p === "/api/account/avatar" && m === "PUT") return uploadAvatar(request, env, me);
   if (p === "/api/account/avatar" && m === "DELETE") return removeAvatar(env, me);
+  const security = await routeSecurity(request, env, url);
+  if (security) return security;
 
   throw new HttpError(404, "Not found.");
 }
@@ -51,7 +54,7 @@ async function announceProfileChange(env: Env, userId: string): Promise<void> {
 }
 
 async function updateProfile(request: Request, env: Env, me: User): Promise<Response> {
-  const body = await readJson<{ displayName?: unknown; bio?: unknown; settings?: unknown }>(request);
+  const body = await readJson<{ displayName?: unknown; bio?: unknown; settings?: unknown; statusText?: unknown }>(request);
   const sets: string[] = [];
   const binds: unknown[] = [];
   let publicChange = false;
@@ -67,6 +70,13 @@ async function updateProfile(request: Request, env: Env, me: User): Promise<Resp
     sets.push("bio = ?");
     binds.push(bio);
   }
+  if (body.statusText !== undefined) {
+    const statusText = str(body.statusText).replace(/\s+/g, " ").trim();
+    if ([...statusText].length > LIMITS.statusMax) throw new HttpError(400, `Status can be at most ${LIMITS.statusMax} characters.`);
+    sets.push("status_text = ?");
+    binds.push(statusText);
+    publicChange = true;
+  }
   if (body.settings !== undefined) {
     if (!body.settings || typeof body.settings !== "object") throw new HttpError(400, "Invalid settings.");
     const current = (await loadMe(env, me.id)).settings;
@@ -74,7 +84,7 @@ async function updateProfile(request: Request, env: Env, me: User): Promise<Resp
     const next: Settings = parseSettings(JSON.stringify({ ...current, ...patch }));
     const checks: [keyof Settings, (v: unknown) => boolean, string][] = [
       ["bubbleColor", isBubbleStyle, "Unknown bubble color."],
-      ["accentColor", isColorName, "Unknown app color."],
+      ["accentColor", isAccentColor, "Unknown app color."],
       ["wallpaper", isWallpaper, "Unknown wallpaper."],
       ["lightTheme", isLightTheme, "Unknown light theme."],
       ["darkTheme", isDarkTheme, "Unknown dark theme."],
@@ -83,6 +93,10 @@ async function updateProfile(request: Request, env: Env, me: User): Promise<Resp
     for (const [key, valid, message] of checks) {
       if (patch[key] !== undefined && !valid(patch[key])) throw new HttpError(400, message);
     }
+    // "Last seen" privacy applies right away to your open app.
+    const hidden = (x: Settings) => x.lastSeen === "nobody" || x.presence === "invisible";
+    if (hidden(next) !== hidden(current)) await lobby(env).setHidden(me.id, hidden(next));
+    if (next.presence !== current.presence) publicChange = true;
     // Your bubble color is visible to the people you chat with, so tell them to refresh.
     if (patch.bubbleColor !== undefined && patch.bubbleColor !== current.bubbleColor) publicChange = true;
     sets.push("settings = ?");
@@ -121,13 +135,13 @@ async function removeAvatar(env: Env, me: User): Promise<Response> {
   return json({ user: await loadMe(env, me.id) });
 }
 
-async function changePassword(request: Request, env: Env, me: User): Promise<Response> {
+async function changePassword(request: Request, env: Env, me: SessionUser): Promise<Response> {
   // Stops someone with a stolen session from brute-forcing the current password.
   await rateLimit(env, `password-change:${me.id}`, 5, FIFTEEN_MIN);
 
   const body = await readJson<{ currentPassword?: unknown; newPassword?: unknown }>(request);
   const currentPassword = str(body.currentPassword);
-  const newPassword = validPassword(body.newPassword);
+  const newPassword = validPassword(body.newPassword, me.username);
 
   const row = await env.DB.prepare("SELECT password_hash FROM users WHERE id = ?1")
     .bind(me.id)
@@ -142,6 +156,6 @@ async function changePassword(request: Request, env: Env, me: User): Promise<Res
   await env.DB.prepare("UPDATE users SET password_hash = ?1 WHERE id = ?2")
     .bind(await hashPassword(newPassword), me.id)
     .run();
-  await revokeOtherSessions(env, request, me.id);
+  await signOutOtherDevices(env, me);
   return json({ ok: true });
 }

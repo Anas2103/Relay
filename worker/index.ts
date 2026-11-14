@@ -15,16 +15,46 @@ import {
 import { lobby, type Env } from "./env";
 import { assertSameOrigin, clientIp, HttpError, json, readJson } from "./http";
 import {
+  acceptRequest,
+  blockUser,
   connectSocket,
+  declineRequest,
   getGallery,
   getMediaFile,
   getMessages,
+  listBlocked,
   listRooms,
   openDm,
   searchMessages,
+  unblockUser,
   uploadMedia,
 } from "./rooms";
 import { getAvatar, getProfile, searchUsers } from "./users";
+import {
+  addMembers,
+  createGroup,
+  deleteMyAccount,
+  expireMessages,
+  exportMyData,
+  forwardMedia,
+  getSite,
+  joinInvite,
+  linkPreview,
+  previewInvite,
+  setInvite,
+  listMembers,
+  listPinned,
+  listStarred,
+  readSiteSettings,
+  removeMember,
+  setMemberRole,
+  setStar,
+  updateRoom,
+} from "./features";
+import { routePush } from "./push";
+import { acceptSecret, deleteChat, getSecretInfo, openSaved, startSecret, updatePrefs } from "./secret";
+import { createReport, getGroupPhoto, listBans, searchEverywhere, setGroupPhoto, unban } from "./moderation";
+import { describeDevice, describeLocation, startLogin, verifyLogin } from "./security";
 import { isUniqueViolation, validDisplayName, validPassword, validUsername } from "./validate";
 
 export { ChatRoom } from "./room";
@@ -34,18 +64,40 @@ const ID = "([0-9a-f-]{36})";
 const FIFTEEN_MIN = 15 * 60 * 1000;
 
 export default {
+  /** Every 15 minutes: remove disappearing messages whose timer ran out, plus housekeeping. */
+  async scheduled(_controller, env, ctx): Promise<void> {
+    ctx.waitUntil(expireMessages(env).then((n) => void (n && console.log("expired messages:", n))));
+  },
+
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url);
     try {
       if (request.method !== "GET" && request.method !== "HEAD") assertSameOrigin(request, url);
-      return await route(request, env, url);
+      return secure(await route(request, env, url));
     } catch (err) {
-      if (err instanceof HttpError) return json({ error: err.message }, err.status);
+      if (err instanceof HttpError) return secure(json({ error: err.message }, err.status));
       console.error(err);
-      return json({ error: "Something went wrong. Please try again." }, 500);
+      return secure(json({ error: "Something went wrong. Please try again." }, 500));
     }
   },
 } satisfies ExportedHandler<Env>;
+
+/** Hardening headers on every API response (pages get theirs from public/_headers). */
+const API_HEADERS: Record<string, string> = {
+  "Content-Security-Policy": "default-src 'none'; media-src 'self'; img-src 'self'; frame-ancestors 'none'; sandbox",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "no-referrer",
+  "Cross-Origin-Resource-Policy": "same-origin",
+  "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+};
+
+function secure(res: Response): Response {
+  if (res.status === 101 || res.webSocket) return res;
+  const out = new Response(res.body, res);
+  for (const [k, v] of Object.entries(API_HEADERS)) if (!out.headers.has(k)) out.headers.set(k, v);
+  return out;
+}
 
 async function route(request: Request, env: Env, url: URL): Promise<Response> {
   const p = url.pathname;
@@ -55,6 +107,7 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
   // Auth
   if (p === "/api/auth/register" && m === "POST") return register(request, env);
   if (p === "/api/auth/login" && m === "POST") return login(request, env);
+  if (p === "/api/auth/2fa" && m === "POST") return verifyLogin(request, env);
   if (p === "/api/auth/logout" && m === "POST") return logout(request, env);
   if (p === "/api/me" && m === "GET") {
     const user = await getSessionUser(request, env);
@@ -62,13 +115,30 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
   }
 
   // Account, admin, app-wide socket
+  if (p === "/api/account/export" && m === "GET") return exportMyData(request, env);
+  if (p === "/api/account" && m === "DELETE") return deleteMyAccount(request, env);
   if (p === "/api/account" || p.startsWith("/api/account/")) return routeAccount(request, env, url);
+  if (p === "/api/site" && m === "GET") return getSite(env);
+
+  // Maintenance mode (set by the owner): only admins can use the app meanwhile.
+  if ((await readSiteSettings(env)).maintenance) {
+    const user = await getSessionUser(request, env);
+    if (user?.role !== "admin") throw new HttpError(503, "Relay is down for maintenance. Please check back soon.");
+  }
+
+  if (p.startsWith("/api/push/")) return routePush(request, env, url);
+  if (p === "/api/link-preview" && m === "GET") return linkPreview(request, env, url);
   if (p.startsWith("/api/admin/")) return routeAdmin(request, env, url);
   if (p === "/api/lobby" && m === "GET") return connectLobby(request, env, url);
   if (p === "/api/calls/ice" && m === "GET") return iceServers(request, env);
 
   // Users
   if (p === "/api/users/search" && m === "GET") return searchUsers(request, env, url);
+  if (p === "/api/search" && m === "GET") return searchEverywhere(request, env, url);
+  if (p === "/api/reports" && m === "POST") return createReport(request, env);
+  if (p === "/api/blocks" && m === "GET") return listBlocked(request, env);
+  if ((match = p.match(new RegExp(`^/api/users/${ID}/block$`))) && m === "POST") return blockUser(request, env, match[1]);
+  if ((match = p.match(new RegExp(`^/api/users/${ID}/unblock$`))) && m === "POST") return unblockUser(request, env, match[1]);
   if ((match = p.match(new RegExp(`^/api/users/${ID}$`))) && m === "GET") return getProfile(request, env, match[1]);
   if ((match = p.match(new RegExp(`^/api/users/${ID}/avatar$`))) && m === "GET") return getAvatar(request, env, match[1]);
 
@@ -78,6 +148,52 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
     return json({ rooms: await listRooms(env, user.id) });
   }
   if (p === "/api/rooms/dm" && m === "POST") return openDm(request, env);
+  if (p === "/api/groups" && m === "POST") return createGroup(request, env);
+  if (p === "/api/rooms/saved" && m === "POST") return openSaved(request, env);
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}$`))) && m === "DELETE") return deleteChat(request, env, match[1]);
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/prefs$`))) && m === "PATCH") return updatePrefs(request, env, match[1]);
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/bans$`))) && m === "GET") return listBans(request, env, match[1]);
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/bans/${ID}$`))) && m === "DELETE") return unban(request, env, match[1], match[2]);
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/avatar$`)))) {
+    if (m === "GET") return getGroupPhoto(request, env, match[1]);
+    if (m === "PUT") return setGroupPhoto(request, env, match[1], false);
+    if (m === "DELETE") return setGroupPhoto(request, env, match[1], true);
+  }
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/invite$`)))) {
+    if (m === "POST") return setInvite(request, env, match[1], true);
+    if (m === "DELETE") return setInvite(request, env, match[1], false);
+  }
+  if ((match = p.match(/^\/api\/invite\/([A-Za-z0-9]{12})$/))) {
+    if (m === "GET") return previewInvite(request, env, match[1]);
+    if (m === "POST") return joinInvite(request, env, match[1]);
+  }
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/secret$`)))) {
+    if (m === "POST") return startSecret(request, env, match[1]);
+    if (m === "GET") return getSecretInfo(request, env, match[1]);
+  }
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/secret/accept$`))) && m === "POST") return acceptSecret(request, env, match[1]);
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}$`))) && m === "PATCH") return updateRoom(request, env, match[1]);
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/accept$`))) && m === "POST") {
+    return acceptRequest(request, env, match[1]);
+  }
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/decline$`))) && m === "POST") {
+    return declineRequest(request, env, match[1]);
+  }
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/members$`)))) {
+    if (m === "GET") return listMembers(request, env, match[1]);
+    if (m === "POST") return addMembers(request, env, match[1]);
+  }
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/members/${ID}$`)))) {
+    if (m === "DELETE") return removeMember(request, env, match[1], match[2], url.searchParams.get("ban") === "1");
+    if (m === "PATCH") return setMemberRole(request, env, match[1], match[2]);
+  }
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/pinned$`))) && m === "GET") return listPinned(request, env, match[1]);
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/starred$`))) && m === "GET") return listStarred(request, env, match[1]);
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/messages/${ID}/star$`)))) {
+    if (m === "POST") return setStar(request, env, match[1], match[2], true);
+    if (m === "DELETE") return setStar(request, env, match[1], match[2], false);
+  }
+  if ((match = p.match(new RegExp(`^/api/rooms/${ID}/forward$`))) && m === "POST") return forwardMedia(request, env, match[1]);
   if ((match = p.match(new RegExp(`^/api/rooms/${ID}/messages$`))) && m === "GET") {
     return getMessages(request, env, url, match[1]);
   }
@@ -104,10 +220,13 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
 
 async function register(request: Request, env: Env): Promise<Response> {
   await rateLimit(env, `register:${clientIp(request)}`, 10, FIFTEEN_MIN);
+  if (!(await readSiteSettings(env)).registrationOpen) {
+    throw new HttpError(403, "Sign-ups are closed right now. Ask an admin to create an account for you.");
+  }
   const body = await readJson<{ username?: unknown; password?: unknown; displayName?: unknown }>(request);
 
   const username = validUsername(body.username);
-  const password = validPassword(body.password);
+  const password = validPassword(body.password, username);
   const displayName = validDisplayName(body.displayName, username);
 
   const existing = await env.DB.prepare("SELECT 1 FROM users WHERE username = ?1").bind(username).first();
@@ -127,7 +246,7 @@ async function register(request: Request, env: Env): Promise<Response> {
     throw err;
   }
 
-  const { token, maxAge } = await createSession(env, id);
+  const { token, maxAge } = await createSession(env, id, { device: describeDevice(request), location: describeLocation(request) });
   return json({ user: await loadMe(env, id) }, 201, { "Set-Cookie": sessionCookie(token, maxAge) });
 }
 
@@ -149,9 +268,8 @@ async function login(request: Request, env: Env): Promise<Response> {
   // Only revealed after a correct password, so it can't be used to probe accounts.
   if (row.suspended_at !== null) throw new HttpError(403, "This account has been suspended.");
 
-  await env.DB.prepare("UPDATE users SET last_login_at = ?1 WHERE id = ?2").bind(Date.now(), row.id).run();
-  const { token, maxAge } = await createSession(env, row.id);
-  return json({ user: await loadMe(env, row.id) }, 200, { "Set-Cookie": sessionCookie(token, maxAge) });
+  // With two-step verification on, this returns a challenge and the session is only created after the code.
+  return startLogin(env, request, row.id);
 }
 
 async function logout(request: Request, env: Env): Promise<Response> {
@@ -166,11 +284,13 @@ async function connectLobby(request: Request, env: Env, url: URL): Promise<Respo
     throw new HttpError(426, "Expected a WebSocket upgrade.");
   }
   if (request.headers.get("Origin") !== url.origin) throw new HttpError(403, "Cross-origin request blocked.");
-  const me = await requireUser(request, env);
+  const me = await loadMe(env, (await requireUser(request, env)).id);
 
   const forwarded = new Request(request);
   forwarded.headers.set("X-User-Id", me.id);
   forwarded.headers.set("X-Display-Name", me.displayName);
+  forwarded.headers.set("X-Hide-Presence", me.settings.lastSeen === "nobody" || me.settings.presence === "invisible" ? "1" : "0");
+  forwarded.headers.set("X-Session", (await getSessionUser(request, env))!.sessionHash.slice(0, 16));
   return lobby(env).fetch(forwarded);
 }
 

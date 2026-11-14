@@ -5,6 +5,8 @@ import type { Env } from "./env";
 interface LobbyAttachment {
   userId: string;
   displayName: string;
+  /** Privacy: "Last seen: nobody". They don't share their presence, and (like Telegram) don't see anyone else's. */
+  hidden?: boolean;
 }
 
 const UUID_RE = /^[0-9a-f-]{36}$/;
@@ -35,17 +37,20 @@ export class Lobby extends DurableObject<Env> {
     }
     const userId = request.headers.get("X-User-Id")!;
     const displayName = request.headers.get("X-Display-Name") ?? "Someone";
+    const hidden = request.headers.get("X-Hide-Presence") === "1";
+    const session = request.headers.get("X-Session") ?? "";
     const wasOnline = this.isUserOnline(userId);
 
     const { 0: client, 1: server } = new WebSocketPair();
-    this.ctx.acceptWebSocket(server, [userId]);
-    server.serializeAttachment({ userId, displayName } satisfies LobbyAttachment);
+    // Tagged by user (for notifications) and by device session (so one device can be signed out remotely).
+    this.ctx.acceptWebSocket(server, session ? [userId, `s:${session}`] : [userId]);
+    server.serializeAttachment({ userId, displayName, hidden } satisfies LobbyAttachment);
 
     const contacts = await this.contactsOf(userId);
-    const online = contacts.filter((id) => this.isUserOnline(id));
+    const online = hidden ? [] : contacts.filter((id) => this.isUserOnline(id) && !this.isHidden(id));
     server.send(JSON.stringify({ type: "hello", online } satisfies LobbyEvent));
 
-    if (!wasOnline) this.sendTo(contacts, { type: "presence", userId, online: true, lastSeenAt: null });
+    if (!wasOnline && !hidden) this.sendTo(contacts, { type: "presence", userId, online: true, lastSeenAt: null });
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -118,11 +123,20 @@ export class Lobby extends DurableObject<Env> {
     const cached = this.callPermissions.get(key);
     if (cached && cached > Date.now()) return true;
     const row = await this.env.DB.prepare(
-      "SELECT COUNT(*) AS n FROM room_members WHERE room_id = ?1 AND user_id IN (?2, ?3)",
+      `SELECT COUNT(*) AS n FROM room_members m
+         JOIN rooms r ON r.id = m.room_id AND r.status = 'accepted'
+        WHERE m.room_id = ?1 AND m.user_id IN (?2, ?3)`,
     )
       .bind(roomId, from, to)
       .first<{ n: number }>();
     if (row?.n !== 2) return false;
+    // No calls while a block exists in either direction.
+    const blocked = await this.env.DB.prepare(
+      "SELECT 1 FROM blocks WHERE (blocker_id = ?1 AND blocked_id = ?2) OR (blocker_id = ?2 AND blocked_id = ?1) LIMIT 1",
+    )
+      .bind(from, to)
+      .first();
+    if (blocked) return false;
     this.callPermissions.set(key, Date.now() + 10 * 60 * 1000);
     return true;
   }
@@ -153,10 +167,28 @@ export class Lobby extends DurableObject<Env> {
       [a, b],
       [b, a],
     ]) {
-      if (this.isUserOnline(subject)) {
+      if (this.isUserOnline(subject) && !this.isHidden(subject) && !this.isHidden(viewer)) {
         this.sendTo([viewer], { type: "presence", userId: subject, online: true, lastSeenAt: null });
       }
     }
+  }
+
+  /** Called when someone changes their "Last seen" privacy setting. */
+  async setHidden(userId: string, hidden: boolean): Promise<void> {
+    const sockets = this.ctx.getWebSockets(userId);
+    if (sockets.length === 0) return;
+    const before = this.isHidden(userId);
+    for (const ws of sockets) {
+      const att = (ws.deserializeAttachment() ?? {}) as LobbyAttachment;
+      ws.serializeAttachment({ ...att, hidden });
+    }
+    if (before === hidden) return;
+    const contacts = await this.contactsOf(userId);
+    // Others stop (or start) seeing them online...
+    this.sendTo(contacts, { type: "presence", userId, online: !hidden, lastSeenAt: null });
+    // ...and they stop (or start) seeing others.
+    const visible = hidden ? [] : contacts.filter((id) => this.isUserOnline(id) && !this.isHidden(id));
+    this.sendTo([userId], { type: "hello", online: visible });
   }
 
   async onlineAmong(userIds: string[]): Promise<string[]> {
@@ -174,7 +206,24 @@ export class Lobby extends DurableObject<Env> {
     }
   }
 
+  /** One device was signed out from another: close its live connection right away. */
+  async kickSession(sessionId: string): Promise<void> {
+    for (const ws of this.ctx.getWebSockets(`s:${sessionId}`)) {
+      try {
+        // Tell the app first (it signs out straight away), then hang up.
+        ws.send(JSON.stringify({ type: "signed-out" } satisfies LobbyEvent));
+        ws.close(4001, "Signed out");
+      } catch {
+        // already closed
+      }
+    }
+  }
+
   // ---------- internals ----------
+
+  private isHidden(userId: string): boolean {
+    return this.ctx.getWebSockets(userId).some((ws) => ((ws.deserializeAttachment() ?? {}) as LobbyAttachment).hidden === true);
+  }
 
   private isUserOnline(userId: string, exclude?: WebSocket): boolean {
     return this.ctx
@@ -183,12 +232,12 @@ export class Lobby extends DurableObject<Env> {
   }
 
   private async onDisconnect(ws: WebSocket): Promise<void> {
-    const { userId } = (ws.deserializeAttachment() ?? {}) as { userId?: string };
+    const { userId, hidden } = (ws.deserializeAttachment() ?? {}) as Partial<LobbyAttachment>;
     if (!userId || this.isUserOnline(userId, ws)) return;
 
     const lastSeenAt = Date.now();
     await this.env.DB.prepare("UPDATE users SET last_seen_at = ?1 WHERE id = ?2").bind(lastSeenAt, userId).run();
-    this.sendTo(await this.contactsOf(userId), { type: "presence", userId, online: false, lastSeenAt });
+    if (!hidden) this.sendTo(await this.contactsOf(userId), { type: "presence", userId, online: false, lastSeenAt });
   }
 
   /** Everyone the user shares a conversation with. */
@@ -197,7 +246,11 @@ export class Lobby extends DurableObject<Env> {
       `SELECT DISTINCT other.user_id
          FROM room_members me
          JOIN room_members other ON other.room_id = me.room_id AND other.user_id != me.user_id
-        WHERE me.user_id = ?1`,
+         JOIN rooms r ON r.id = me.room_id AND r.status = 'accepted'
+        WHERE me.user_id = ?1
+          AND NOT EXISTS (SELECT 1 FROM blocks b
+             WHERE (b.blocker_id = me.user_id AND b.blocked_id = other.user_id)
+                OR (b.blocker_id = other.user_id AND b.blocked_id = me.user_id))`,
     )
       .bind(userId)
       .all<{ user_id: string }>();

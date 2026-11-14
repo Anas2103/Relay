@@ -32,11 +32,17 @@ function colorFor(seed: string): string {
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
+/** First letters of the first and last words. Whole characters only (never half an emoji). */
 function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  const isLetter = (c: string) => /[\p{L}\p{N}]/u.test(c);
+  const firsts = name
+    .trim()
+    .split(/\s+/)
+    .map((w) => Array.from(w).find(isLetter))
+    .filter((c): c is string => !!c);
+  if (firsts.length === 0) return Array.from(name.trim())[0] ?? "?";
+  if (firsts.length === 1) return Array.from(name.trim()).filter(isLetter).slice(0, 2).join("").toUpperCase();
+  return (firsts[0] + firsts[firsts.length - 1]).toUpperCase();
 }
 
 export function Avatar({
@@ -45,6 +51,7 @@ export function Avatar({
   size = "md",
   online,
   user,
+  src: srcOverride,
 }: {
   name: string;
   seed: string;
@@ -52,6 +59,8 @@ export function Avatar({
   online?: boolean;
   /** When given and the user has a picture, it's shown instead of initials. */
   user?: Pick<User, "id" | "avatarVersion"> | null;
+  /** A picture URL to use instead (group photos). */
+  src?: string | null;
 }) {
   const dims = {
     xs: "size-6 text-[10px]",
@@ -61,11 +70,11 @@ export function Avatar({
     xl: "size-24 text-3xl",
   }[size];
   const dot = { xs: "size-2", sm: "size-2.5", md: "size-3", lg: "size-3.5", xl: "size-5" }[size];
-  const src = user ? avatarUrl(user) : null;
+  const src = srcOverride ?? (user ? avatarUrl(user) : null);
   const [failed, setFailed] = useState<string | null>(null);
 
   return (
-    <span className="relative inline-flex shrink-0">
+    <span className="relative inline-flex shrink-0 items-center">
       {src && failed !== src ? (
         <img
           src={src}
@@ -74,11 +83,11 @@ export function Avatar({
           decoding="async"
           draggable={false}
           onError={() => setFailed(src)}
-          className={`${dims} rounded-full bg-zinc-200 object-cover dark:bg-zinc-800`}
+          className={`${dims} avatar-shape avatar-img bg-zinc-200 dark:bg-zinc-800`}
         />
       ) : (
         <span
-          className={`${dims} ${colorFor(seed)} inline-flex items-center justify-center rounded-full font-semibold text-white select-none`}
+          className={`${dims} ${colorFor(seed)} avatar-shape inline-flex flex-none items-center justify-center font-semibold text-white select-none`}
           aria-hidden="true"
         >
           {initials(name)}
@@ -390,5 +399,175 @@ export const XIcon = (p: IconProps) => (
   <svg {...base} {...p}>
     <path d="M18 6 6 18" />
     <path d="m6 6 12 12" />
+  </svg>
+);
+
+export const PinIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M12 17v5" />
+    <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+  </svg>
+);
+export const BellIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M10.27 21a2 2 0 0 0 3.46 0" />
+    <path d="M3.26 15.33A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.67C19.41 13.96 18 12.5 18 8A6 6 0 0 0 6 8c0 4.5-1.41 5.96-2.74 7.33" />
+  </svg>
+);
+export const BellOffIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M10.27 21a2 2 0 0 0 3.46 0" />
+    <path d="M17 17H4a1 1 0 0 1-.74-1.67C4.59 13.96 6 12.5 6 8a6 6 0 0 1 .26-1.74" />
+    <path d="M8.67 3.17A6 6 0 0 1 18 8c0 2.37.39 3.93.96 5" />
+    <path d="m2 2 20 20" />
+  </svg>
+);
+export const ArchiveIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect width="20" height="5" x="2" y="3" rx="1" />
+    <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+    <path d="M10 12h4" />
+  </svg>
+);
+export const StarIcon = ({ filled, ...p }: IconProps & { filled?: boolean }) => (
+  <svg {...base} {...p} fill={filled ? "currentColor" : "none"}>
+    <path d="M11.53 2.3a.53.53 0 0 1 .95 0l2.31 4.68a2.12 2.12 0 0 0 1.6 1.16l5.16.76a.53.53 0 0 1 .29.9l-3.73 3.64a2.12 2.12 0 0 0-.61 1.88l.88 5.14a.53.53 0 0 1-.77.56l-4.62-2.43a2.12 2.12 0 0 0-1.97 0L6.4 21.01a.53.53 0 0 1-.77-.56l.88-5.13a2.12 2.12 0 0 0-.61-1.88L2.16 9.8a.53.53 0 0 1 .29-.9l5.16-.76a2.12 2.12 0 0 0 1.6-1.16z" />
+  </svg>
+);
+export const ForwardIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="m15 17 5-5-5-5" />
+    <path d="M4 18v-2a4 4 0 0 1 4-4h12" />
+  </svg>
+);
+export const UsersIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+export const UserPlusIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M19 8v6" />
+    <path d="M22 11h-6" />
+  </svg>
+);
+export const BookmarkIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+  </svg>
+);
+export const TimerIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M10 2h4" />
+    <path d="M12 14l3-3" />
+    <circle cx="12" cy="14" r="8" />
+  </svg>
+);
+export const MoreIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <circle cx="12" cy="5" r="1" />
+    <circle cx="12" cy="12" r="1" />
+    <circle cx="12" cy="19" r="1" />
+  </svg>
+);
+export const KeyIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4" />
+    <path d="m21 2-9.6 9.6" />
+    <circle cx="7.5" cy="15.5" r="5.5" />
+  </svg>
+);
+export const PencilIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M12 20h9" />
+    <path d="M16.38 3.62a1 1 0 0 1 3 3L7.37 18.64a2 2 0 0 1-.85.5l-2.87.84a.5.5 0 0 1-.62-.62l.84-2.87a2 2 0 0 1 .5-.85z" />
+  </svg>
+);
+export const MegaphoneIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="m3 11 18-5v12L3 14v-3z" />
+    <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+  </svg>
+);
+export const DatabaseIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <ellipse cx="12" cy="5" rx="9" ry="3" />
+    <path d="M3 5v14a9 3 0 0 0 18 0V5" />
+    <path d="M3 12a9 3 0 0 0 18 0" />
+  </svg>
+);
+export const PaletteIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
+    <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
+    <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />
+    <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
+    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.65-.75 1.65-1.69 0-.44-.18-.84-.44-1.13-.29-.29-.44-.65-.44-1.13a1.64 1.64 0 0 1 1.67-1.67h2c3.05 0 5.56-2.5 5.56-5.55C21.97 6.01 17.46 2 12 2z" />
+  </svg>
+);
+export const TypeIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M4 7V4h16v3" />
+    <path d="M9 20h6" />
+    <path d="M12 4v16" />
+  </svg>
+);
+export const UserIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <circle cx="12" cy="8" r="5" />
+    <path d="M20 21a8 8 0 0 0-16 0" />
+  </svg>
+);
+export const ChevronRightIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="m9 18 6-6-6-6" />
+  </svg>
+);
+export const WrenchIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+  </svg>
+);
+export const ChartIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+    <path d="M7 16V11" />
+    <path d="M12 16V7" />
+    <path d="M17 16v-3" />
+  </svg>
+);
+export const SelectIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect x="3" y="3" width="18" height="18" rx="4" />
+    <path d="m8 12 3 3 5-6" />
+  </svg>
+);
+export const SmartphoneIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect x="6" y="2" width="12" height="20" rx="2.5" />
+    <path d="M11 18h2" />
+  </svg>
+);
+export const LaptopIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect x="4" y="4" width="16" height="11" rx="2" />
+    <path d="M2 19h20" />
+  </svg>
+);
+export const AtIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <circle cx="12" cy="12" r="4" />
+    <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8" />
+  </svg>
+);
+export const ClockIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
   </svg>
 );

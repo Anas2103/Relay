@@ -12,8 +12,10 @@ export async function searchUsers(request: Request, env: Env, url: URL): Promise
 
   const escaped = q.replace(/[\\%_]/g, (c) => `\\${c}`);
   const { results } = await env.DB.prepare(
-    `SELECT id, username, display_name, avatar_version FROM users
+    `SELECT id, username, display_name, avatar_version FROM users u
       WHERE id != ?1 AND suspended_at IS NULL AND (username LIKE ?2 ESCAPE '\\' OR display_name LIKE ?2 ESCAPE '\\')
+        AND NOT EXISTS (SELECT 1 FROM blocks b
+           WHERE (b.blocker_id = ?1 AND b.blocked_id = u.id) OR (b.blocker_id = u.id AND b.blocked_id = ?1))
       ORDER BY username LIMIT 10`,
   )
     .bind(me.id, `${escaped}%`)
@@ -23,12 +25,20 @@ export async function searchUsers(request: Request, env: Env, url: URL): Promise
 }
 
 export async function getProfile(request: Request, env: Env, userId: string): Promise<Response> {
-  await requireUser(request, env);
+  const me = await requireUser(request, env);
+  // "Last seen" is only shared with people you have an accepted chat with
+  // (not strangers, and not someone whose message request you haven't accepted).
   const row = await env.DB.prepare(
-    `SELECT id, username, display_name, avatar_version, bio, last_seen_at, created_at, settings
+    `SELECT id, username, display_name, avatar_version, bio, last_seen_at, created_at, settings, status_text,
+            (SELECT settings FROM users WHERE id = ?2) AS my_settings,
+            (id = ?2 OR EXISTS (
+              SELECT 1 FROM room_members a
+                JOIN room_members b ON b.room_id = a.room_id AND b.user_id = ?2
+                JOIN rooms r ON r.id = a.room_id AND r.status = 'accepted'
+               WHERE a.user_id = users.id)) AS contact
        FROM users WHERE id = ?1 AND suspended_at IS NULL`,
   )
-    .bind(userId)
+    .bind(userId, me.id)
     .first<{
       id: string;
       username: string;
@@ -38,14 +48,22 @@ export async function getProfile(request: Request, env: Env, userId: string): Pr
       last_seen_at: number | null;
       created_at: number;
       settings: string;
+      status_text: string;
+      my_settings: string | null;
+      contact: number;
     }>();
   if (!row) throw new HttpError(404, "User not found.");
+  // Hidden if either side chose "Last seen: nobody" (it works both ways, like Telegram).
+  const hidden = row.id !== me.id && (parseSettings(row.settings).lastSeen === "nobody" || parseSettings(row.my_settings).lastSeen === "nobody");
+  const contact = row.contact === 1 && !hidden;
   const profile: Profile = {
     ...toUser(row),
     bubbleColor: parseSettings(row.settings).bubbleColor,
     bio: row.bio,
-    lastSeenAt: row.last_seen_at,
+    lastSeenAt: contact ? row.last_seen_at : null,
     createdAt: row.created_at,
+    statusText: row.status_text ?? "",
+    dnd: parseSettings(row.settings).presence === "dnd",
   };
   return json({ profile });
 }

@@ -8,6 +8,11 @@ export interface Env {
   /** Optional Cloudflare TURN relay for calls on restrictive networks (set with `wrangler secret put`). */
   TURN_KEY_ID?: string;
   TURN_KEY_API_TOKEN?: string;
+  /** Optional web push (set with `wrangler secret put`; generate with scripts/vapid-keys.mjs). */
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
+  /** Contact URL sent to push services (defaults to the app's address). */
+  VAPID_SUBJECT?: string;
 }
 
 /** There is one Lobby instance for the whole app (presence + sidebar updates). */

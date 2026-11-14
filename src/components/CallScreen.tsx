@@ -19,7 +19,7 @@ import {
   XIcon,
 } from "./ui";
 
-type VoiceSettings = Pick<Settings, "noiseSuppression" | "echoCancellation" | "autoGainControl" | "noiseGate">;
+type VoiceSettings = Pick<Settings, "noiseSuppression" | "echoCancellation" | "autoGainControl" | "noiseGate" | "cleanIncoming">;
 
 function useCall() {
   return useSyncExternalStore(calls.subscribe, calls.getState);
@@ -75,28 +75,20 @@ export function CallScreen({
   onVoiceChange: (patch: Partial<VoiceSettings>) => void;
 }) {
   const call = useCall();
-  const [minimized, setMinimized] = useState(false);
+  const minimized = call.minimized;
   const [noiseOpen, setNoiseOpen] = useState(false);
   const elapsed = useTimer(call);
   // Remote audio always plays through one hidden <audio> element; every <video> is muted,
   // so switching layouts never doubles or cuts the sound.
-  const remoteAudio = useStream<HTMLAudioElement>(call.remoteStream);
+  const remoteAudio = useStream<HTMLAudioElement>(call.playbackStream ?? call.remoteStream);
   const remoteVideo = useStream<HTMLVideoElement>(call.remoteStream);
   const localVideo = useStream<HTMLVideoElement>(call.localStream);
 
   useEffect(() => {
     if (call.phase === "idle" || call.phase === "incoming") {
-      setMinimized(false);
       setNoiseOpen(false);
     }
   }, [call.phase]);
-
-  // Make room for the minimized call bar so it never covers the app.
-  const barShown = minimized && call.phase !== "ended" && call.phase !== "idle";
-  useEffect(() => {
-    document.documentElement.style.setProperty("--call-bar", barShown ? "calc(112px + env(safe-area-inset-top))" : "0px");
-    return () => document.documentElement.style.setProperty("--call-bar", "0px");
-  }, [barShown]);
 
   if (call.phase === "idle") return null;
 
@@ -109,52 +101,8 @@ export function CallScreen({
 
   const audio = <audio ref={remoteAudio} autoPlay playsInline className="hidden" />;
 
-  // ---------- Minimized: a big floating card, tap anywhere to return ----------
-  if (minimized && call.phase !== "ended") {
-    return (
-      <>
-        {audio}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => setMinimized(false)}
-          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setMinimized(false)}
-          aria-label={`Return to call with ${name}`}
-          style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
-          className="slide-up fixed inset-x-3 z-50 mx-auto flex h-[88px] max-w-xl cursor-pointer items-center gap-3 overflow-hidden rounded-3xl bg-zinc-900 p-3 text-white shadow-2xl ring-1 ring-white/10"
-        >
-          <div className="relative size-16 shrink-0 overflow-hidden rounded-2xl bg-zinc-800">
-            {remoteVideoOn ? (
-              <video ref={remoteVideo} autoPlay playsInline muted className="size-full object-cover" />
-            ) : (
-              <div className="flex size-full items-center justify-center">
-                <Avatar name={name} seed={seed} user={peer} size="lg" />
-              </div>
-            )}
-            <span className="absolute right-1 bottom-1 size-2.5 rounded-full bg-emerald-400 ring-2 ring-zinc-900" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold">{name}</p>
-            <p className="flex items-center gap-1.5 text-sm text-emerald-300 tabular-nums">
-              {call.reconnecting && <Spinner className="size-3" />}
-              {status}
-            </p>
-            <p className="text-xs text-white/50">Tap to return to the call</p>
-          </div>
-          <MiniButton
-            label={call.micOn ? "Mute" : "Unmute"}
-            active={!call.micOn}
-            onClick={() => calls.toggleMic()}
-          >
-            {call.micOn ? <MicIcon className="size-5" /> : <MicOffIcon className="size-5" />}
-          </MiniButton>
-          <MiniButton label="End call" danger onClick={() => calls.hangUp()}>
-            <PhoneOffIcon className="size-6" />
-          </MiniButton>
-        </div>
-      </>
-    );
-  }
+  // ---------- Minimized: the call lives in the chat header (CallPill); keep the sound playing ----------
+  if (minimized && call.phase !== "ended") return audio;
 
   // ---------- Full screen ----------
   const picture = peer ? avatarUrl(peer) : null;
@@ -199,7 +147,7 @@ export function CallScreen({
         style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
       >
         {live ? (
-          <GlassButton label="Minimize — keep chatting" onClick={() => setMinimized(true)}>
+          <GlassButton label="Minimize — keep chatting" onClick={() => calls.setMinimized(true)}>
             <ChevronDownIcon className="size-5" />
           </GlassButton>
         ) : (
@@ -436,6 +384,18 @@ function NoisePanel({
         <PanelToggle label="Automatic gain control" checked={voice.autoGainControl} onChange={() => onChange({ autoGainControl: !voice.autoGainControl })} />
         <PanelToggle label="Noise gate (silence between words)" checked={voice.noiseGate} onChange={() => onChange({ noiseGate: !voice.noiseGate })} />
       </div>
+      <div className="mt-3 border-t border-white/10 pt-3">
+        <PanelToggle
+          label="Clean up their voice too"
+          checked={voice.cleanIncoming}
+          onChange={() => onChange({ cleanIncoming: !voice.cleanIncoming })}
+        />
+        <p className="px-1 text-xs text-white/55">
+          {voice.cleanIncoming && !call.incomingCleaned && call.remoteStream
+            ? "Not available in this browser — you're hearing their normal audio"
+            : "Removes noise from the other person's audio, on your device"}
+        </p>
+      </div>
     </div>
   );
 }
@@ -532,8 +492,10 @@ function MiniButton({
   onClick,
   danger,
   active,
+  small,
   children,
 }: {
+  small?: boolean;
   label: string;
   onClick: () => void;
   danger?: boolean;
@@ -548,8 +510,8 @@ function MiniButton({
       }}
       aria-label={label}
       title={label}
-      className={`flex size-12 shrink-0 items-center justify-center rounded-full transition active:scale-95 ${
-        danger ? "bg-red-600 hover:bg-red-500" : active ? "bg-white text-zinc-900" : "bg-white/10 hover:bg-white/20"
+      className={`flex shrink-0 items-center justify-center rounded-full transition active:scale-95 ${small ? "size-9" : "size-12"} ${
+        danger ? "bg-red-600 hover:bg-red-500" : active ? "bg-white text-zinc-900" : "bg-white/20 hover:bg-white/30"
       }`}
     >
       {children}
@@ -622,6 +584,51 @@ function DraggablePip({ children }: { children: ReactNode }) {
       aria-label="Your camera (drag to move)"
     >
       {children}
+    </div>
+  );
+}
+
+/** Is a minimized call showing (so headers can make room for the pill)? */
+export function useCallMinimized() {
+  const call = useCall();
+  return call.minimized && call.phase !== "idle" && call.phase !== "ended";
+}
+
+/**
+ * The minimized call, living inside the chat (or sidebar) header: avatar, timer,
+ * mute and hang up. Tap anywhere else on it to go back to the call.
+ */
+export function CallPill({ peer }: { peer: User | null }) {
+  const call = useCall();
+  const elapsed = useTimer(call);
+  if (!call.minimized || call.phase === "idle" || call.phase === "ended") return null;
+  const name = call.peerName || peer?.displayName || "Call";
+  const status = statusText(call, elapsed);
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => calls.setMinimized(false)}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && calls.setMinimized(false)}
+      aria-label={`Return to call with ${name}`}
+      title="Return to the call"
+      className="pop-in flex h-11 min-w-0 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-emerald-600 py-1 pr-1 pl-1 text-white shadow-md ring-1 ring-emerald-400/40 transition hover:bg-emerald-500"
+    >
+      <span className="relative shrink-0">
+        <Avatar name={name} seed={call.peerId ?? "call"} user={peer} size="sm" />
+        <span className="record-pulse absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-white ring-2 ring-emerald-600" />
+      </span>
+      <span className="hidden max-w-28 min-w-0 truncate text-sm font-medium lg:block">{name}</span>
+      <span className="flex items-center gap-1 text-sm font-semibold tabular-nums">
+        {call.reconnecting && <Spinner className="size-3" />}
+        {status}
+      </span>
+      <MiniButton small label={call.micOn ? "Mute" : "Unmute"} active={!call.micOn} onClick={() => calls.toggleMic()}>
+        {call.micOn ? <MicIcon className="size-4" /> : <MicOffIcon className="size-4" />}
+      </MiniButton>
+      <MiniButton small label="End call" danger onClick={() => calls.hangUp()}>
+        <PhoneOffIcon className="size-5" />
+      </MiniButton>
     </div>
   );
 }

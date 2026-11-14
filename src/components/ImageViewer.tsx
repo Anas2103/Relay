@@ -1,16 +1,21 @@
 import { useEffect } from "react";
 import { OnceIcon, XIcon } from "./ui";
 
-/** Full-screen photo viewer. In view-once mode there's no download and it's gone once closed. */
+/**
+ * Full-screen photo / video viewer. In view-once mode there's no download, no
+ * picture-in-picture, no long-press menu, and it's gone once closed.
+ */
 export function ImageViewer({
   src,
   caption,
   viewOnce,
+  video,
   onClose,
 }: {
   src: string;
   caption?: string;
   viewOnce?: boolean;
+  video?: boolean;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -24,26 +29,28 @@ export function ImageViewer({
     };
   }, [onClose]);
 
+  const what = video ? "video" : "photo";
+
   return (
     <div
       className={`fade-in fixed inset-0 z-50 flex flex-col ${viewOnce ? "bg-black" : "bg-black/95 backdrop-blur"}`}
       role="dialog"
       aria-modal="true"
-      aria-label={viewOnce ? "View-once photo" : "Photo"}
+      aria-label={viewOnce ? `View-once ${what}` : what === "video" ? "Video" : "Photo"}
       onClick={onClose}
     >
-      <div className="flex items-center justify-between gap-3 p-3 text-white" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="flex items-center justify-between gap-3 p-3 text-white"
+        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+        onClick={(e) => e.stopPropagation()}
+      >
         {viewOnce ? (
           <span className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-sm">
             <OnceIcon className="size-4" />
             View once · disappears when you close it
           </span>
         ) : (
-          <a
-            href={src}
-            download
-            className="rounded-full bg-white/10 px-3 py-1.5 text-sm transition hover:bg-white/20"
-          >
+          <a href={src} download className="rounded-full bg-white/10 px-3 py-1.5 text-sm transition hover:bg-white/20">
             Save
           </a>
         )}
@@ -56,15 +63,27 @@ export function ImageViewer({
           <XIcon className="size-5" />
         </button>
       </div>
-      <div className="flex min-h-0 flex-1 items-center justify-center p-4">
-        <img
-          src={src}
-          alt={caption || "Photo"}
-          draggable={false}
-          onClick={(e) => e.stopPropagation()}
-          onContextMenu={viewOnce ? (e) => e.preventDefault() : undefined}
-          className={`pop-in max-h-full max-w-full rounded-lg object-contain ${viewOnce ? "no-callout" : ""}`}
-        />
+      <div className="flex min-h-0 flex-1 items-center justify-center p-4" onContextMenu={viewOnce ? (e) => e.preventDefault() : undefined}>
+        {video ? (
+          <video
+            src={src}
+            autoPlay
+            controls
+            playsInline
+            disablePictureInPicture={viewOnce}
+            controlsList={viewOnce ? "nodownload noplaybackrate noremoteplayback" : undefined}
+            onClick={(e) => e.stopPropagation()}
+            className={`pop-in max-h-full max-w-full rounded-lg ${viewOnce ? "no-callout" : ""}`}
+          />
+        ) : (
+          <img
+            src={src}
+            alt={caption || "Photo"}
+            draggable={false}
+            onClick={(e) => e.stopPropagation()}
+            className={`pop-in max-h-full max-w-full rounded-lg object-contain ${viewOnce ? "no-callout" : ""}`}
+          />
+        )}
       </div>
       {caption && (
         <p className="p-4 text-center text-sm whitespace-pre-wrap text-white/90" onClick={(e) => e.stopPropagation()}>

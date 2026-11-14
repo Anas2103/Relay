@@ -35,5 +35,8 @@
     { "tag": "v2", "new_sqlite_classes": ["Lobby"] }
   ],
 
+  // Every 15 minutes: remove disappearing messages whose timer ran out (free on Workers).
+  "triggers": { "crons": ["*/15 * * * *"] },
+
   "observability": { "enabled": true }
 }

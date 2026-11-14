@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { UiMessage } from "./MessageBubble";
-import { CopyIcon, EditIcon, ReplyIcon, TrashIcon } from "./ui";
+import { AlertIcon, CopyIcon, EditIcon, EyeIcon, ForwardIcon, PinIcon, ReplyIcon, SelectIcon, StarIcon, TrashIcon } from "./ui";
 
 export const QUICK_REACTIONS = ["❤️", "😂", "😮", "😢", "🙏", "👍"];
 
-export type MenuAction = "reply" | "copy" | "edit" | "delete" | { react: string };
+export type MenuAction = "reply" | "copy" | "edit" | "delete" | "pin" | "star" | "forward" | "select" | "report" | "seen" | { react: string };
 
 /** Reaction bar + actions, anchored next to the long-pressed / right-clicked bubble. */
 export function MessageMenu({
@@ -12,13 +12,20 @@ export function MessageMenu({
   rect,
   mine,
   myReaction,
+  starred,
+  canForward,
+  seenCount,
   onAction,
   onClose,
 }: {
+  /** Groups, your own messages: how many people have read it. */
+  seenCount?: number;
   message: UiMessage;
   rect: DOMRect;
   mine: boolean;
   myReaction: string | null;
+  starred: boolean;
+  canForward: boolean;
   onAction: (action: MenuAction) => void;
   onClose: () => void;
 }) {
@@ -30,7 +37,9 @@ export function MessageMenu({
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const { width, height } = el.getBoundingClientRect();
+    // offsetWidth/Height ignore the pop-in animation's scale, so the menu never lands half off-screen.
+    const width = el.offsetWidth;
+    const height = el.offsetHeight;
     const margin = 8;
     const below = rect.bottom + margin + height < window.innerHeight;
     const top = below ? rect.bottom + margin : Math.max(margin, rect.top - height - margin);
@@ -49,8 +58,10 @@ export function MessageMenu({
     };
   }, [onClose]);
 
-  const canCopy = message.kind === "text" || !!message.body;
-  const canEdit = mine && message.kind === "text";
+  const locked = (message as UiMessage & { locked?: boolean }).locked === true;
+  const canCopy = !locked && (message.kind === "text" || !!message.body);
+  const canEdit = mine && message.kind === "text" && !locked;
+  const canPin = message.kind !== "call";
 
   return (
     <div
@@ -62,7 +73,7 @@ export function MessageMenu({
         ref={ref}
         role="menu"
         onClick={(e) => e.stopPropagation()}
-        className="pop-in fixed w-64 overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-zinc-900/10 dark:bg-zinc-800 dark:ring-white/10"
+        className="pop-in fixed w-[min(16rem,calc(100vw-1rem))] overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-zinc-900/10 dark:bg-zinc-800 dark:ring-white/10"
         style={pos ? { top: pos.top, left: pos.left } : { visibility: "hidden" }}
       >
         <div className="flex justify-between border-b border-zinc-100 px-2 py-2 dark:border-zinc-700">
@@ -79,10 +90,18 @@ export function MessageMenu({
             </button>
           ))}
         </div>
-        <div className="py-1 text-sm">
+        <div className="p-1 text-sm">
           <MenuItem icon={<ReplyIcon className="size-4" />} label="Reply" onClick={() => onAction("reply")} />
           {canCopy && <MenuItem icon={<CopyIcon className="size-4" />} label="Copy text" onClick={() => onAction("copy")} />}
+          {canForward && <MenuItem icon={<ForwardIcon className="size-4" />} label="Forward" onClick={() => onAction("forward")} />}
+          {canPin && (
+            <MenuItem icon={<PinIcon className="size-4" />} label={message.pinnedAt ? "Unpin" : "Pin for everyone"} onClick={() => onAction("pin")} />
+          )}
+          <MenuItem icon={<StarIcon className="size-4" filled={starred} />} label={starred ? "Unstar" : "Star"} onClick={() => onAction("star")} />
           {canEdit && <MenuItem icon={<EditIcon className="size-4" />} label="Edit" onClick={() => onAction("edit")} />}
+          <MenuItem icon={<SelectIcon className="size-4" />} label="Select" onClick={() => onAction("select")} />
+          {seenCount !== undefined && <MenuItem icon={<EyeIcon className="size-4" />} label={seenCount ? `Seen by ${seenCount}` : "Not seen yet"} onClick={() => onAction("seen")} />}
+          {!mine && message.kind !== "call" && <MenuItem icon={<AlertIcon className="size-4" />} label="Report" danger onClick={() => onAction("report")} />}
           {mine && (
             <MenuItem
               icon={<TrashIcon className="size-4" />}
@@ -112,7 +131,7 @@ function MenuItem({
     <button
       role="menuitem"
       onClick={onClick}
-      className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-zinc-100 dark:hover:bg-zinc-700/60 ${
+      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-zinc-100 dark:hover:bg-zinc-700/60 ${
         danger ? "text-red-600 dark:text-red-400" : ""
       }`}
     >

@@ -60,6 +60,113 @@
   --color-zinc-600: #3b4670;
 }
 
+:root:not(.dark)[data-light-theme="rose"] {
+  --color-white: #fffbfc;
+  --color-zinc-50: #fdf2f5;
+  --color-zinc-100: #fbe4ea;
+  --color-zinc-200: #f5ccd7;
+  --color-zinc-300: #ecadbe;
+}
+:root:not(.dark)[data-light-theme="mint"] {
+  --color-white: #fbfffd;
+  --color-zinc-50: #effaf5;
+  --color-zinc-100: #dff3ea;
+  --color-zinc-200: #c6e8d8;
+  --color-zinc-300: #a6d8c1;
+}
+:root:not(.dark)[data-light-theme="lilac"] {
+  --color-white: #fdfcff;
+  --color-zinc-50: #f6f3fd;
+  --color-zinc-100: #ece6fb;
+  --color-zinc-200: #ddd3f5;
+  --color-zinc-300: #c7b8ec;
+}
+:root:not(.dark)[data-light-theme="sky"] {
+  --color-white: #fbfeff;
+  --color-zinc-50: #eff8fe;
+  --color-zinc-100: #e0f1fc;
+  --color-zinc-200: #c8e5f8;
+  --color-zinc-300: #a8d3f0;
+}
+:root:not(.dark)[data-light-theme="sand"] {
+  --color-white: #fffefa;
+  --color-zinc-50: #f7f2e7;
+  --color-zinc-100: #efe7d6;
+  --color-zinc-200: #e0d3b8;
+  --color-zinc-300: #cbb995;
+}
+:root.dark[data-dark-theme="forest"] {
+  --color-zinc-950: #0a1410;
+  --color-zinc-900: #0f1d17;
+  --color-zinc-800: #182a22;
+  --color-zinc-700: #243d32;
+  --color-zinc-600: #375446;
+}
+:root.dark[data-dark-theme="wine"] {
+  --color-zinc-950: #170a0f;
+  --color-zinc-900: #221016;
+  --color-zinc-800: #331a22;
+  --color-zinc-700: #4a2733;
+  --color-zinc-600: #653a48;
+}
+:root.dark[data-dark-theme="ocean"] {
+  --color-zinc-950: #06141c;
+  --color-zinc-900: #0b1e29;
+  --color-zinc-800: #132d3c;
+  --color-zinc-700: #1f4256;
+  --color-zinc-600: #305a72;
+}
+:root.dark[data-dark-theme="mocha"] {
+  --color-zinc-950: #15110e;
+  --color-zinc-900: #1f1915;
+  --color-zinc-800: #2d251f;
+  --color-zinc-700: #42362d;
+  --color-zinc-600: #5b4b3f;
+}
+:root.dark[data-dark-theme="grape"] {
+  --color-zinc-950: #120c1c;
+  --color-zinc-900: #1b1328;
+  --color-zinc-800: #291d3c;
+  --color-zinc-700: #3c2b57;
+  --color-zinc-600: #553f78;
+}
+
+:root:not(.dark)[data-light-theme="peach"] {
+  --color-white: #fffbf7;
+  --color-zinc-50: #fdf3ea;
+  --color-zinc-100: #fbe7d6;
+  --color-zinc-200: #f4d3b8;
+  --color-zinc-300: #e9b994;
+}
+:root:not(.dark)[data-light-theme="fog"] {
+  --color-white: #fafafa;
+  --color-zinc-50: #f0f0f0;
+  --color-zinc-100: #e6e6e6;
+  --color-zinc-200: #d6d6d6;
+  --color-zinc-300: #bdbdbd;
+}
+:root.dark[data-dark-theme="nordic"] {
+  --color-zinc-950: #242933;
+  --color-zinc-900: #2e3440;
+  --color-zinc-800: #3b4252;
+  --color-zinc-700: #434c5e;
+  --color-zinc-600: #4c566a;
+}
+:root.dark[data-dark-theme="slate"] {
+  --color-zinc-950: #0b1120;
+  --color-zinc-900: #111827;
+  --color-zinc-800: #1f2937;
+  --color-zinc-700: #374151;
+  --color-zinc-600: #4b5563;
+}
+:root.dark[data-dark-theme="plum"] {
+  --color-zinc-950: #1a0b1a;
+  --color-zinc-900: #241024;
+  --color-zinc-800: #351a35;
+  --color-zinc-700: #4b274b;
+  --color-zinc-600: #663a66;
+}
+
 /* ---------- Chat wallpapers (each has a light and a dark version) ---------- */
 .chat-wall {
   background-color: var(--color-zinc-50);
@@ -145,15 +252,123 @@ body,
   height: 100%;
 }
 
+/* "App size" setting: everything is sized in rem, so this scales the whole UI. */
+html {
+  font-size: calc(16px * var(--ui-scale, 1));
+}
+
+/* ---------- Customizable chat look (variables set by src/lib/theme.ts) ---------- */
+.msg-text {
+  font-size: var(--msg-size, 15px);
+}
+.bubble-shape {
+  border-radius: var(--bubble-radius, 18px);
+}
+.bubble-pad {
+  padding: var(--bubble-py, 0.5rem) var(--bubble-px, 0.875rem);
+}
+/* Joined corners for consecutive bubbles from the same person */
+.join-tr { border-top-right-radius: max(4px, calc(var(--bubble-radius, 18px) / 3.5)); }
+.join-br { border-bottom-right-radius: max(4px, calc(var(--bubble-radius, 18px) / 3.5)); }
+.join-tl { border-top-left-radius: max(4px, calc(var(--bubble-radius, 18px) / 3.5)); }
+.join-bl { border-bottom-left-radius: max(4px, calc(var(--bubble-radius, 18px) / 3.5)); }
+.group-gap {
+  margin-top: var(--group-gap, 0.75rem);
+}
+.row-pad {
+  padding-top: var(--row-py, 0.625rem);
+  padding-bottom: var(--row-py, 0.625rem);
+}
+.chat-column {
+  max-width: var(--chat-max, 48rem);
+}
+.avatar-shape {
+  border-radius: var(--avatar-radius, 9999px);
+}
+/* Messages that are only emoji */
+.big-emoji {
+  font-size: calc(var(--msg-size, 15px) * 2.4);
+  line-height: 1.15;
+}
+
+/* "Animations" setting off */
+:root[data-motion="off"] *,
+:root[data-motion="off"] *::before,
+:root[data-motion="off"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-8px); }
+  40%, 80% { transform: translateX(8px); }
+}
+
+/* Phones: respect the notch / home indicator */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* The page behind the panels (on bigger screens the panels float on it as rounded cards). */
 body {
-  @apply bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+  @apply bg-zinc-100 text-zinc-900 antialiased dark:bg-black dark:text-zinc-100;
+  text-rendering: optimizeLegibility;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Thin, unobtrusive scrollbars on desktop */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgb(161 161 170 / 0.4) transparent;
+/*
+ * Scrollbars: slim rounded "overlay" style, no arrow buttons, no track.
+ * They stay faint and get stronger while you hover the area you can scroll.
+ * Chrome/Edge/Safari use the ::-webkit-scrollbar rules (setting scrollbar-width
+ * there would switch them back to the native Windows look, arrows and all);
+ * Firefox only understands scrollbar-width/color, so it gets those.
+ */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+::-webkit-scrollbar-thumb {
+  border: 4px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: rgb(113 113 122 / 0.18);
+  min-height: 40px;
+}
+*:hover::-webkit-scrollbar-thumb {
+  background-color: rgb(113 113 122 / 0.38);
+}
+::-webkit-scrollbar-thumb:hover {
+  border-width: 3px;
+  background-color: rgb(113 113 122 / 0.6);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background-color: rgb(161 161 170 / 0.16);
+}
+.dark *:hover::-webkit-scrollbar-thumb {
+  background-color: rgb(161 161 170 / 0.32);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(161 161 170 / 0.55);
+}
+@supports (-moz-appearance: none) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(113 113 122 / 0.35) transparent;
+  }
 }
 
 /* Phones and tablets: no visible scrollbars at all, like native apps */
@@ -275,9 +490,58 @@ body {
   }
 }
 
-/* When a call is minimized, the app moves down to make room for the call bar (nothing gets covered). */
-.below-call-bar {
-  margin-top: var(--call-bar, 0px);
-  height: calc(100dvh - var(--call-bar, 0px));
-  transition: margin-top 200ms ease, height 200ms ease;
+
+.wall-sky { background-image: linear-gradient(175deg, #e0f2fe 0%, #f0f9ff 60%, #fdf4ff 100%); }
+.dark .wall-sky { background-image: linear-gradient(175deg, #0a1a2b 0%, #0c1626 60%, #1a1028 100%); }
+.wall-cherry { background-image: linear-gradient(160deg, #fff1f2 0%, #fde2e4 45%, #fae8ff 100%); }
+.dark .wall-cherry { background-image: linear-gradient(160deg, #2b0a12 0%, #300b18 45%, #250a2a 100%); }
+.wall-sand { background-image: linear-gradient(165deg, #fefce8 0%, #fef3c7 50%, #ffedd5 100%); }
+.dark .wall-sand { background-image: linear-gradient(165deg, #211b08 0%, #261d07 50%, #2a1808 100%); }
+.wall-bubbles {
+  background-image:
+    radial-gradient(circle at 25% 30%, color-mix(in oklab, var(--accent) 12%, transparent) 0 9px, transparent 10px),
+    radial-gradient(circle at 75% 70%, color-mix(in oklab, var(--bubble) 12%, transparent) 0 14px, transparent 15px),
+    radial-gradient(circle at 60% 15%, color-mix(in oklab, var(--accent) 9%, transparent) 0 5px, transparent 6px);
+  background-size: 90px 90px;
+}
+
+/* ---------- Layout polish ---------- */
+/* Floating rounded panels on tablets and desktops */
+@media (min-width: 768px) {
+  .panel {
+    border-radius: 1.25rem;
+    overflow: hidden;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.04),
+      0 0 0 1px rgb(24 24 27 / 0.06);
+  }
+  .dark .panel {
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.06);
+  }
+}
+/* Soft dividers instead of hard lines */
+.divider-b {
+  border-bottom: 1px solid color-mix(in oklab, var(--color-zinc-200) 75%, transparent);
+}
+.divider-t {
+  border-top: 1px solid color-mix(in oklab, var(--color-zinc-200) 75%, transparent);
+}
+.dark .divider-b {
+  border-bottom-color: color-mix(in oklab, var(--color-zinc-800) 80%, transparent);
+}
+.dark .divider-t {
+  border-top-color: color-mix(in oklab, var(--color-zinc-800) 80%, transparent);
+}
+/* Tab rows that scroll sideways fade out at the edge instead of cutting words */
+.fade-x {
+  mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 28px), transparent 100%);
+  scroll-padding-inline: 16px;
+}
+/* Profile pictures: always a perfect square crop, never squashed by flex layouts */
+.avatar-img {
+  display: block;
+  flex: none;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  object-position: center;
 }

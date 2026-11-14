@@ -1,4 +1,15 @@
-const timeFmt = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+import type { TimeFormat } from "../../shared/types";
+
+let timeFmt = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+
+/** 12-hour, 24-hour, or whatever the device's language uses. */
+export function setTimeFormat(format: TimeFormat) {
+  timeFmt = new Intl.DateTimeFormat(undefined, {
+    hour: format === "24h" ? "2-digit" : "numeric",
+    minute: "2-digit",
+    hour12: format === "auto" ? undefined : format === "12h",
+  });
+}
 const weekdayFmt = new Intl.DateTimeFormat(undefined, { weekday: "short" });
 const shortDateFmt = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
 const longDateFmt = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" });

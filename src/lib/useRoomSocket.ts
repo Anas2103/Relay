@@ -11,7 +11,7 @@ const PING_MS = 25_000;
  * keep-alive pings (mobile networks silently drop idle connections). Emits a
  * synthetic "connected" event on every (re)connect so the caller can catch up.
  */
-function useSocket<E>(path: string, onEvent: (event: E | { type: "connected" }) => void) {
+function useSocket<E>(path: string | null, onEvent: (event: E | { type: "connected" }) => void) {
   const [status, setStatus] = useState<SocketStatus>("connecting");
   const wsRef = useRef<WebSocket | null>(null);
   const handlerRef = useRef(onEvent);
@@ -21,6 +21,7 @@ function useSocket<E>(path: string, onEvent: (event: E | { type: "connected" }) 
   }, [onEvent]);
 
   useEffect(() => {
+    if (!path) return; // disabled (e.g. maintenance mode)
     let stopped = false;
     let attempt = 0;
     let timer: number | undefined;
@@ -104,6 +105,6 @@ export function useRoomSocket(roomId: string, onEvent: (event: SocketEvent) => v
   return { status, send: send as (event: ClientEvent) => boolean };
 }
 
-export function useLobbySocket(onEvent: (event: LobbyEvent | { type: "connected" }) => void) {
-  return useSocket<LobbyEvent>("/api/lobby", onEvent);
+export function useLobbySocket(onEvent: (event: LobbyEvent | { type: "connected" }) => void, enabled = true) {
+  return useSocket<LobbyEvent>(enabled ? "/api/lobby" : null, onEvent);
 }

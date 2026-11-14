@@ -1,3 +1,4 @@
+import { passwordProblem } from "../shared/password";
 import { LIMITS } from "../shared/types";
 import { HttpError } from "./http";
 
@@ -18,11 +19,12 @@ export function validUsername(raw: unknown): string {
   return username;
 }
 
-export function validPassword(raw: unknown): string {
+
+
+export function validPassword(raw: unknown, username = ""): string {
   const password = str(raw);
-  if (password.length < LIMITS.passwordMin || password.length > LIMITS.passwordMax) {
-    throw new HttpError(400, `Password must be at least ${LIMITS.passwordMin} characters.`);
-  }
+  const problem = passwordProblem(password, username);
+  if (problem) throw new HttpError(400, problem);
   return password;
 }
 

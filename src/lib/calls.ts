@@ -32,6 +32,11 @@ export interface CallState {
   /** Noise suppression actually running right now (AI can fall back to standard). */
   voiceMode: VoiceSettings["noiseSuppression"] | null;
   voiceEngine: AiEngine | null;
+  /** Call shrunk into the chat header so you can keep chatting. */
+  minimized: boolean;
+  /** What you hear: the remote audio, or a cleaned-up version when "clean incoming" is on. */
+  playbackStream: MediaStream | null;
+  incomingCleaned: boolean;
 }
 
 const IDLE: CallState = {
@@ -54,6 +59,9 @@ const IDLE: CallState = {
   problem: null,
   voiceMode: null,
   voiceEngine: null,
+  minimized: false,
+  playbackStream: null,
+  incomingCleaned: false,
 };
 
 const RING_TIMEOUT_MS = 45_000;
@@ -110,7 +118,59 @@ class CallManager {
     return this.processedMic.stream;
   }
 
+  /** Whether to also run AI noise suppression on the other person's voice. */
+  private cleanIncoming = false;
+  private incomingProcessed: ProcessedMic | null = null;
+  private feeder: HTMLAudioElement | null = null;
+  /** Bumped on every setupPlayback call, so a slow, outdated run never wins (ontrack fires once per track). */
+  private playbackRun = 0;
+
+  /**
+   * Decides what you hear. With "clean incoming" on, the other person's audio runs
+   * through the AI noise suppressor on your device before it's played.
+   */
+  private async setupPlayback() {
+    const run = ++this.playbackRun;
+    const remote = this.state.remoteStream;
+    this.incomingProcessed?.dispose();
+    this.incomingProcessed = null;
+    if (!remote) {
+      this.set({ playbackStream: null, incomingCleaned: false });
+      return;
+    }
+    const audio = remote.getAudioTracks();
+    if (!this.cleanIncoming || !this.audioCtx || audio.length === 0) {
+      this.set({ playbackStream: remote, incomingCleaned: false });
+      return;
+    }
+    // Chrome only feeds a remote WebRTC stream into Web Audio while it's also attached to a media element.
+    this.feeder ??= new Audio();
+    this.feeder.muted = true;
+    this.feeder.srcObject = remote;
+    this.feeder.play().catch(() => {});
+    const processed = await processMic(
+      new MediaStream(audio),
+      { noiseSuppression: "ai", echoCancellation: false, autoGainControl: false, noiseGate: false },
+      this.audioCtx,
+    );
+    if (run !== this.playbackRun) {
+      processed.dispose(); // a newer run took over
+      return;
+    }
+    if (processed.mode !== "ai" || this.state.remoteStream !== remote) {
+      processed.dispose();
+      this.set({ playbackStream: this.state.remoteStream, incomingCleaned: false });
+      return;
+    }
+    this.incomingProcessed = processed;
+    this.set({ playbackStream: processed.stream, incomingCleaned: true });
+  }
+
   private releaseMic() {
+    this.playbackRun++;
+    this.incomingProcessed?.dispose();
+    this.incomingProcessed = null;
+    if (this.feeder) this.feeder.srcObject = null;
     this.processedMic?.dispose();
     this.processedMic = null;
     this.rawMic?.getTracks().forEach((t) => t.stop());
@@ -328,12 +388,21 @@ class CallManager {
 
   // ---- in-call controls ----
 
-/**
+  /** Shrinks the call into the chat header (or brings it back to full screen). */
+  setMinimized(minimized: boolean) {
+    if (this.state.phase !== "idle") this.set({ minimized });
+  }
+
+  /**
    * Changes noise suppression / echo / gain / gate in the middle of a call.
    * Rebuilds the audio processing and swaps the outgoing track in place —
    * no renegotiation, no dropped call.
    */
-  async setVoice(next: VoiceSettings) {
+  async setVoice(next: VoiceSettings & { cleanIncoming?: boolean }) {
+    if (next.cleanIncoming !== undefined && next.cleanIncoming !== this.cleanIncoming) {
+      this.cleanIncoming = next.cleanIncoming;
+      void this.setupPlayback();
+    }
     const pick = (v: VoiceSettings): VoiceSettings => ({
       noiseSuppression: v.noiseSuppression,
       echoCancellation: v.echoCancellation,
@@ -414,6 +483,7 @@ class CallManager {
     pc.ontrack = (e) => {
       const stream = e.streams[0] ?? new MediaStream([e.track]);
       this.set({ remoteStream: stream });
+      void this.setupPlayback();
     };
     pc.onconnectionstatechange = () => {
       const s = pc.connectionState;
@@ -470,7 +540,15 @@ class CallManager {
       this.set({ ...IDLE });
       return;
     }
-    this.set({ phase: "ended", endReason: reason, localStream: null, remoteStream: null, reconnecting: false });
+    this.set({
+      phase: "ended",
+      endReason: reason,
+      localStream: null,
+      remoteStream: null,
+      playbackStream: null,
+      incomingCleaned: false,
+      reconnecting: false,
+    });
     this.resetTimer = window.setTimeout(() => this.set({ ...IDLE }), this.state.problem ? 6000 : 1800);
   }
 
