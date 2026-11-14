@@ -156,6 +156,15 @@ npm run dev            # http://localhost:5173
 
 Open two browser windows (one normal, one private) and sign up as two users to chat with yourself.
 
+## Tests
+
+```bash
+npx playwright install chromium   # once
+npm run test:e2e
+```
+
+End-to-end tests run real browsers against the real app (Worker, Durable Objects and a local D1 database), including **real WebRTC calls between two browsers** using Chromium's fake microphones, cameras and speakers: device switching mid-call, voice-to-video upgrades, screen sharing, push-to-talk, an unplugged mic, declining with a message and more. GitHub Actions runs typechecking, the build and the whole suite on every push.
+
 ## Deploy (free)
 
 ```bash
@@ -201,7 +210,7 @@ npx wrangler secret put VAPID_PRIVATE_KEY
 - [x] Installable app (PWA) with push notifications
 - [x] Deep customization (fonts, sizes, shapes, custom colors, density, privacy)
 - [x] Owner / admin roles, maintenance mode
-- [ ] Automated tests in CI
+- [x] Automated end-to-end tests in CI (GitHub Actions)
 - [ ] Native mobile app (the PWA works today)
 
 ---

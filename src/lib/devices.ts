@@ -26,6 +26,11 @@ export interface DevicePrefs {
   ringtone: Ringtone;
   /** Ringtone volume, in percent (0–100). */
   ringVolume: number;
+  /**
+   * Names of the chosen devices. Browsers may hand out new device IDs (Safari
+   * every session, Chrome after clearing site data), so the name finds it again.
+   */
+  labels: { mic: string; camera: string; speaker: string };
 }
 
 export type VideoQuality = "auto" | "hd" | "saver";
@@ -51,6 +56,7 @@ const DEFAULTS: DevicePrefs = {
   videoQuality: "auto",
   ringtone: "classic",
   ringVolume: 80,
+  labels: { mic: "", camera: "", speaker: "" },
 };
 
 function load(): DevicePrefs {
@@ -69,6 +75,11 @@ function load(): DevicePrefs {
       videoQuality: raw.videoQuality === "hd" || raw.videoQuality === "saver" ? raw.videoQuality : "auto",
       ringtone: RINGTONES.some(([r]) => r === raw.ringtone) ? (raw.ringtone as Ringtone) : "classic",
       ringVolume: num(raw.ringVolume, 80, 100),
+      labels: {
+        mic: typeof raw.labels?.mic === "string" ? raw.labels.mic : "",
+        camera: typeof raw.labels?.camera === "string" ? raw.labels.camera : "",
+        speaker: typeof raw.labels?.speaker === "string" ? raw.labels.speaker : "",
+      },
     };
   } catch {
     return { ...DEFAULTS };
@@ -85,7 +96,13 @@ export const devicePrefs = {
     return () => void prefListeners.delete(fn);
   },
   set(patch: Partial<DevicePrefs>) {
-    prefs = { ...prefs, ...patch };
+    const labels = { ...prefs.labels };
+    for (const kind of ["mic", "camera", "speaker"] as const) {
+      const id = patch[kind];
+      if (id === undefined) continue;
+      labels[kind] = id ? (optionsFor(kind).find((o) => o.id === id)?.label ?? labels[kind]) : "";
+    }
+    prefs = { ...prefs, ...patch, labels };
     try {
       localStorage.setItem(KEY, JSON.stringify(prefs));
     } catch {
@@ -159,8 +176,28 @@ export async function refreshDevices(): Promise<DeviceList> {
     }
   }
   list = next;
+  if (next.labelled) rematchChoices();
   listListeners.forEach((fn) => fn(added));
   return list;
+}
+
+function optionsFor(kind: "mic" | "camera" | "speaker"): DeviceOption[] {
+  return kind === "mic" ? list.mics : kind === "camera" ? list.cameras : list.speakers;
+}
+
+/** A saved device whose ID changed (but is still plugged in) is found again by its name. */
+function rematchChoices() {
+  const patch: Partial<DevicePrefs> = {};
+  for (const kind of ["mic", "camera", "speaker"] as const) {
+    const id = prefs[kind];
+    if (!id) continue;
+    const options = optionsFor(kind);
+    if (options.some((o) => o.id === id)) continue;
+    const label = prefs.labels[kind];
+    const same = label ? options.filter((o) => o.label === label) : [];
+    if (same.length === 1) patch[kind] = same[0].id;
+  }
+  if (Object.keys(patch).length) devicePrefs.set(patch);
 }
 
 function watch() {
