@@ -60,6 +60,8 @@ interface Props {
   mentionables?: User[];
   /** Opens the "New poll" dialog. */
   onCreatePoll?: () => void;
+  /** Play a game or watch a video together in this chat. */
+  onPlayGame?: () => void;
   /** Shares your current location. */
   onShareLocation?: () => void;
   /** Sends one of your stickers (not in secret chats). */
@@ -75,8 +77,13 @@ interface Props {
   onError: (message: string) => void;
   /** Noise suppression etc. for voice messages. */
   voice: VoiceSettings;
-  /** Secret chats: text only (files would reach the server unencrypted). */
+  /**
+   * Secret chats: text and photos only. Photos are encrypted on this device before
+   * upload; voice notes, videos and documents aren't offered there.
+   */
   textOnly?: boolean;
+  /** False when the owner turned off photos, voice notes and files: no attach or record buttons. */
+  uploads?: boolean;
   /** Desktop: Enter sends. Off: Ctrl/Cmd+Enter sends. */
   enterToSend?: boolean;
   placeholder?: string;
@@ -107,11 +114,13 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
     onError,
     voice,
     textOnly = false,
+    uploads = true,
     enterToSend = true,
     placeholder,
     draftKey,
     mentionables,
     onCreatePoll,
+    onPlayGame,
     onShareLocation,
     onSendSticker,
     onSchedule,
@@ -302,7 +311,9 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
 
   async function addFile(file: File) {
     if (editing) return;
-    if (textOnly) return onError("Secret chats are text-only, so nothing ever reaches the server unencrypted.");
+    if (textOnly && !file.type.startsWith("image/")) {
+      return onError("Secret chats can send text and photos (encrypted on this device). Videos, voice notes and files aren't available here.");
+    }
     setMenuOpen(false);
     if (file.type.startsWith("image/")) {
       setPreparing(true);
@@ -508,7 +519,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
               submit();
             }}
           >
-            {!editing && !textOnly && (
+            {!editing && uploads && (
               <div className="relative">
                 <button
                   type="button"
@@ -527,9 +538,16 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
                     <div className="pop-in absolute bottom-14 left-0 z-40 w-56 overflow-hidden rounded-2xl bg-white py-1.5 shadow-xl ring-1 ring-zinc-900/10 dark:bg-zinc-800 dark:ring-white/10" role="menu">
-                      <AttachItem icon={<ImageIcon className="size-5" />} color="bg-violet-500" label="Photos & videos" onClick={() => mediaInputRef.current?.click()} />
+                      <AttachItem
+                        icon={<ImageIcon className="size-5" />}
+                        color="bg-violet-500"
+                        label={textOnly ? "Encrypted photo" : "Photos & videos"}
+                        onClick={() => mediaInputRef.current?.click()}
+                      />
                       <AttachItem icon={<CameraIcon className="size-5" />} color="bg-rose-500" label="Camera" onClick={() => cameraInputRef.current?.click()} />
-                      <AttachItem icon={<FileIcon className="size-5" />} color="bg-sky-500" label="Document" onClick={() => docInputRef.current?.click()} />
+                      {!textOnly && (
+                        <AttachItem icon={<FileIcon className="size-5" />} color="bg-sky-500" label="Document" onClick={() => docInputRef.current?.click()} />
+                      )}
                       {onShareLocation && (
                         <AttachItem
                           icon={<MapPinIcon className="size-5" />}
@@ -538,6 +556,17 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
                           onClick={() => {
                             setMenuOpen(false);
                             onShareLocation();
+                          }}
+                        />
+                      )}
+                      {onPlayGame && (
+                        <AttachItem
+                          icon={<span className="text-lg leading-none">🎮</span>}
+                          color="bg-fuchsia-500"
+                          label="Game / Watch"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            onPlayGame();
                           }}
                         />
                       )}
@@ -558,7 +587,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
                 <input
                   ref={mediaInputRef}
                   type="file"
-                  accept="image/*,video/*"
+                  accept={textOnly ? "image/*" : "image/*,video/*"}
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
@@ -657,7 +686,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
                 </span>
               )}
             </div>
-            {draft.trim() || editing || textOnly ? (
+            {draft.trim() || editing || textOnly || !uploads ? (
               <div className="relative">
                 <button
                   type="submit"

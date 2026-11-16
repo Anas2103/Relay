@@ -4,9 +4,10 @@ import { api, ApiError } from "../lib/api";
 import { formatDateTime, formatRelative } from "../lib/format";
 import { AdminReports } from "./AdminReports";
 import { OwnerConversations } from "./OwnerConversations";
+import { ModerationActions, OwnerModerate, OwnerPowersList, OwnerSiteExtras, OwnerUserInsight } from "./OwnerTools";
 import { AlertIcon, Avatar, BackIcon, CheckIcon, EyeIcon, LockIcon, PlusIcon, SearchIcon, ShieldIcon, Spinner, XIcon } from "./ui";
 
-type Tab = "overview" | "users" | "reports" | "conversations" | "site" | "audit";
+type Tab = "overview" | "users" | "reports" | "conversations" | "moderate" | "site" | "audit";
 
 const errorMessage = (err: unknown) => (err instanceof ApiError ? err.message : "Something went wrong.");
 
@@ -14,6 +15,12 @@ const card = "rounded-2xl bg-white shadow-sm ring-1 ring-zinc-900/5 dark:bg-zinc
 
 export function AdminPanel({ me, onClose, callPill }: { me: Me; onClose: () => void; callPill?: ReactNode }) {
   const [tab, setTab] = useState<Tab>("overview");
+  /** Owner: a conversation to open (from search or an account's chat list). */
+  const [openRoomId, setOpenRoomId] = useState<string | null>(null);
+  const openRoom = useCallback((roomId: string) => {
+    setOpenRoomId(roomId);
+    setTab("conversations");
+  }, []);
   const [toast, setToast] = useState<string | null>(null);
   const [openReports, setOpenReports] = useState(0);
   useEffect(() => {
@@ -42,6 +49,7 @@ export function AdminPanel({ me, onClose, callPill }: { me: Me; onClose: () => v
     ...(me.superAdmin
       ? ([
           ["conversations", "Conversations"],
+          ["moderate", "Moderate"],
           ["site", "Site"],
         ] as [Tab, string][])
       : []),
@@ -88,12 +96,13 @@ export function AdminPanel({ me, onClose, callPill }: { me: Me; onClose: () => v
       </header>
 
       {tab === "conversations" && me.superAdmin ? (
-        <OwnerConversations />
+        <OwnerConversations openRoomId={openRoomId} />
       ) : (
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-6xl px-4 py-6 md:px-6">
             {tab === "overview" && <Overview onOpenUsers={() => setTab("users")} />}
-            {tab === "users" && <Users me={me} onToast={setToast} />}
+            {tab === "users" && <Users me={me} onToast={setToast} onOpenRoom={me.superAdmin ? openRoom : undefined} />}
+            {tab === "moderate" && me.superAdmin && <OwnerModerate onToast={setToast} onOpenRoom={openRoom} />}
             {tab === "audit" && <AuditLog />}
             {tab === "reports" && <AdminReports onToast={setToast} onCount={setOpenReports} />}
             {tab === "site" && me.superAdmin && <SiteControls onToast={setToast} />}
@@ -314,7 +323,7 @@ function ActivityChart({ daily }: { daily: AdminStats["daily"] }) {
 type UserFilter = "all" | "online" | "admins" | "suspended";
 type UserSort = "newest" | "active" | "messages" | "name";
 
-function Users({ me, onToast }: { me: Me; onToast: (msg: string) => void }) {
+function Users({ me, onToast, onOpenRoom }: { me: Me; onToast: (msg: string) => void; onOpenRoom?: (roomId: string) => void }) {
   const [query, setQuery] = useState("");
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -471,6 +480,7 @@ function Users({ me, onToast }: { me: Me; onToast: (msg: string) => void }) {
                 </div>
                 <button
                   onClick={() => setEditing(u)}
+                  aria-label={`Edit @${u.username}`}
                   className="col-start-2 row-span-2 rounded-lg px-3 py-1.5 text-sm font-medium text-accent-fg transition hover:bg-accent/10 md:col-start-6 md:row-start-1 md:row-span-1 md:justify-self-end"
                 >
                   Edit
@@ -495,7 +505,14 @@ function Users({ me, onToast }: { me: Me; onToast: (msg: string) => void }) {
       )}
 
       {editing && (
-        <UserDialog me={me} user={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={onSaved} />
+        <UserDialog
+          me={me}
+          user={editing === "new" ? null : editing}
+          onClose={() => setEditing(null)}
+          onSaved={onSaved}
+          onToast={onToast}
+          onOpenRoom={onOpenRoom ? (id) => (setEditing(null), onOpenRoom(id)) : undefined}
+        />
       )}
     </div>
   );
@@ -523,11 +540,15 @@ function UserDialog({
   user,
   onClose,
   onSaved,
+  onToast,
+  onOpenRoom,
 }: {
   me: Me;
   user: AdminUser | null;
   onClose: () => void;
   onSaved: (user: AdminUser | null, message: string) => void;
+  onToast: (msg: string) => void;
+  onOpenRoom?: (roomId: string) => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const isNew = user === null;
@@ -742,23 +763,22 @@ function UserDialog({
                 Reset
               </SecondaryButton>
             </ActionRow>
-            <ActionRow
-              title={user.suspendedAt ? "Restore account" : "Suspend account"}
-              description={
-                user.suspendedAt
-                  ? `Suspended ${formatRelative(user.suspendedAt)}. Restoring lets them sign in again.`
-                  : "Blocks sign-in and disconnects them immediately."
-              }
-            >
-              <SecondaryButton
-                onClick={toggleSuspend}
-                busy={busy === "suspend"}
-                disabled={busy !== null}
-                danger={!user.suspendedAt}
-              >
-                {user.suspendedAt ? "Restore" : "Suspend"}
-              </SecondaryButton>
-            </ActionRow>
+            {user.suspendedAt && (
+              <ActionRow title="Restore account" description={`Suspended ${formatRelative(user.suspendedAt)}. Restoring lets them sign in again.`}>
+                <SecondaryButton onClick={toggleSuspend} busy={busy === "suspend"} disabled={busy !== null}>
+                  Restore
+                </SecondaryButton>
+              </ActionRow>
+            )}
+            <ModerationActions user={user} onSaved={(u, msg) => onSaved(u, msg)} />
+            {me.superAdmin && (
+              <div className="space-y-3 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+                <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+                  <ShieldIcon className="size-4 text-amber-600" /> Owner view
+                </h3>
+                <OwnerUserInsight user={user} onToast={onToast} onOpenRoom={onOpenRoom} />
+              </div>
+            )}
 
             <div className="rounded-xl bg-red-50 p-4 ring-1 ring-red-600/10 dark:bg-red-950/30 dark:ring-red-400/10">
               <p className="text-sm font-medium text-red-800 dark:text-red-300">Delete account</p>
@@ -842,6 +862,16 @@ const ACTION_LABELS: Record<string, string> = {
   "user.delete": "deleted",
   "user.signout_all": "signed out everywhere",
   "conversation.view": "opened a conversation",
+  "message.delete": "deleted a message",
+  "room.delete": "deleted a conversation",
+  "site.update": "changed the site",
+  "owner.broadcast": "broadcast to everyone",
+  "owner.signout_all": "signed everyone out",
+  "owner.signout_device": "signed out a device of",
+  "owner.erase_messages": "erased all messages of",
+  "owner.join_group": "joined a group as admin",
+  "owner.delete_story": "removed a story by",
+  "owner.search": "searched all messages",
 };
 
 function AuditLog() {
@@ -849,12 +879,18 @@ function AuditLog() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
+  // The search runs on the server, over the whole history (not just what's loaded).
   useEffect(() => {
-    api.admin
-      .audit()
-      .then((r) => setEntries(r.entries))
-      .catch((e) => setError(errorMessage(e)));
-  }, []);
+    const t = window.setTimeout(
+      () =>
+        api.admin
+          .audit(query.trim())
+          .then((r) => setEntries(r.entries))
+          .catch((e) => setError(errorMessage(e))),
+      query ? 300 : 0,
+    );
+    return () => window.clearTimeout(t);
+  }, [query]);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -868,7 +904,7 @@ function AuditLog() {
 
   if (error) return <ErrorBox message={error} />;
   if (!entries) return <CenteredSpinner />;
-  if (entries.length === 0) {
+  if (entries.length === 0 && !query) {
     return <p className="py-12 text-center text-sm text-zinc-500">No admin actions yet.</p>;
   }
 
@@ -1028,21 +1064,8 @@ function SiteControls({ onToast }: { onToast: (msg: string) => void }) {
         />
       </section>
 
-      <section className={`${card} p-5 text-sm`}>
-        <h2 className="flex items-center gap-2 font-semibold">
-          <ShieldIcon className="size-4 text-amber-600" /> What the owner can do
-        </h2>
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-zinc-600 dark:text-zinc-300">
-          <li>Everything admins can: create, edit, suspend, sign out and delete accounts, reset passwords, see stats and the audit log.</li>
-          <li>Manage admins too: promote, demote, suspend or delete them. Regular admins can't touch other admins or you.</li>
-          <li>Review any conversation or group, delete single messages or whole chats, export conversations.</li>
-          <li>Control the site: announcement, sign-ups, maintenance mode.</li>
-          <li>
-            <strong>Secret chats are the one exception:</strong> they're end-to-end encrypted, so they show as locked here. You can still see who and when, and delete them.
-          </li>
-        </ul>
-        <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">Every action here is recorded in the audit log.</p>
-      </section>
+      <OwnerSiteExtras site={site} onSite={setSite} onToast={onToast} />
+      <OwnerPowersList />
       {error && <ErrorBox message={error} />}
     </div>
   );

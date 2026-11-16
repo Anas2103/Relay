@@ -1,8 +1,10 @@
 import { TRANSLATE_LANGUAGES, type TranslateLang } from "../../shared/types";
 
 /**
- * "Read aloud": reads a message with the device's own text-to-speech voice
- * (nothing is sent anywhere). Handy for long messages or tired eyes.
+ * "Read aloud": reads a message with a text-to-speech voice. Voices built into the
+ * device are always preferred: some browsers (Chrome) also offer online voices
+ * that send the text to the browser maker's servers. In secret chats only
+ * on-device voices are used, so the text never leaves the device.
  */
 export const canSpeak = typeof window !== "undefined" && "speechSynthesis" in window;
 
@@ -29,25 +31,32 @@ function guessLang(text: string): string | undefined {
   return undefined;
 }
 
-export function toggleSpeak(id: string, text: string): void {
-  if (!canSpeak) return;
+/** Returns false when it couldn't read it privately (no on-device voice and `localOnly`). */
+export function toggleSpeak(id: string, text: string, opts: { localOnly?: boolean } = {}): boolean {
+  if (!canSpeak) return false;
   const wasThis = speakingId === id && speechSynthesis.speaking;
   speechSynthesis.cancel();
   speakingId = null;
-  if (wasThis) return;
+  if (wasThis) return true;
   const u = new SpeechSynthesisUtterance(plain(text).slice(0, 4000));
-  const lang = guessLang(text);
-  if (lang) {
-    u.lang = lang;
-    const voice = speechSynthesis.getVoices().find((v) => v.lang.toLowerCase().startsWith(lang));
-    if (voice) u.voice = voice;
-  }
+  const lang = guessLang(text) ?? (navigator.language || "en").slice(0, 2).toLowerCase();
+  const voices = speechSynthesis.getVoices();
+  const local = voices.filter((v) => v.localService);
+  const matches = (v: SpeechSynthesisVoice) => v.lang.toLowerCase().startsWith(lang);
+  const voice =
+    local.find((v) => matches(v) && v.default) ??
+    local.find(matches) ??
+    (opts.localOnly ? local.find((v) => v.default) ?? local[0] : voices.find(matches));
+  if (opts.localOnly && !voice) return false;
+  u.lang = voice?.lang ?? lang;
+  if (voice) u.voice = voice;
   u.rate = 1;
   u.onend = u.onerror = () => {
     if (speakingId === id) speakingId = null;
   };
   speakingId = id;
   speechSynthesis.speak(u);
+  return true;
 }
 
 /** The language to translate into: your setting, else this device's language, else English. */

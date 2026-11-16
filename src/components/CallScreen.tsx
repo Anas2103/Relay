@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent, type React
 import { CALL_REACTIONS, type NoiseSuppression, type Settings, type User } from "../../shared/types";
 import { avatarUrl } from "../lib/api";
 import { calls, canShareScreen, type CallState } from "../lib/calls";
-import { applySpeaker, canPickSpeaker, devicePrefs, liveChoice, playTestSound, type DeviceOption, type VideoQuality } from "../lib/devices";
+import { voiceIsolationSupported } from "../lib/audio";
+import { applySpeaker, devicePrefs, liveChoice, type AiEnginePref, type AudioQuality, type DeviceOption, type VideoQuality } from "../lib/devices";
+import { outputMethod } from "../lib/output";
+import { OutputPicker } from "./OutputPicker";
 import { sendToRoom } from "../lib/sendToRoom";
 import { useAudioLevel, useDeviceList, useDevicePrefs, useSpeaking } from "../lib/useDevices";
 import { DeviceHelp } from "./DeviceHelp";
@@ -136,6 +139,7 @@ export function CallScreen({
   const list = useDeviceList();
   const minimized = call.minimized;
   const [panel, setPanel] = useState<null | "devices" | "sound">(null);
+  const [outputOpen, setOutputOpen] = useState(false);
   const [reactOpen, setReactOpen] = useState(false);
   const [replyOpen, setReplyOpen] = useState(false);
   const [fit, setFit] = useState(false);
@@ -146,18 +150,39 @@ export function CallScreen({
   const live = call.phase !== "idle" && call.phase !== "incoming" && call.phase !== "ended";
 
   // Your speaker choice and their volume, applied to the one element that plays them.
-  const speakerId = canPickSpeaker ? liveChoice("speaker") : "";
+  const speakerId = outputMethod === "sink" ? liveChoice("speaker") : "";
   void list; // re-render (and re-check the speaker) when devices change
-  const applyOutput = useCallback(
-    (el: HTMLAudioElement) => {
-      el.volume = Math.max(0, Math.min(1, prefs.outputVolume / 100));
-      void applySpeaker(el, speakerId);
-    },
-    [prefs.outputVolume, speakerId],
-  );
+  const audioEl = useRef<HTMLAudioElement | null>(null);
+  // Browsers can refuse to start sound without a tap (e.g. a call answered from a notification).
+  const [soundBlocked, setSoundBlocked] = useState(false);
+  const playbackStream = call.playbackStream ?? call.remoteStream;
   // Remote audio always plays through one hidden <audio> element; every <video> is muted,
   // so switching layouts never doubles or cuts the sound.
-  const remoteAudio = useStream<HTMLAudioElement>(call.playbackStream ?? call.remoteStream, applyOutput);
+  const remoteAudio = useCallback(
+    (el: HTMLAudioElement | null) => {
+      if (!el) return;
+      audioEl.current = el;
+      if (el.srcObject !== playbackStream) el.srcObject = playbackStream;
+      // Through the Web Audio volume knob the element stays at 100%; otherwise it does the volume itself.
+      el.volume = call.outputRelayed ? 1 : Math.max(0, Math.min(1, prefs.outputVolume / 100));
+      void applySpeaker(el, speakerId);
+      if (playbackStream) {
+        el.play().then(
+          () => setSoundBlocked(false),
+          (err: unknown) => {
+            if ((err as { name?: string })?.name === "NotAllowedError") setSoundBlocked(true);
+          },
+        );
+      }
+    },
+    [playbackStream, call.outputRelayed, prefs.outputVolume, speakerId],
+  );
+  const unblockSound = () => {
+    void calls.resumeAudio();
+    void audioEl.current?.play().then(() => setSoundBlocked(false), () => {});
+  };
+  // Paused audio only matters when what you hear (or send) runs through it.
+  const needsTap = soundBlocked || (call.audioPaused && call.phase === "active");
   const keepRemoteEl = useCallback((el: HTMLVideoElement) => (remoteVideoEl.current = el), []);
   const remoteVideo = useStream<HTMLVideoElement>(call.remoteStream, keepRemoteEl);
   const localVideo = useStream<HTMLVideoElement>(call.localStream);
@@ -170,7 +195,10 @@ export function CallScreen({
   useCallShortcuts(live && !minimized, prefs.pushToTalk, closePanel);
 
   useEffect(() => {
-    if (call.phase === "idle" || call.phase === "incoming") setPanel(null);
+    if (call.phase === "idle" || call.phase === "incoming") {
+      setPanel(null);
+      setOutputOpen(false);
+    }
     if (call.phase !== "active") setReactOpen(false);
     if (call.phase !== "incoming") setReplyOpen(false);
   }, [call.phase]);
@@ -202,7 +230,14 @@ export function CallScreen({
   const audio = <audio ref={remoteAudio} autoPlay playsInline className="hidden" />;
 
   // ---------- Minimized: the call lives in the chat header (CallPill); keep the sound playing ----------
-  if (minimized && call.phase !== "ended") return audio;
+  if (minimized && call.phase !== "ended") {
+    return (
+      <>
+        {audio}
+        {needsTap && <SoundBlocked onTap={unblockSound} floating />}
+      </>
+    );
+  }
 
   // ---------- Full screen ----------
   const picture = peer ? avatarUrl(peer) : null;
@@ -274,6 +309,18 @@ export function CallScreen({
           ) : (
             <span className="size-11" />
           )}
+          {live && (
+            <GlassButton
+              label="Sound output: speaker, earpiece, headphones"
+              onClick={() => {
+                setPanel(null);
+                setOutputOpen((o) => !o);
+              }}
+              active={outputOpen}
+            >
+              <VolumeIcon className="size-5" />
+            </GlassButton>
+          )}
         </div>
         {remoteVideoOn ? (
           <div className="min-w-0 rounded-2xl bg-black/35 px-4 py-1.5 text-center backdrop-blur-md">
@@ -300,6 +347,26 @@ export function CallScreen({
         </div>
       </div>
 
+      {needsTap && live && <SoundBlocked onTap={unblockSound} />}
+      {outputOpen && live && (
+        <div
+          className="pop-in absolute left-3 z-40 w-[min(20rem,calc(100%-1.5rem))] rounded-3xl bg-zinc-900/95 p-3 shadow-2xl ring-1 ring-white/10 backdrop-blur-xl"
+          style={{ top: "max(4rem, calc(env(safe-area-inset-top) + 3.25rem))" }}
+          role="dialog"
+          aria-label="Sound output"
+        >
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm font-semibold">Sound output</p>
+            <button onClick={() => setOutputOpen(false)} aria-label="Close" className="rounded-full p-1 text-white/70 hover:bg-white/10 hover:text-white">
+              <XIcon className="size-4" />
+            </button>
+          </div>
+          <OutputPicker audioEl={audioEl.current} />
+          <div className="mt-3">
+            <RangeRow label={`${call.peerName || "Their"} volume`} value={prefs.outputVolume} max={200} onChange={(v) => devicePrefs.set({ outputVolume: v })} />
+          </div>
+        </div>
+      )}
       {call.reconnecting && (
         <div className="relative z-20 mx-auto mt-3 flex items-center gap-2 rounded-full bg-amber-500/90 px-3 py-1 text-xs font-medium text-amber-950">
           <Spinner className="size-3" /> Weak connection — reconnecting…
@@ -435,7 +502,9 @@ export function CallScreen({
             </div>
           )}
           {call.screenSharing && (
-            <span className="absolute inset-x-2 bottom-2 rounded-full bg-black/60 px-2 py-0.5 text-center text-[10px] font-medium">Sharing screen</span>
+            <span className="absolute inset-x-2 bottom-2 rounded-full bg-black/60 px-2 py-0.5 text-center text-[10px] font-medium">
+              {call.screenAudio ? "Sharing screen + sound" : "Sharing screen"}
+            </span>
           )}
           {!call.micOn && (
             <span className="absolute top-2 left-2 rounded-full bg-black/55 p-1">
@@ -453,6 +522,7 @@ export function CallScreen({
           voice={voice}
           onVoiceChange={onVoiceChange}
           onClose={closePanel}
+          audioEl={audioEl.current}
         />
       )}
 
@@ -573,7 +643,10 @@ export function CallScreen({
             <ControlButton
               label="Call settings: devices, volume, noise suppression"
               active={!!panel}
-              onClick={() => setPanel((p) => (p ? null : "devices"))}
+              onClick={() => {
+                setOutputOpen(false);
+                setPanel((p) => (p ? null : "devices"));
+              }}
               badge={modeBadge(call.voiceMode ?? voice.noiseSuppression)}
             >
               <SettingsIcon className="size-6" />
@@ -653,7 +726,9 @@ function CallSettingsPanel({
   voice,
   onVoiceChange,
   onClose,
+  audioEl,
 }: {
+  audioEl: HTMLMediaElement | null;
   tab: "devices" | "sound";
   onTab: (t: "devices" | "sound") => void;
   call: CallState;
@@ -691,13 +766,13 @@ function CallSettingsPanel({
         </button>
       </div>
       <div className="overflow-y-auto px-4 pb-4">
-        {tab === "devices" ? <DevicesTab call={call} /> : <SoundTab call={call} voice={voice} onChange={onVoiceChange} />}
+        {tab === "devices" ? <DevicesTab call={call} audioEl={audioEl} /> : <SoundTab call={call} voice={voice} onChange={onVoiceChange} />}
       </div>
     </div>
   );
 }
 
-function DevicesTab({ call }: { call: CallState }) {
+function DevicesTab({ call, audioEl }: { call: CallState; audioEl: HTMLMediaElement | null }) {
   const prefs = useDevicePrefs();
   const list = useDeviceList();
   const level = useAudioLevel(call.micMonitor);
@@ -718,25 +793,15 @@ function DevicesTab({ call }: { call: CallState }) {
       </div>
       <RangeRow label="Mic volume" value={prefs.micVolume} max={200} onChange={(v) => devicePrefs.set({ micVolume: v })} />
 
-      {canPickSpeaker && list.speakers.length > 0 && (
-        <DeviceSelect
-          label="Speaker"
-          icon={<VolumeIcon className="size-4" />}
-          value={liveChoice("speaker")}
-          options={list.speakers}
-          defaultOption
-          onPick={(id) => devicePrefs.set({ speaker: id })}
-          extra={
-            <button
-              onClick={() => void playTestSound(liveChoice("speaker"), prefs.outputVolume)}
-              className="shrink-0 rounded-xl bg-white/10 px-3 text-xs font-medium hover:bg-white/20"
-            >
-              Test
-            </button>
-          }
-        />
-      )}
-      <RangeRow label={`${call.peerName || "Their"} volume`} value={prefs.outputVolume} max={100} onChange={(v) => devicePrefs.set({ outputVolume: v })} />
+      <div>
+        <span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-white/60">
+          <VolumeIcon className="size-4" />
+          Sound output
+        </span>
+        <OutputPicker audioEl={audioEl} />
+      </div>
+      <RangeRow label={`${call.peerName || "Their"} volume`} value={prefs.outputVolume} max={200} onChange={(v) => devicePrefs.set({ outputVolume: v })} />
+      {prefs.outputVolume > 100 && <p className="-mt-2 text-xs text-white/45">Boosted above 100% — a limiter keeps it from distorting.</p>}
 
       {call.canVideo && list.cameras.length > 0 && (
         <DeviceSelect
@@ -749,6 +814,34 @@ function DevicesTab({ call }: { call: CallState }) {
         />
       )}
       {call.canVideo && <QualityPicker value={prefs.videoQuality} />}
+      {call.canVideo && canShareScreen && (
+        <div className="space-y-1 border-t border-white/10 pt-3">
+          <span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-white/60">
+            <ScreenShareIcon className="size-4" />
+            Screen sharing
+          </span>
+          <span className="flex rounded-xl bg-white/10 p-1" role="radiogroup" aria-label="Screen sharing optimized for">
+            {(
+              [
+                ["motion", "Videos & music"],
+                ["detail", "Text & slides"],
+              ] as const
+            ).map(([v, label]) => (
+              <button
+                key={v}
+                role="radio"
+                aria-checked={prefs.shareMode === v}
+                onClick={() => devicePrefs.set({ shareMode: v })}
+                className={`flex-1 rounded-lg py-1.5 text-sm font-medium transition ${prefs.shareMode === v ? "bg-white text-zinc-900" : "text-white/75 hover:text-white"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </span>
+          <PanelToggle label="Share the sound too (tab audio)" checked={prefs.shareAudio} onChange={() => devicePrefs.set({ shareAudio: !prefs.shareAudio })} />
+          {call.screenSharing && <p className="px-1 text-xs text-white/45">Sound changes apply next time you start sharing.</p>}
+        </div>
+      )}
       <PanelToggle
         label="Push-to-talk (hold Space or the mic button)"
         checked={prefs.pushToTalk}
@@ -865,10 +958,15 @@ function SoundTab({ call, voice, onChange }: { call: CallState; voice: VoiceSett
           );
         })}
       </div>
+      {voice.noiseSuppression === "ai" && <AiEnginePicker />}
       <div className="mt-3 space-y-1 border-t border-white/10 pt-3">
         <PanelToggle label="Echo cancellation" checked={voice.echoCancellation} onChange={() => onChange({ echoCancellation: !voice.echoCancellation })} />
         <PanelToggle label="Automatic gain control" checked={voice.autoGainControl} onChange={() => onChange({ autoGainControl: !voice.autoGainControl })} />
         <PanelToggle label="Noise gate (silence between words)" checked={voice.noiseGate} onChange={() => onChange({ noiseGate: !voice.noiseGate })} />
+        <VoiceIsolationToggle />
+      </div>
+      <div className="mt-3 border-t border-white/10 pt-3">
+        <AudioQualityPicker />
       </div>
       <div className="mt-3 border-t border-white/10 pt-3">
         <PanelToggle
@@ -977,13 +1075,14 @@ function BigAction({ label, color, onClick, children }: { label: string; color: 
   );
 }
 
-function GlassButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+function GlassButton({ label, onClick, active, children }: { label: string; onClick: () => void; active?: boolean; children: ReactNode }) {
   return (
     <button
       onClick={onClick}
       aria-label={label}
+      aria-pressed={active}
       title={label}
-      className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/10 backdrop-blur-md transition hover:bg-white/20"
+      className={`flex size-11 shrink-0 items-center justify-center rounded-full backdrop-blur-md transition ${active ? "bg-white text-zinc-900" : "bg-white/10 hover:bg-white/20"}`}
     >
       {children}
     </button>
@@ -1055,6 +1154,88 @@ function DraggablePip({ children, speaking }: { children: ReactNode; speaking?: 
       aria-label="Your camera (drag to move)"
     >
       {children}
+    </div>
+  );
+}
+
+/** "Tap to hear the call" — when the browser wouldn't start the sound on its own. */
+function SoundBlocked({ onTap, floating }: { onTap: () => void; floating?: boolean }) {
+  return (
+    <button
+      onClick={onTap}
+      className={`pop-in z-[60] mx-auto flex w-fit items-center gap-2 rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-amber-950 shadow-2xl ${
+        floating ? "fixed inset-x-0 bottom-24" : "relative mt-3"
+      }`}
+    >
+      <VolumeIcon className="size-4" /> Tap to hear the call
+    </button>
+  );
+}
+
+function VoiceIsolationToggle() {
+  const prefs = useDevicePrefs();
+  if (!voiceIsolationSupported) return null;
+  return (
+    <PanelToggle
+      label="Voice isolation (your device's own voice filter)"
+      checked={prefs.voiceIsolation}
+      onChange={() => devicePrefs.set({ voiceIsolation: !prefs.voiceIsolation })}
+    />
+  );
+}
+
+/** Which AI filter: the heavy one can stutter on a weaker laptop, the light one never does. */
+function AiEnginePicker() {
+  const prefs = useDevicePrefs();
+  const options: [AiEnginePref, string][] = [
+    ["auto", "Auto"],
+    ["gtcrn", "Max quality"],
+    ["rnnoise", "Light"],
+  ];
+  return (
+    <div className="mt-3">
+      <span className="mb-1.5 block text-xs font-medium text-white/60">AI filter · pick Light if your voice sounds choppy</span>
+      <span className="flex rounded-xl bg-white/10 p-1" role="radiogroup" aria-label="AI filter">
+        {options.map(([v, label]) => (
+          <button
+            key={v}
+            role="radio"
+            aria-checked={prefs.aiEngine === v}
+            onClick={() => devicePrefs.set({ aiEngine: v })}
+            className={`flex-1 rounded-lg py-1.5 text-sm font-medium transition ${prefs.aiEngine === v ? "bg-white text-zinc-900" : "text-white/75 hover:text-white"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </span>
+    </div>
+  );
+}
+
+const AUDIO_QUALITIES: [AudioQuality, string][] = [
+  ["auto", "Clear"],
+  ["high", "Studio"],
+  ["saver", "Data saver"],
+];
+
+function AudioQualityPicker() {
+  const prefs = useDevicePrefs();
+  return (
+    <div>
+      <span className="mb-1.5 block text-xs font-medium text-white/60">Voice quality I send</span>
+      <span className="flex rounded-xl bg-white/10 p-1" role="radiogroup" aria-label="Voice quality">
+        {AUDIO_QUALITIES.map(([v, label]) => (
+          <button
+            key={v}
+            role="radio"
+            aria-checked={prefs.audioQuality === v}
+            onClick={() => devicePrefs.set({ audioQuality: v })}
+            className={`flex-1 rounded-lg py-1.5 text-sm font-medium transition ${prefs.audioQuality === v ? "bg-white text-zinc-900" : "text-white/75 hover:text-white"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </span>
     </div>
   );
 }

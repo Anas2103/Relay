@@ -1,3 +1,5 @@
+import { gamePreview, type ChatGame, type ChatGameType, type GameMove } from "./games";
+import type { ChatThemeId } from "./chatThemes";
 // Types shared by the Worker (backend) and the React app (frontend).
 
 export type Role = "user" | "admin";
@@ -272,6 +274,8 @@ export interface Settings {
   bubbleColor: BubbleStyle;
   /** Show other people's chosen bubble colors on their messages (Instagram/TikTok-style). */
   showOthersBubbles: boolean;
+  /** Show the theme a chat was given (off: always your own colors and wallpaper). */
+  chatThemes: boolean;
   /** Background behind the messages. */
   wallpaper: Wallpaper;
   sounds: boolean;
@@ -331,6 +335,7 @@ export const DEFAULT_SETTINGS: Settings = {
   accentColor: "indigo",
   bubbleColor: "indigo",
   showOthersBubbles: true,
+  chatThemes: true,
   wallpaper: "plain",
   sounds: true,
   notifications: false,
@@ -390,6 +395,12 @@ export interface AdminUser {
   /** Site owner (can review conversations). */
   superAdmin: boolean;
   suspendedAt: number | null;
+  /** Timed suspension: lifted automatically at this time (null = until lifted by hand). */
+  suspendedUntil: number | null;
+  suspendReason: string | null;
+  /** Can read but not send, call, upload or post until this time. */
+  restrictedUntil: number | null;
+  restrictReason: string | null;
   createdAt: number;
   lastLoginAt: number | null;
   messageCount: number;
@@ -451,6 +462,45 @@ export interface AdminUserUpdate {
   password?: string;
   /** Turns off the user's two-step verification (they lost their phone and recovery codes). */
   resetTwoFactor?: boolean;
+  /** With `suspended: true`: lift it automatically at this time (null = never). */
+  suspendedUntil?: number | null;
+  suspendReason?: string | null;
+  /** Restrict (read-only) until this time; null lifts it. */
+  restrictedUntil?: number | null;
+  restrictReason?: string | null;
+}
+
+/** Owner view of one account: devices, chats and activity. */
+export interface OwnerUserDetail {
+  sessions: { id: string; device: string | null; location: string | null; createdAt: number; lastActiveAt: number | null }[];
+  rooms: { id: string; type: "dm" | "group"; title: string; secret: boolean; members: number; messages: number; lastAt: number | null }[];
+  stats: { messages: number; media: number; reactions: number; stories: number; reportsAgainst: number; reportsFiled: number; blockedBy: number };
+}
+
+/** Owner: one live story, anyone's. */
+export interface OwnerStory {
+  id: string;
+  user: User;
+  kind: "text" | "image";
+  text: string;
+  background: string | null;
+  createdAt: number;
+  expiresAt: number;
+  views: number;
+}
+
+/** Owner: a search hit across every (non-secret) conversation. */
+export interface OwnerSearchHit {
+  roomId: string;
+  roomTitle: string;
+  roomType: "dm" | "group";
+  messageId: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  kind: MessageKind;
+  body: string;
+  createdAt: number;
 }
 
 // ---------- Rooms & messages ----------
@@ -477,6 +527,8 @@ export interface Room {
   memberCount: number;
   /** Disappearing messages timer in ms, or null when off. */
   disappearMs: number | null;
+  /** Shared chat theme (Instagram-style), or null for everyone's own look. */
+  theme: ChatThemeId | null;
   /** End-to-end encrypted secret chat (1:1, readable only on the two devices that set it up). */
   secret: boolean;
   /** "Saved Messages": your own private notepad. */
@@ -584,6 +636,14 @@ export interface SecretInfo {
 export const E2E_PREFIX = "e2e1.";
 export const E2E_RE = /^e2e1\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{22,32000}$/;
 
+/**
+ * Secret-chat photos: the server only ever stores this opaque, encrypted container
+ * ("RLE1" + IV + AES-GCM ciphertext). Size, type and caption are inside the
+ * encrypted message, so the server learns nothing but "a photo of about N KB".
+ */
+export const E2E_MEDIA_MIME = "application/x-relay-e2e";
+export const E2E_MEDIA_MAGIC = "RLE1";
+
 export function isEncrypted(body: string): boolean {
   return body.startsWith(E2E_PREFIX);
 }
@@ -630,7 +690,95 @@ export interface SiteSettings {
   registrationOpen: boolean;
   /** While on, only admins can use the app; everyone else sees a maintenance screen. */
   maintenance: boolean;
+  /** While on, everyone can read but only admins can send, call, upload or post. */
+  readOnly: boolean;
+  /** Features the owner can switch off for everyone (admins keep them). */
+  features: SiteFeatures;
 }
+
+export const SITE_FEATURES = [
+  ["calls", "Voice & video calls"],
+  ["secretChats", "Secret chats"],
+  ["stories", "Stories"],
+  ["uploads", "Photos, videos, voice notes & files"],
+  ["groups", "Creating groups"],
+  ["newChats", "Starting new chats"],
+  ["ai", "AI transcripts & translation"],
+  ["chill", "Chill (Shorts & music)"],
+] as const;
+
+/** A YouTube Short (or video) in the Chill tab. */
+export interface ChillVideo {
+  id: string;
+  title: string;
+  channel: string;
+  /** Thumbnail on i.ytimg.com. */
+  thumb: string;
+}
+
+/**
+ * Something the Chill player plays: a song from Audius (free, full-length music),
+ * a live radio station or a podcast episode — all played through Relay's server.
+ */
+export interface ChillTrack {
+  id: string;
+  title: string;
+  artist: string;
+  /** Seconds (0 for live radio). */
+  duration: number;
+  /** Has cover art (served from /api/chill/art/:id, or `artUrl`). */
+  art: boolean;
+  /** Where the sound comes from (default: an Audius song). */
+  src?: string;
+  artUrl?: string;
+  /** Live radio: no seeking, no end. */
+  live?: boolean;
+  /** Podcasts remember where you stopped. */
+  kind?: "song" | "radio" | "podcast" | "itunes";
+}
+
+export interface ChillStation {
+  id: string;
+  name: string;
+  country: string;
+  countryCode: string;
+  tags: string[];
+  bitrate: number;
+}
+
+export interface ChillPodcast {
+  id: string;
+  title: string;
+  author: string;
+  genre: string;
+}
+
+export interface ChillEpisode {
+  index: number;
+  title: string;
+  /** Seconds (0 when the feed doesn't say). */
+  duration: number;
+  date: number | null;
+}
+
+export interface TriviaQuestion {
+  category: string;
+  difficulty: string;
+  question: string;
+  answers: string[];
+  /** Index of the right answer in `answers`. */
+  correct: number;
+}
+
+/** A joke or a fun fact. */
+export interface FunItem {
+  text: string;
+  /** The punchline of a two-part joke. */
+  answer: string | null;
+  source: string;
+}
+export type SiteFeature = (typeof SITE_FEATURES)[number][0];
+export type SiteFeatures = Record<SiteFeature, boolean>;
 
 /** A person you've blocked (for the settings list). */
 export interface BlockedUser {
@@ -641,8 +789,8 @@ export interface BlockedUser {
   blockedAt: number;
 }
 
-export type MessageKind = "text" | "image" | "voice" | "video" | "file" | "call" | "poll";
-export type MediaKind = Exclude<MessageKind, "text" | "call" | "poll">;
+export type MessageKind = "text" | "image" | "voice" | "video" | "file" | "call" | "poll" | "game";
+export type MediaKind = Exclude<MessageKind, "text" | "call" | "poll" | "game">;
 
 /** A poll: the question is the message body. */
 export interface PollInfo {
@@ -677,6 +825,33 @@ export const TRANSLATE_LANGUAGES = [
   ["hi", "Hindi"],
 ] as const;
 export type TranslateLang = (typeof TRANSLATE_LANGUAGES)[number][0];
+
+export const STORY_BACKGROUNDS = ["indigo", "sunset", "ocean", "forest", "berry", "night"] as const;
+export type StoryBackground = (typeof STORY_BACKGROUNDS)[number];
+
+export interface Story {
+  id: string;
+  userId: string;
+  kind: "text" | "image";
+  /** The text (text stories) or the caption (photos). */
+  text: string;
+  background: string | null;
+  width: number | null;
+  height: number | null;
+  createdAt: number;
+  expiresAt: number;
+  /** You've seen it (your own always count as seen). */
+  viewed: boolean;
+  /** Your own stories: how many people have seen it. */
+  views?: number;
+}
+
+export interface StoryGroup {
+  user: User;
+  stories: Story[];
+  /** Has stories you haven't seen yet. */
+  unseen: boolean;
+}
 
 export interface Sticker {
   id: string;
@@ -715,6 +890,8 @@ export interface MediaMeta {
   location?: GeoPoint;
   /** Poll messages only. */
   poll?: PollInfo;
+  /** Game messages only: the game (or watch-together) state. */
+  game?: ChatGame;
   /** Sent without sound (no alerts for the people receiving it). */
   silent?: boolean;
 }
@@ -806,12 +983,13 @@ export type ClientEvent =
       body: string;
       mediaId?: string;
       /** Client-measured details; size and type are always taken from the stored file. */
-      meta?: Pick<MediaMeta, "width" | "height" | "duration" | "waveform" | "viewOnce" | "call" | "forwarded" | "poll" | "location" | "sticker">;
+      meta?: Pick<MediaMeta, "width" | "height" | "duration" | "waveform" | "viewOnce" | "call" | "forwarded" | "poll" | "location" | "sticker"> & { newGame?: { type: ChatGameType; video?: string; word?: string } };
       replyToId?: string;
       /** No alerts or sounds for the people receiving it. */
       silent?: boolean;
     }
   | { type: "vote"; messageId: string; options: number[] }
+  | { type: "game-move"; messageId: string; move: GameMove }
   | { type: "schedule"; clientId: string; body: string; sendAt: number; replyToId?: string; silent?: boolean }
   | { type: "unschedule"; id: string }
   | { type: "send-now"; id: string }
@@ -836,6 +1014,9 @@ export type ServerEvent =
   | { type: "pin"; messageId: string; pinnedAt: number | null }
   | { type: "expired"; messageIds: string[] }
   | { type: "votes"; messageId: string; votes: Record<string, number[]> }
+  | { type: "game"; messageId: string; game: ChatGame }
+  /** Someone changed the chat's theme (null = back to everyone's own look). */
+  | { type: "theme"; theme: ChatThemeId | null; userId: string; displayName: string }
   /** Your scheduled messages in this chat (only ever sent to you). */
   | { type: "scheduled"; items: ScheduledMessage[] }
   | { type: "error"; message: string; clientId?: string };
@@ -871,6 +1052,8 @@ export type LobbyEvent =
     }
   /** Security alert for your other devices ("New sign-in on Chrome · Windows"). */
   | { type: "security"; title: string; text: string }
+  /** A message from the owner to everyone. */
+  | { type: "broadcast"; title: string; text: string; at: number }
   /** This device was signed out from another one. */
   | { type: "signed-out" }
   | { type: "rooms-changed" }
@@ -895,6 +1078,9 @@ export const LIMITS = {
   avatarMaxBytes: 200_000,
   /** Your sticker collection. */
   stickersMax: 120,
+  storiesMax: 20,
+  storyTextMax: 300,
+  storyMaxBytes: 1_500_000,
   stickerMaxBytes: 250_000,
   imageMaxDimension: 1600,
   voiceMaxSeconds: 300,
@@ -938,6 +1124,7 @@ export function messagePreview(m: { kind: MessageKind; body: string; deletedAt?:
   if (m.kind === "file") return `📄 ${m.meta?.name ?? "Document"}`;
   if (m.kind === "call") return callLabel(m.meta?.call);
   if (m.kind === "poll") return `📊 ${m.body}`;
+  if (m.kind === "game") return gamePreview(m.meta?.game);
   return m.body;
 }
 

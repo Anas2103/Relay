@@ -1,4 +1,5 @@
 import {
+  SITE_FEATURES,
   isEncrypted,
   LIMITS,
   messagePreview,
@@ -19,6 +20,7 @@ import { mediaHeaders, parseRange } from "./media";
 import { hydrateMessages, MESSAGE_SELECT, type MessageRow } from "./messages";
 import { listReports, resolveReport } from "./moderation";
 import { readSiteSettings } from "./features";
+import { routeOwner } from "./owner";
 import { isUniqueViolation, validDisplayName, validPassword, validUsername } from "./validate";
 
 /**
@@ -38,6 +40,7 @@ export async function routeAdmin(request: Request, env: Env, url: URL): Promise<
   const m = request.method;
 
   // ---- Owner only (Grimm): conversations and site settings ----
+  if (p.startsWith("/api/admin/owner/")) return routeOwner(request, env, url, await requireSuperAdmin(request, env));
   if (p.startsWith("/api/admin/rooms") || p === "/api/admin/site") {
     const owner = await requireSuperAdmin(request, env);
     if (p === "/api/admin/site" && m === "GET") return json({ site: await readSiteSettings(env) });
@@ -60,7 +63,7 @@ export async function routeAdmin(request: Request, env: Env, url: URL): Promise<
   if (p === "/api/admin/stats" && m === "GET") return json({ stats: await getStats(env) });
   if (p === "/api/admin/users" && m === "GET") return listUsers(env, url);
   if (p === "/api/admin/users" && m === "POST") return createUser(request, env, admin);
-  if (p === "/api/admin/audit" && m === "GET") return listAudit(env);
+  if (p === "/api/admin/audit" && m === "GET") return listAudit(env, url);
   if (p === "/api/admin/reports" && m === "GET") return listReports(env, url);
   const reportRoute = p.match(/^\/api\/admin\/reports\/([0-9a-f-]{36})$/);
   if (reportRoute && m === "PATCH") return resolveReport(request, env, admin, reportRoute[1]);
@@ -85,6 +88,10 @@ interface UserRow {
   display_name: string;
   role: Role;
   suspended_at: number | null;
+  suspended_until: number | null;
+  suspend_reason: string | null;
+  restricted_until: number | null;
+  restrict_reason: string | null;
   created_at: number;
   last_login_at: number | null;
   message_count: number;
@@ -93,7 +100,8 @@ interface UserRow {
 }
 
 const USER_SELECT = `
-  SELECT u.id, u.username, u.display_name, u.role, u.super_admin, u.suspended_at, u.created_at, u.last_login_at, u.avatar_version,
+  SELECT u.id, u.username, u.display_name, u.role, u.super_admin, u.suspended_at, u.suspended_until, u.suspend_reason,
+         u.restricted_until, u.restrict_reason, u.created_at, u.last_login_at, u.avatar_version,
          (SELECT COUNT(*) FROM messages WHERE user_id = u.id) AS message_count,
          (SELECT COUNT(*) FROM sessions WHERE user_id = u.id AND expires_at > ?1) AS active_sessions
     FROM users u`;
@@ -106,6 +114,10 @@ function toAdminUser(r: UserRow, online = false): AdminUser {
     role: r.role,
     superAdmin: r.super_admin === 1,
     suspendedAt: r.suspended_at,
+    suspendedUntil: r.suspended_at ? r.suspended_until : null,
+    suspendReason: r.suspended_at ? r.suspend_reason : null,
+    restrictedUntil: r.restricted_until && r.restricted_until > Date.now() ? r.restricted_until : null,
+    restrictReason: r.restricted_until && r.restricted_until > Date.now() ? r.restrict_reason : null,
     createdAt: r.created_at,
     lastLoginAt: r.last_login_at,
     messageCount: r.message_count,
@@ -154,7 +166,7 @@ async function adminCount(env: Env): Promise<number> {
 }
 
 /** Deletes all sessions and closes every live socket for a user. */
-async function revokeAccess(env: Env, userId: string): Promise<void> {
+export async function revokeAccess(env: Env, userId: string): Promise<void> {
   await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?1").bind(userId).run();
   const { results } = await env.DB.prepare("SELECT room_id FROM room_members WHERE user_id = ?1")
     .bind(userId)
@@ -275,6 +287,11 @@ async function createUser(request: Request, env: Env, admin: User): Promise<Resp
   return json({ user: await getUser(env, id) }, 201);
 }
 
+function cleanReason(raw: unknown): string | null {
+  const text = typeof raw === "string" ? raw.replace(/\s+/g, " ").trim().slice(0, 200) : "";
+  return text || null;
+}
+
 async function isOwner(env: Env, userId: string): Promise<boolean> {
   const me = await env.DB.prepare("SELECT super_admin FROM users WHERE id = ?1").bind(userId).first<{ super_admin: number }>();
   return me?.super_admin === 1;
@@ -334,8 +351,37 @@ async function updateUser(request: Request, env: Env, admin: User, id: string): 
     }
     sets.push("suspended_at = ?");
     binds.push(body.suspended ? Date.now() : null);
+    if (!body.suspended) sets.push("suspended_until = NULL, suspend_reason = NULL");
     changes.push(body.suspended ? "suspended" : "unsuspended");
     if (body.suspended) revoke = true;
+  }
+  // Timed suspension and its reason (shown to them when they try to sign in).
+  if (body.suspended === true || (body.suspended === undefined && target.suspendedAt !== null)) {
+    if (body.suspendedUntil !== undefined) {
+      const until = body.suspendedUntil === null ? null : Number(body.suspendedUntil);
+      if (until !== null && (!Number.isFinite(until) || until <= Date.now())) throw new HttpError(400, "Pick a time in the future.");
+      sets.push("suspended_until = ?");
+      binds.push(until);
+      changes.push(until ? `suspended until ${new Date(until).toISOString().slice(0, 16).replace("T", " ")} UTC` : "suspended indefinitely");
+    }
+    if (body.suspendReason !== undefined) {
+      const reason = cleanReason(body.suspendReason);
+      sets.push("suspend_reason = ?");
+      binds.push(reason);
+      if (reason) changes.push(`reason: ${reason}`);
+    }
+  }
+  // Restrict: can read, can't send, call, upload or post until a time.
+  if (body.restrictedUntil !== undefined) {
+    if (isSelf) throw new HttpError(400, "You can't restrict yourself.");
+    const until = body.restrictedUntil === null ? null : Number(body.restrictedUntil);
+    if (until !== null && (!Number.isFinite(until) || until <= Date.now())) throw new HttpError(400, "Pick a time in the future.");
+    const reason = until ? cleanReason(body.restrictReason) : null;
+    sets.push("restricted_until = ?, restrict_reason = ?");
+    binds.push(until, reason);
+    changes.push(until ? `restricted until ${new Date(until).toISOString().slice(0, 16).replace("T", " ")} UTC${reason ? ` (${reason})` : ""}` : "restriction lifted");
+    if (until) await lobby(env).notify([id], { type: "broadcast", at: Date.now(), title: "Your account is restricted", text: `Until ${new Date(until).toUTCString()} you can read your chats but not send, call, upload or post.${reason ? ` Reason: ${reason}` : ""}` });
+    else await lobby(env).notify([id], { type: "broadcast", at: Date.now(), title: "Restriction lifted", text: "You can send messages again." });
   }
   if (body.password !== undefined && body.password !== "") {
     sets.push("password_hash = ?");
@@ -451,11 +497,21 @@ export async function removeAccount(env: Env, id: string): Promise<void> {
   if (notifyIds.length) await lobby(env).notify(notifyIds, { type: "rooms-changed" });
 }
 
-async function listAudit(env: Env): Promise<Response> {
+async function listAudit(env: Env, url: URL): Promise<Response> {
+  // Filter by words (who, what, details) and page back with ?before=.
+  const q = (url.searchParams.get("q") ?? "").trim().slice(0, 100);
+  const before = Number(url.searchParams.get("before")) || Number.MAX_SAFE_INTEGER;
+  const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
   const { results } = await env.DB.prepare(
     `SELECT id, admin_username, action, target_username, details, created_at
-       FROM admin_audit ORDER BY created_at DESC LIMIT 200`,
-  ).all<{
+       FROM admin_audit
+      WHERE created_at < ?1
+        AND (?2 = '' OR admin_username LIKE ?3 ESCAPE '\\' OR action LIKE ?3 ESCAPE '\\'
+             OR target_username LIKE ?3 ESCAPE '\\' OR details LIKE ?3 ESCAPE '\\')
+      ORDER BY created_at DESC LIMIT 200`,
+  )
+    .bind(before, q, like)
+    .all<{
     id: string;
     admin_username: string;
     action: string;
@@ -597,7 +653,7 @@ function safeMeta(raw: string | null): MediaMeta | null {
 
 // ---------- Owner (Grimm): moderation and site settings ----------
 
-async function roomNames(env: Env, roomId: string): Promise<string> {
+export async function roomNames(env: Env, roomId: string): Promise<string> {
   const row = await env.DB.prepare(
     `SELECT r.type, r.name, group_concat(u.username, ', ') AS names
        FROM rooms r LEFT JOIN room_members m ON m.room_id = r.id LEFT JOIN users u ON u.id = m.user_id
@@ -687,7 +743,7 @@ async function ownerExport(env: Env, owner: User, roomId: string): Promise<Respo
 }
 
 async function updateSite(request: Request, env: Env, owner: User): Promise<Response> {
-  const body = await readJson<{ announcement?: unknown; registrationOpen?: unknown; maintenance?: unknown }>(request);
+  const body = await readJson<{ announcement?: unknown; registrationOpen?: unknown; maintenance?: unknown; readOnly?: unknown; features?: unknown }>(request);
   const changes: string[] = [];
   if (body.announcement !== undefined) {
     const text = typeof body.announcement === "string" ? body.announcement.trim() : "";
@@ -709,6 +765,26 @@ async function updateSite(request: Request, env: Env, owner: User): Promise<Resp
       .bind(body.maintenance ? "on" : "off")
       .run();
     changes.push(body.maintenance ? "maintenance mode on" : "maintenance mode off");
+  }
+  if (typeof body.readOnly === "boolean") {
+    await env.DB.prepare("INSERT INTO site_settings (key, value) VALUES ('readonly', ?1) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+      .bind(body.readOnly ? "on" : "off")
+      .run();
+    changes.push(body.readOnly ? "read-only mode on" : "read-only mode off");
+  }
+  if (body.features && typeof body.features === "object") {
+    const current = (await readSiteSettings(env, true)).features;
+    const next = { ...current };
+    for (const [key, label] of SITE_FEATURES) {
+      const v = (body.features as Record<string, unknown>)[key];
+      if (typeof v === "boolean" && v !== current[key]) {
+        next[key] = v;
+        changes.push(`${label} ${v ? "on" : "off"}`);
+      }
+    }
+    await env.DB.prepare("INSERT INTO site_settings (key, value) VALUES ('features', ?1) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+      .bind(JSON.stringify(next))
+      .run();
   }
   if (changes.length) {
     await audit(env, owner, "site.update", null, changes.join("; "));

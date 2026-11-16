@@ -1,6 +1,9 @@
+import { assertAllowed, assertNotSuspended, liftExpiredSuspensions } from "./policy";
 import { routeAccount } from "./account";
 import { transcribe, translate } from "./ai";
 import { routeStickers } from "./stickers";
+import { expireStories, routeStories } from "./stories";
+import { expireChillCache, routeChill } from "./chill";
 import { routeAdmin } from "./admin";
 import {
   createSession,
@@ -69,6 +72,9 @@ export default {
   /** Every 15 minutes: remove disappearing messages whose timer ran out, plus housekeeping. */
   async scheduled(_controller, env, ctx): Promise<void> {
     ctx.waitUntil(expireMessages(env).then((n) => void (n && console.log("expired messages:", n))));
+    ctx.waitUntil(liftExpiredSuspensions(env).then((n) => void (n && console.log("suspensions lifted:", n))));
+    ctx.waitUntil(expireStories(env).then((n) => void (n && console.log("expired stories:", n))));
+    ctx.waitUntil(expireChillCache(env).catch(() => 0));
   },
 
   async fetch(request, env): Promise<Response> {
@@ -130,6 +136,8 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
 
   if (p.startsWith("/api/push/")) return routePush(request, env, url);
   if (p === "/api/stickers" || p.startsWith("/api/stickers/")) return routeStickers(request, env, p);
+  if (p === "/api/stories" || p.startsWith("/api/stories/")) return routeStories(request, env, p, url);
+  if (p.startsWith("/api/chill/")) return routeChill(request, env, p, url);
   if (p === "/api/link-preview" && m === "GET") return linkPreview(request, env, url);
   if (p.startsWith("/api/admin/")) return routeAdmin(request, env, url);
   if (p === "/api/lobby" && m === "GET") return connectLobby(request, env, url);
@@ -271,7 +279,7 @@ async function login(request: Request, env: Env): Promise<Response> {
   const ok = await verifyPassword(password, row?.password_hash ?? (await getDummyHash()));
   if (!row || !ok) throw new HttpError(401, "Wrong username or password.");
   // Only revealed after a correct password, so it can't be used to probe accounts.
-  if (row.suspended_at !== null) throw new HttpError(403, "This account has been suspended.");
+  if (row.suspended_at !== null) await assertNotSuspended(env, row.id);
 
   // With two-step verification on, this returns a challenge and the session is only created after the code.
   return startLogin(env, request, row.id);
@@ -310,7 +318,9 @@ const PUBLIC_STUN = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.goog
  * credentials are generated per call (Cloudflare's free tier covers small apps).
  */
 async function iceServers(request: Request, env: Env): Promise<Response> {
-  await requireUser(request, env);
+  const me = await requireUser(request, env);
+  // Calls switched off by the owner, or this account is restricted.
+  await assertAllowed(env, me.id, "calls");
   if (!env.TURN_KEY_ID || !env.TURN_KEY_API_TOKEN) return json({ iceServers: PUBLIC_STUN, relay: false });
   try {
     const res = await fetch(

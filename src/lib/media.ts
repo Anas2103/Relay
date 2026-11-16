@@ -36,7 +36,7 @@ function drawToCanvas(bitmap: ImageBitmap, width: number, height: number, sx = 0
  * phone photo becomes ~250 KB, so it uploads fast and stays within free storage.
  * Re-encoding also strips EXIF metadata such as GPS location.
  */
-export async function prepareImage(file: File): Promise<PreparedImage> {
+export async function prepareImage(file: File | Blob, targetBytes = IMAGE_TARGET_BYTES): Promise<PreparedImage> {
   if (!file.type.startsWith("image/")) throw new Error("That file isn't an image.");
   const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" }).catch(() => {
     throw new Error("Couldn't read this image.");
@@ -56,7 +56,7 @@ export async function prepareImage(file: File): Promise<PreparedImage> {
     const width = Math.round(bitmap.width * scale);
     const height = Math.round(bitmap.height * scale);
     const blob = await encode(drawToCanvas(bitmap, width, height), quality);
-    if (blob.size <= IMAGE_TARGET_BYTES) {
+    if (blob.size <= targetBytes) {
       bitmap.close();
       return { blob, width, height };
     }

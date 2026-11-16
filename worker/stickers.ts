@@ -1,3 +1,4 @@
+import { assertAllowed } from "./policy";
 import { LIMITS, type Sticker } from "../shared/types";
 import { rateLimit, requireUser } from "./auth";
 import type { Env } from "./env";
@@ -26,6 +27,7 @@ export async function routeStickers(request: Request, env: Env, path: string): P
   }
 
   if (path === "/api/stickers" && m === "POST") {
+    await assertAllowed(env, me.id, "uploads");
     await rateLimit(env, `sticker:${me.id}`, 40, 15 * 60_000);
     const url = new URL(request.url);
     const width = Math.round(Number(url.searchParams.get("w")));

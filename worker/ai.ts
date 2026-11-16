@@ -1,3 +1,4 @@
+import { assertAllowed } from "./policy";
 import { isEncrypted, TRANSLATE_LANGUAGES, type MessageKind } from "../shared/types";
 import { rateLimit, requireUser } from "./auth";
 import { room, type Env } from "./env";
@@ -48,6 +49,7 @@ function needAi(env: Env): Ai {
 /** POST /api/rooms/:id/messages/:mid/transcript */
 export async function transcribe(request: Request, env: Env, roomId: string, messageId: string): Promise<Response> {
   const me = await requireUser(request, env);
+  await assertAllowed(env, me.id, "ai");
   await assertMember(env, roomId, me.id);
   const msg = await loadMessage(env, roomId, messageId);
   if (msg.kind !== "voice" || !msg.media_id) throw new HttpError(400, "Only voice messages can be transcribed.");
@@ -78,6 +80,7 @@ export async function transcribe(request: Request, env: Env, roomId: string, mes
 /** POST /api/rooms/:id/messages/:mid/translate  { lang } */
 export async function translate(request: Request, env: Env, roomId: string, messageId: string): Promise<Response> {
   const me = await requireUser(request, env);
+  await assertAllowed(env, me.id, "ai");
   await assertMember(env, roomId, me.id);
   const { lang } = await readJson<{ lang?: string }>(request);
   const target = TRANSLATE_LANGUAGES.find(([code]) => code === lang);

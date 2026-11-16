@@ -1,21 +1,27 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import type { MediaMeta } from "../../shared/types";
-import { applySpeaker, liveChoice } from "../lib/devices";
+import { applySpeaker, devicePrefs, liveChoice, VOICE_RATES } from "../lib/devices";
 import { formatDuration } from "../lib/media";
+import { useDevicePrefs } from "../lib/useDevices";
 import { PauseIcon, PlayIcon, Spinner } from "./ui";
 
 const PLAY_EVENT = "relay:voice-play";
-const RATES = [1, 1.5, 2] as const;
+const NEXT_EVENT = "relay:voice-next";
 
-/** Voice message player: waveform, seek, speed. Only one plays at a time. */
+/**
+ * Voice message player: waveform, seek, speed, volume. Only one plays at a time,
+ * and when one ends the next voice message in the chat starts (Settings → Voice & video).
+ */
 export function VoicePlayer({ id, src, meta, mine }: { id: string; src: string; meta: MediaMeta | null; mine: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef(0);
+  const prefs = useDevicePrefs();
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [rate, setRate] = useState<(typeof RATES)[number]>(1);
+  const rate = prefs.voiceRate;
 
   const bars = meta?.waveform?.length ? meta.waveform : Array.from({ length: 40 }, () => 0.3);
   const knownDuration = meta?.duration ?? 0;
@@ -32,11 +38,24 @@ export function VoicePlayer({ id, src, meta, mine }: { id: string; src: string; 
       if ((e as CustomEvent<string>).detail !== id) audioRef.current?.pause();
     };
     window.addEventListener(PLAY_EVENT, onOtherPlay);
+    const root = rootRef.current;
+    const onNext = () => void toggle(true);
+    root?.addEventListener(NEXT_EVENT, onNext);
     return () => {
       window.removeEventListener(PLAY_EVENT, onOtherPlay);
+      root?.removeEventListener(NEXT_EVENT, onNext);
       cancelAnimationFrame(rafRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Speed and volume follow your settings, even while playing.
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.playbackRate = rate;
+    audio.volume = Math.max(0, Math.min(1, prefs.voiceVolume / 100));
+  }, [rate, prefs.voiceVolume]);
 
   const tick = () => {
     const audio = audioRef.current;
@@ -45,7 +64,7 @@ export function VoicePlayer({ id, src, meta, mine }: { id: string; src: string; 
     rafRef.current = requestAnimationFrame(tick);
   };
 
-  async function toggle() {
+  async function toggle(auto = false) {
     const audio = audioRef.current;
     if (!audio) return;
     if (!audio.paused) {
@@ -53,17 +72,29 @@ export function VoicePlayer({ id, src, meta, mine }: { id: string; src: string; 
       return;
     }
     window.dispatchEvent(new CustomEvent(PLAY_EVENT, { detail: id }));
-    audio.playbackRate = rate;
-    await applySpeaker(audio, liveChoice("speaker")); // your chosen speaker (Settings → Voice & video)
+    const p = devicePrefs.get();
+    audio.playbackRate = p.voiceRate;
+    audio.volume = Math.max(0, Math.min(1, p.voiceVolume / 100));
+    // Don't wait for the speaker switch before play(): Safari only allows sound
+    // straight from the tap, and an await in between could make it refuse.
+    void applySpeaker(audio, liveChoice("speaker")); // your chosen speaker (Settings → Voice & video)
     setLoading(audio.readyState < 2);
     try {
       await audio.play();
       setFailed(false);
     } catch {
-      setFailed(true);
+      if (!auto) setFailed(true);
     } finally {
       setLoading(false);
     }
+  }
+
+  /** Starts the next voice message below this one (in the chat, in order). */
+  function playNext() {
+    if (!devicePrefs.get().voiceAutoplay) return;
+    const all = [...document.querySelectorAll<HTMLElement>("[data-voice-player]")];
+    const i = all.indexOf(rootRef.current!);
+    all[i + 1]?.dispatchEvent(new CustomEvent(NEXT_EVENT));
   }
 
   function seek(e: PointerEvent<HTMLDivElement>) {
@@ -77,9 +108,8 @@ export function VoicePlayer({ id, src, meta, mine }: { id: string; src: string; 
   }
 
   function cycleRate() {
-    const next = RATES[(RATES.indexOf(rate) + 1) % RATES.length];
-    setRate(next);
-    if (audioRef.current) audioRef.current.playbackRate = next;
+    const i = (VOICE_RATES as readonly number[]).indexOf(rate);
+    devicePrefs.set({ voiceRate: VOICE_RATES[(i + 1) % VOICE_RATES.length] });
   }
 
   const shown = playing || progress > 0 ? progress * knownDuration : knownDuration;
@@ -87,7 +117,7 @@ export function VoicePlayer({ id, src, meta, mine }: { id: string; src: string; 
   const unplayed = mine ? "bg-current/35" : "bg-zinc-300 dark:bg-zinc-600";
 
   return (
-    <div className="flex w-60 max-w-full items-center gap-3 py-0.5 sm:w-64">
+    <div ref={rootRef} data-voice-player={id} className="flex w-60 max-w-full items-center gap-3 py-0.5 sm:w-64">
       <audio
         ref={audioRef}
         src={src}
@@ -105,13 +135,14 @@ export function VoicePlayer({ id, src, meta, mine }: { id: string; src: string; 
           setPlaying(false);
           setProgress(0);
           cancelAnimationFrame(rafRef.current);
+          playNext();
         }}
         onWaiting={() => setLoading(true)}
         onPlaying={() => setLoading(false)}
         onError={() => setFailed(true)}
       />
       <button
-        onClick={toggle}
+        onClick={() => void toggle()}
         className={`flex size-10 shrink-0 items-center justify-center rounded-full transition active:scale-95 ${
           mine ? "bg-current/20 hover:bg-current/30" : "bg-accent text-accent-ink hover:opacity-90"
         }`}

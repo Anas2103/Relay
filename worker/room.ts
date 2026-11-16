@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { type GeoPoint,
+  E2E_MEDIA_MIME,
   E2E_RE,
   isEncrypted,
   LIMITS,
@@ -15,6 +16,9 @@ import { type GeoPoint,
   SCHEDULE_MAX_DAYS,
 } from "../shared/types";
 import { lobby, type Env } from "./env";
+import { policyBlock } from "./policy";
+import type { ChatThemeId } from "../shared/chatThemes";
+import { applyMove, CHAT_GAMES, GameError, gamePreview, newGame, publicGame, youtubeId, type ChatGame, type GameMove } from "../shared/games";
 import { loadMessage, quoteBody } from "./messages";
 import { pushConfigured, pushTo } from "./push";
 
@@ -31,6 +35,8 @@ interface Attachment {
 // Token bucket: bursts of up to 8 messages, refilling 1 per second.
 const BUCKET_SIZE = 8;
 const REFILL_MS = 1000;
+/** A game move costs a quarter of a message: a quick round of Pair Up flips several cards a second. */
+const GAME_MOVE_COST = 0.25;
 const UNATTACHED_MEDIA_TTL_MS = 60 * 60 * 1000;
 const CHUNK_BYTES = 1_000_000;
 const EMOJI_RE = /^\p{Extended_Pictographic}/u;
@@ -131,6 +137,8 @@ export class ChatRoom extends DurableObject<Env> {
     await this.checkBody(att.roomId, body);
     if (!(await this.isAccepted(att.roomId))) throw new UserError("You can send messages once your request is accepted.");
     if (await this.isBlocked(att.roomId, att.userId)) throw new UserError("You can't send messages in this chat.");
+    const blocked = await policyBlock(this.env, att.userId, "send");
+    if (blocked) throw new UserError(blocked);
     const sendAt = Number(e.sendAt);
     if (!Number.isFinite(sendAt) || sendAt < Date.now() + 5_000 || sendAt > Date.now() + SCHEDULE_MAX_DAYS * 86_400_000) {
       throw new UserError(`Pick a time in the future (up to ${SCHEDULE_MAX_DAYS} days ahead).`);
@@ -369,6 +377,11 @@ export class ChatRoom extends DurableObject<Env> {
     if (messageIds.length) this.broadcast({ type: "expired", messageIds });
   }
 
+  /** Called after someone changed the chat theme: open chats switch to it straight away. */
+  async themeChanged(theme: ChatThemeId | null, userId: string, displayName: string): Promise<void> {
+    this.broadcast({ type: "theme", theme, userId, displayName });
+  }
+
   /** Called by the owner's moderation tools after a message was removed. */
   async notifyDeleted(messageId: string, deletedAt: number): Promise<void> {
     this.broadcast({ type: "delete", messageId, deletedAt });
@@ -457,6 +470,9 @@ export class ChatRoom extends DurableObject<Env> {
         case "vote":
           this.takeToken(ws, att);
           return await this.onVote(att, event.messageId, event.options);
+        case "game-move":
+          this.takeToken(ws, att, GAME_MOVE_COST);
+          return await this.onGameMove(att, event.messageId, event.move);
         case "schedule":
           return await this.onSchedule(ws, att, event);
         case "unschedule":
@@ -497,16 +513,16 @@ export class ChatRoom extends DurableObject<Env> {
 
   // ---------- Handlers ----------
 
-  private takeToken(ws: WebSocket | null, att: Attachment): void {
+  private takeToken(ws: WebSocket | null, att: Attachment, cost = 1): void {
     if (!ws) return; // scheduled messages were already rate-limited when they were scheduled
     const now = Date.now();
     att.tokens = Math.min(BUCKET_SIZE, att.tokens + (now - att.refilledAt) / REFILL_MS);
     att.refilledAt = now;
-    if (att.tokens < 1) {
+    if (att.tokens < cost) {
       ws.serializeAttachment(att);
-      throw new UserError("You're sending messages too fast.");
+      throw new UserError(cost < 1 ? "Slow down a little — too many moves at once." : "You're sending messages too fast.");
     }
-    att.tokens -= 1;
+    att.tokens -= cost;
     ws.serializeAttachment(att);
   }
 
@@ -518,19 +534,29 @@ export class ChatRoom extends DurableObject<Env> {
     /** A reminder firing: alert the author too. */
     reminder = false,
   ): Promise<void> {
-    const kind: MessageKind = (["image", "voice", "video", "file", "call", "poll"] as const).includes(event.kind as never)
+    const kind: MessageKind = (["image", "voice", "video", "file", "call", "poll", "game"] as const).includes(event.kind as never)
       ? event.kind
       : "text";
-    const body = kind === "call" ? "" : typeof event.body === "string" ? event.body.trim() : "";
+    let body = kind === "call" ? "" : typeof event.body === "string" ? event.body.trim() : "";
+    // A game (or watch-together): the server sets it up; the body is its name, for previews.
+    let game: ChatGame | null = null;
+    if (kind === "game") {
+      if (await this.isSecret(att.roomId)) throw new UserError("Games aren't available in secret chats.");
+      game = await createGame((event.meta as { newGame?: unknown } | undefined)?.newGame, att.userId);
+      body = gamePreview(game);
+    }
     if (kind === "text" && !body) throw new UserError("Message is empty.");
     if (kind === "poll" && (!body || body.length > LIMITS.pollQuestionMax)) {
       throw new UserError(`Ask a question (up to ${LIMITS.pollQuestionMax} characters).`);
     }
     if (body) await this.checkBody(att.roomId, body);
-    // Secret chats carry encrypted text (and call records) only; files would reach the server unencrypted.
-    if (kind !== "text" && kind !== "call" && (await this.isSecret(att.roomId))) {
-      throw new UserError("Secret chats are text-only.");
+    // Secret chats carry encrypted text, encrypted photos and call records only.
+    const secret = await this.isSecret(att.roomId);
+    if (secret && kind !== "text" && kind !== "call" && kind !== "image") {
+      throw new UserError("Secret chats can only send text and photos.");
     }
+    // A secret photo's caption, size and type travel in its encrypted body.
+    if (secret && kind === "image" && !body) throw new UserError("This secret chat only accepts encrypted photos.");
     if (!(await this.isAccepted(att.roomId))) {
       throw new UserError("You can send messages once your request is accepted.");
     }
@@ -548,6 +574,11 @@ export class ChatRoom extends DurableObject<Env> {
       .bind(att.roomId, att.userId)
       .first<{ disappear_ms: number | null; admins_only: number; slow_mode_ms: number; role: string; last_sent: number | null }>();
     if (!rules) throw new UserError("You're not in this chat anymore.");
+    // The owner's switches (read-only mode, uploads off) and account restrictions.
+    if (kind !== "call" && !reminder) {
+      const why = (await policyBlock(this.env, att.userId, "send")) ?? (kind !== "text" && kind !== "poll" && kind !== "game" ? await policyBlock(this.env, att.userId, "uploads") : null);
+      if (why) throw new UserError(why);
+    }
     if (rules.role !== "admin" && kind !== "call") {
       if (rules.admins_only === 1) throw new UserError("Only admins can send messages in this group.");
       const wait = rules.slow_mode_ms && rules.last_sent ? rules.last_sent + rules.slow_mode_ms - Date.now() : 0;
@@ -581,6 +612,9 @@ export class ChatRoom extends DurableObject<Env> {
       };
     } else if (kind === "poll") {
       meta = { mime: "", size: 0, poll: sanitizePoll((event.meta as { poll?: unknown } | undefined)?.poll) };
+    } else if (kind === "game") {
+      if (!game) throw new UserError("Unknown game.");
+      meta = { mime: "", size: 0, game };
     } else if (kind === "text" && (event.meta as { location?: unknown } | undefined)?.location !== undefined) {
       // A location would sit in plain text next to the ciphertext, so secret chats can't share one.
       if (await this.isSecret(att.roomId)) throw new UserError("Locations can't be shared in secret chats.");
@@ -597,9 +631,16 @@ export class ChatRoom extends DurableObject<Env> {
             .toArray()[0]
         : undefined;
       if (!media) throw new UserError("Upload not found. Please try again.");
-      const expected = { image: "image/", voice: "audio/", video: "video/", file: "application/" }[kind];
-      if (!media.mime.startsWith(expected)) throw new UserError("Wrong file type.");
-      meta = sanitizeMeta(kind, media, (event as { meta?: unknown }).meta);
+      if (secret || media.mime === E2E_MEDIA_MIME) {
+        // Encrypted photos only in secret chats, and nothing else there. Keep no size/shape hints.
+        if (!secret || kind !== "image" || media.mime !== E2E_MEDIA_MIME) throw new UserError("Wrong file type.");
+        const viewOnce = ((event as { meta?: { viewOnce?: unknown } }).meta?.viewOnce ?? false) === true;
+        meta = { mime: media.mime, size: media.size, ...(viewOnce ? { viewOnce: true } : {}) };
+      } else {
+        const expected = { image: "image/", voice: "audio/", video: "video/", file: "application/" }[kind];
+        if (!media.mime.startsWith(expected)) throw new UserError("Wrong file type.");
+        meta = sanitizeMeta(kind, media, (event as { meta?: unknown }).meta);
+      }
     }
 
     let replyToId: string | null = null;
@@ -644,7 +685,8 @@ export class ChatRoom extends DurableObject<Env> {
       kind,
       body,
       mediaId,
-      meta,
+      // Secret parts of a game (a Hangman word) never go out.
+      meta: meta?.game ? { ...meta, game: publicGame(meta.game) } : meta,
       replyTo: replyToId ? await this.replyPreview(replyToId) : null,
       reactions: {},
       viewedBy: [],
@@ -742,6 +784,40 @@ export class ChatRoom extends DurableObject<Env> {
     this.broadcast({ type: "votes", messageId: msg.id, votes });
   }
 
+  /** Moves in one game run one at a time, so two quick taps can't both land. */
+  private gameQueue = new Map<string, Promise<unknown>>();
+
+  /** A move in a chat game (or a play/pause/seek in watch-together): the server referees it. */
+  private async onGameMove(att: Attachment, messageId: unknown, raw: unknown): Promise<void> {
+    const msg = await this.findMessage(att, messageId);
+    if (msg.kind !== "game") throw new UserError("That message isn't a game.");
+    const run = async () => {
+      const row = await this.env.DB.prepare("SELECT meta FROM messages WHERE id = ?1").bind(msg.id).first<{ meta: string | null }>();
+      const meta = JSON.parse(row?.meta ?? "{}") as MediaMeta;
+      if (!meta.game) throw new UserError("That game is broken.");
+      let move = (raw && typeof raw === "object" ? raw : {}) as GameMove;
+      // A new video for watch-together: check it on YouTube and use its real title.
+      if (meta.game.type === "watch" && "action" in move && move.action === "video") {
+        const id = youtubeId(String((move as { videoId?: unknown }).videoId ?? ""));
+        if (!id) throw new UserError("Paste a YouTube link.");
+        move = { action: "video", videoId: id, title: await videoTitle(id) };
+      }
+      let next: ChatGame;
+      try {
+        next = applyMove(meta.game, att.userId, move);
+      } catch (err) {
+        if (err instanceof GameError) throw new UserError(err.message);
+        throw err;
+      }
+      await this.env.DB.prepare("UPDATE messages SET meta = ?1 WHERE id = ?2").bind(JSON.stringify({ ...meta, game: next }), msg.id).run();
+      this.broadcast({ type: "game", messageId: msg.id, game: publicGame(next) });
+    };
+    const before = this.gameQueue.get(msg.id) ?? Promise.resolve();
+    const now = before.then(run, run);
+    this.gameQueue.set(msg.id, now.catch(() => {}));
+    await now;
+  }
+
   private async onRead(att: Attachment, at: unknown): Promise<void> {
     const ts = Math.min(Number(at) || 0, Date.now());
     if (ts <= 0) return;
@@ -790,6 +866,8 @@ export class ChatRoom extends DurableObject<Env> {
     const msg = await this.findMessage(att, messageId);
     if (msg.user_id !== att.userId) throw new UserError("You can only edit your own messages.");
     if (msg.kind !== "text") throw new UserError("Only text messages can be edited.");
+    const blocked = await policyBlock(this.env, att.userId, "send");
+    if (blocked) throw new UserError(blocked);
     const body = typeof rawBody === "string" ? rawBody.trim() : "";
     if (!body) throw new UserError("Message is empty.");
     await this.checkBody(att.roomId, body);
@@ -950,4 +1028,34 @@ function sanitizeMeta(
     }
   }
   return meta;
+}
+
+/** Sets up a new chat game from what the app asked for. */
+async function createGame(raw: unknown, userId: string): Promise<ChatGame> {
+  const req = (raw && typeof raw === "object" ? raw : {}) as { type?: unknown; video?: unknown; word?: unknown };
+  const type = CHAT_GAMES.find(([t]) => t === req.type)?.[0];
+  if (!type) throw new UserError("Unknown game.");
+  if (type !== "watch") {
+    try {
+      return newGame(type, userId, undefined, Date.now(), typeof req.word === "string" ? req.word : undefined);
+    } catch (err) {
+      if (err instanceof GameError) throw new UserError(err.message);
+      throw err;
+    }
+  }
+  const id = youtubeId(String(req.video ?? ""));
+  if (!id) throw new UserError("Paste a YouTube link (youtube.com or youtu.be).");
+  return newGame(type, userId, { videoId: id, title: await videoTitle(id) });
+}
+
+/** A YouTube video's title, which also proves it can be played outside YouTube (free, no key). */
+async function videoTitle(id: string): Promise<string> {
+  const res = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`).catch(() => null);
+  if (res?.status === 401 || res?.status === 403) throw new UserError("This video can't be played outside YouTube. Try another one.");
+  if (!res?.ok) {
+    if (res?.status === 404 || res?.status === 400) throw new UserError("That video doesn't exist.");
+    return "YouTube video";
+  }
+  const data = (await res.json().catch(() => ({}))) as { title?: unknown };
+  return typeof data.title === "string" ? data.title.slice(0, 200) : "YouTube video";
 }

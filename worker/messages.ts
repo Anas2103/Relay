@@ -1,3 +1,4 @@
+import { publicGame } from "../shared/games";
 import { isEncrypted, type MediaMeta, type Message, type MessageKind, type ReplyPreview } from "../shared/types";
 
 /** Reply quotes are shortened, except encrypted ones (cutting ciphertext would make it undecryptable). */
@@ -43,7 +44,10 @@ export const MESSAGE_SELECT = `
 function parseMeta(raw: string | null): MediaMeta | null {
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as MediaMeta;
+    const meta = JSON.parse(raw) as MediaMeta;
+    // Hidden game moves (rock-paper-scissors picks) never leave the server.
+    if (meta.game) meta.game = publicGame(meta.game);
+    return meta;
   } catch {
     return null;
   }

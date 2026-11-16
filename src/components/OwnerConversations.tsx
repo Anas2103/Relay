@@ -23,11 +23,15 @@ function roomName(room: AdminRoom): string {
  * Owner-only (Grimm): browse every conversation, read-only. Opening a conversation
  * is written to the audit log by the server. View-once media is never shown.
  */
-export function OwnerConversations() {
+export function OwnerConversations({ openRoomId = null }: { openRoomId?: string | null }) {
   const [query, setQuery] = useState("");
   const [rooms, setRooms] = useState<AdminRoom[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(openRoomId);
+  // Opened from search or an account's chat list.
+  useEffect(() => {
+    if (openRoomId) setOpenId(openRoomId);
+  }, [openRoomId]);
 
   useEffect(() => {
     const t = window.setTimeout(
@@ -225,6 +229,7 @@ function ConversationViewer({ room, onBack }: { room: AdminRoom; onBack: () => v
             {formatRelative(room.createdAt)}
           </p>
         </div>
+        {room.type === "group" && <JoinGroupButton roomId={room.id} />}
         <div className="relative hidden w-48 sm:block">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-zinc-400" />
           <input
@@ -385,5 +390,27 @@ function ReadOnlyBubble({ message: m, roomId, right, showName }: { message: Mess
         {m.editedAt && !m.deletedAt && " · edited"}
       </span>
     </div>
+  );
+}
+
+/** Owner: join this group as an admin, to moderate it from inside (rename, remove, ban, settings). */
+function JoinGroupButton({ roomId }: { roomId: string }) {
+  const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");
+  return (
+    <button
+      onClick={() => {
+        setState("busy");
+        api.admin.owner.joinGroup(roomId).then(
+          () => setState("done"),
+          () => setState("error"),
+        );
+      }}
+      disabled={state === "busy" || state === "done"}
+      title="Adds you to the group as an admin. It then shows in your chats, with every group admin tool."
+      className="flex shrink-0 items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink disabled:opacity-60"
+    >
+      {state === "busy" && <Spinner className="size-3" />}
+      {state === "done" ? "Joined as admin ✓" : state === "error" ? "Couldn't join — retry" : "Join as admin"}
+    </button>
   );
 }

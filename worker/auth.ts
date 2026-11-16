@@ -201,6 +201,7 @@ export function parseSettings(raw: string | null): Settings {
     accentColor: isAccentColor(parsed.accentColor) ? parsed.accentColor : isColorName(bubbleColor) ? bubbleColor : d.accentColor,
     bubbleColor,
     showOthersBubbles: bool(parsed.showOthersBubbles, d.showOthersBubbles),
+    chatThemes: bool(parsed.chatThemes, d.chatThemes),
     wallpaper: isWallpaper(parsed.wallpaper) ? parsed.wallpaper : d.wallpaper,
     sounds: bool(parsed.sounds, d.sounds),
     notifications: bool(parsed.notifications, d.notifications),

@@ -75,6 +75,12 @@ export async function offlineGet<T>(key: string): Promise<T | undefined> {
   }
 }
 
+/** A chat was deleted or ended: drop its saved messages from this device. */
+export async function offlineForgetRoom(roomId: string): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  await run("readwrite", (st) => void st.delete(`messages:${roomId}`)).catch(() => {});
+}
+
 export async function clearOffline(): Promise<void> {
   if (typeof indexedDB === "undefined") return;
   await run("readwrite", (s) => void s.clear()).catch(() => {});

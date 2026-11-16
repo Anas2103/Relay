@@ -25,6 +25,8 @@ import {
   VideoIcon,
 } from "./ui";
 import { VoicePlayer } from "./VoicePlayer";
+import { GameCard } from "./GameCard";
+import type { ChatGameType, GameMove } from "../../shared/games";
 
 export type UiMessage = Message & {
   status?: "pending" | "failed";
@@ -34,6 +36,8 @@ export type UiMessage = Message & {
   progress?: number;
   /** Secret chats: this device can't decrypt it. */
   locked?: boolean;
+  /** Secret-chat photos: still being downloaded and decrypted, or couldn't be. */
+  e2eMedia?: "loading" | "failed";
   /** Voice messages: the transcript, once asked for. */
   transcript?: AiText;
   /** "Translate": the translated text, shown under the original. */
@@ -54,6 +58,8 @@ export type BubbleAction =
   | { type: "call-back"; video: boolean }
   | { type: "select"; message: UiMessage }
   | { type: "vote"; message: UiMessage; options: number[] }
+  | { type: "game-move"; message: UiMessage; move: GameMove }
+  | { type: "game-new"; gameType: ChatGameType; word?: string }
   | { type: "transcribe"; message: UiMessage }
   | { type: "hide-translation"; message: UiMessage };
 
@@ -246,9 +252,16 @@ export const MessageBubble = memo(function MessageBubble({
             <LocationCard point={m.meta.location} tinted={tinted} />
           ) : m.kind === "poll" ? (
             <PollContent message={m} meId={meId} tinted={tinted} onVote={(options) => onAction({ type: "vote", message: m, options })} />
+          ) : m.kind === "game" && !deleted ? (
+            <GameCard
+              game={m.meta?.game}
+              meId={meId}
+              onMove={(move) => onAction({ type: "game-move", message: m, move })}
+              onRematch={(gameType, word) => onAction({ type: "game-new", gameType, word })}
+            />
           ) : null}
 
-          {!deleted && m.body && !viewOnce && !m.locked && m.kind !== "poll" && !m.meta?.location && (
+          {!deleted && m.body && !viewOnce && !m.locked && m.kind !== "poll" && m.kind !== "game" && !m.meta?.location && (
             <p className={`whitespace-pre-wrap ${visual ? "px-2.5 pt-1.5 pb-1" : ""} ${emojiOnly ? "big-emoji" : ""}`}>
               {emojiOnly ? m.body : <RichText text={m.body} tinted={tinted} me={meUsername} />}
             </p>
@@ -519,6 +532,21 @@ function ImageContent({ message: m, onOpen }: { message: UiMessage; onOpen: (src
   const h = m.meta?.height ?? 300;
   // Reserve the exact space before the image loads, so the chat never jumps.
   const width = Math.round(Math.min(280, (360 * w) / h, w));
+
+  // Secret photos: shown only once decrypted on this device (the server copy is ciphertext).
+  if (m.e2eMedia) {
+    return (
+      <div
+        className="relative flex flex-col items-center justify-center gap-2 overflow-hidden rounded-xl bg-zinc-200 text-xs text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
+        style={{ width, aspectRatio: `${w} / ${h}`, maxWidth: "100%", minHeight: 120 }}
+        role="img"
+        aria-label={m.e2eMedia === "loading" ? "Decrypting photo" : "Photo couldn't be decrypted"}
+      >
+        {m.e2eMedia === "loading" ? <Spinner className="size-5" /> : <LockIcon className="size-5" />}
+        <span>{m.e2eMedia === "loading" ? "Decrypting…" : "Couldn't decrypt this photo"}</span>
+      </div>
+    );
+  }
 
   return (
     <button

@@ -1,33 +1,51 @@
-import { devicePrefs, liveChoice, type Ringtone } from "./devices";
+import { devicePrefs, liveChoice, type MessageTone, type Ringtone } from "./devices";
 
 let ctx: AudioContext | null = null;
 let lastPlayed = 0;
 
-/** A soft two-note "pop", synthesized so there's no audio file to download. */
-export function playMessageSound(): void {
+/** The new-message sounds: [frequency, start, length, wave] notes, synthesized (no files to download). */
+const MESSAGE_TONES: Record<MessageTone, [number, number, number, OscillatorType][]> = {
+  pop: [
+    [880, 0, 0.18, "sine"],
+    [1320, 0.08, 0.18, "sine"],
+  ],
+  chime: [
+    [1046.5, 0, 0.5, "sine"],
+    [1568, 0.12, 0.6, "sine"],
+  ],
+  drop: [[1400, 0, 0.16, "sine"]],
+  tick: [[2000, 0, 0.05, "triangle"]],
+};
+
+/**
+ * Plays the new-message sound you picked, at your volume, on your chosen speaker.
+ * `preview` plays it even inside the burst guard (Settings).
+ */
+export function playMessageSound(preview?: { tone: MessageTone; volume: number }): void {
   const now = Date.now();
-  if (now - lastPlayed < 600) return; // don't machine-gun on bursts
+  if (!preview && now - lastPlayed < 600) return; // don't machine-gun on bursts
   lastPlayed = now;
-  try {
-    ctx ??= new AudioContext();
-    const t = ctx.currentTime;
-    for (const [freq, offset] of [
-      [880, 0],
-      [1320, 0.08],
-    ] as const) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0, t + offset);
-      gain.gain.linearRampToValueAtTime(0.08, t + offset + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + offset + 0.18);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(t + offset);
-      osc.stop(t + offset + 0.2);
-    }
-  } catch {
-    // audio not available — ignore
+  const prefs = devicePrefs.get();
+  const tone = preview?.tone ?? prefs.messageTone;
+  const level = (preview?.volume ?? prefs.messageVolume) / 100;
+  if (level <= 0) return;
+  const c = audio();
+  if (!c) return;
+  routeToChosenSpeaker(c);
+  const t = c.currentTime + 0.02;
+  for (const [freq, offset, length, wave] of MESSAGE_TONES[tone]) {
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = wave;
+    osc.frequency.value = freq;
+    // "drop": a quick downward slide, like a water drop.
+    if (tone === "drop") osc.frequency.exponentialRampToValueAtTime(500, t + length);
+    gain.gain.setValueAtTime(0, t + offset);
+    gain.gain.linearRampToValueAtTime(0.13 * level, t + offset + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + offset + length);
+    osc.connect(gain).connect(c.destination);
+    osc.start(t + offset);
+    osc.stop(t + offset + length + 0.02);
   }
 }
 

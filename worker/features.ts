@@ -1,3 +1,5 @@
+import { isChatTheme } from "../shared/chatThemes";
+import { assertAllowed } from "./policy";
 import {
   LIMITS,
   type GroupMember,
@@ -5,6 +7,8 @@ import {
   type MediaMeta,
   type MessageKind,
   type SiteSettings,
+  type SiteFeatures,
+  SITE_FEATURES,
   DISAPPEAR_OPTIONS,
   isEncrypted,
   SLOW_MODE_OPTIONS,
@@ -56,6 +60,7 @@ function cleanGroupName(raw: unknown): string {
 
 export async function createGroup(request: Request, env: Env): Promise<Response> {
   const me = await requireUser(request, env);
+  await assertAllowed(env, me.id, "groups");
   await rateLimit(env, `groups:${me.id}`, 10, 60 * 60 * 1000);
   const body = await readJson<{ name?: unknown; memberIds?: unknown }>(request);
   const name = cleanGroupName(body.name);
@@ -268,7 +273,17 @@ export async function updateRoom(request: Request, env: Env, roomId: string): Pr
   const mine = await memberRole(env, roomId, me.id);
   if (!mine) throw new HttpError(404, "Chat not found.");
   const isAdmin = mine.type === "dm" || mine.role === "admin";
-  const body = await readJson<{ name?: unknown; disappearMs?: unknown; adminsOnly?: unknown; slowModeMs?: unknown }>(request);
+  const body = await readJson<{ name?: unknown; disappearMs?: unknown; adminsOnly?: unknown; slowModeMs?: unknown; theme?: unknown }>(request);
+  if (body.theme !== undefined) {
+    // Like Instagram: anyone in the chat can pick its theme (in announcement groups, only admins).
+    if (body.theme !== null && !isChatTheme(body.theme)) throw new HttpError(400, "Unknown theme.");
+    await assertAccepted(env, roomId);
+    const rules = await env.DB.prepare("SELECT admins_only, dm_key FROM rooms WHERE id = ?1").bind(roomId).first<{ admins_only: number; dm_key: string | null }>();
+    if (rules?.admins_only === 1 && mine.role !== "admin") throw new HttpError(403, "Only admins can change this group's theme.");
+    await assertAllowed(env, me.id, "send");
+    await env.DB.prepare("UPDATE rooms SET theme = ?1 WHERE id = ?2").bind(body.theme, roomId).run();
+    await room(env, roomId).themeChanged(body.theme, me.id, me.displayName);
+  }
   if (body.adminsOnly !== undefined || body.slowModeMs !== undefined) {
     if (mine.type !== "group" || mine.role !== "admin") throw new HttpError(403, "Only group admins can change this.");
     if (body.adminsOnly !== undefined) {
@@ -598,9 +613,22 @@ export async function readSiteSettings(env: Env, fresh = false): Promise<SiteSet
     announcement,
     registrationOpen: map.get("registration") !== "closed",
     maintenance: map.get("maintenance") === "on",
+    readOnly: map.get("readonly") === "on",
+    features: parseFeatures(map.get("features")),
   };
   siteCache = { at: Date.now(), value };
   return value;
+}
+
+/** Every feature is on unless the owner switched it off. */
+function parseFeatures(raw: string | undefined): SiteFeatures {
+  let saved: Record<string, unknown> = {};
+  try {
+    saved = JSON.parse(raw ?? "{}") ?? {};
+  } catch {
+    // ignore
+  }
+  return Object.fromEntries(SITE_FEATURES.map(([k]) => [k, saved[k] !== false])) as SiteFeatures;
 }
 
 export async function getSite(env: Env): Promise<Response> {

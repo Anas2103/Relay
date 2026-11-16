@@ -1,4 +1,7 @@
+import { isChatTheme } from "../shared/chatThemes";
+import { assertAllowed } from "./policy";
 import {
+  E2E_MEDIA_MIME,
   LIMITS,
   messagePreview,
   type GalleryTab,
@@ -12,7 +15,7 @@ import {
 import { parseSettings, rateLimit, requireUser } from "./auth";
 import { lobby, room, type Env } from "./env";
 import { HttpError, json, readJson } from "./http";
-import { cleanFileName, mediaHeaders, parseRange, readUpload } from "./media";
+import { cleanFileName, mediaHeaders, parseRange, readEncryptedUpload, readUpload } from "./media";
 import { hydrateMessages, MESSAGE_SELECT, NOT_EXPIRED, roomMemberIds, type MessageRow } from "./messages";
 
 const PAGE_SIZE = 50;
@@ -26,6 +29,7 @@ interface RoomRow {
   my_role: "member" | "admin";
   member_count: number;
   disappear_ms: number | null;
+  theme: string | null;
   dm_key: string | null;
   pinned_at: number | null;
   archived: number;
@@ -56,7 +60,7 @@ interface RoomRow {
 
 export async function listRooms(env: Env, userId: string, onlyRoomId?: string): Promise<Room[]> {
   const { results } = await env.DB.prepare(
-    `SELECT r.id, r.type, r.name, r.created_at, r.status, r.requested_by, r.disappear_ms, r.dm_key, m.role AS my_role,
+    `SELECT r.id, r.type, r.name, r.created_at, r.status, r.requested_by, r.disappear_ms, r.theme, r.dm_key, m.role AS my_role,
             m.pinned_at, m.archived, m.muted_until, r.admins_only, r.slow_mode_ms, r.invite_code, r.avatar_version AS room_avatar,
             pu.status_text AS peer_status,
             (SELECT COUNT(*) FROM messages x
@@ -108,6 +112,7 @@ export async function listRooms(env: Env, userId: string, onlyRoomId?: string): 
       role: r.my_role === "admin" ? "admin" : "member",
       memberCount: r.member_count,
       disappearMs: r.disappear_ms ?? null,
+      theme: isChatTheme(r.theme) ? r.theme : null,
       secret: !!r.dm_key?.startsWith("secret:"),
       saved: !!r.dm_key?.startsWith("saved:"),
       pinned: r.pinned_at !== null,
@@ -177,6 +182,7 @@ export async function openDm(request: Request, env: Env): Promise<Response> {
 
   // A brand-new conversation starts as a message request: no messages, calls or
   // online status until the other person accepts.
+  await assertAllowed(env, me.id, "newChats");
   await rateLimit(env, `requests:${me.id}`, 20, 60 * 60 * 1000);
   const now = Date.now();
   await env.DB.prepare(
@@ -381,13 +387,19 @@ export async function uploadMedia(request: Request, env: Env, url: URL, roomId: 
   await assertMember(env, roomId, me.id);
   await assertAccepted(env, roomId);
   if (await roomHasBlock(env, roomId, me.id)) throw new HttpError(403, "You can't send messages in this chat.");
-  // Secret chats are text-only: a file uploaded here would sit on the server unencrypted.
-  const kind0 = await env.DB.prepare("SELECT dm_key FROM rooms WHERE id = ?1").bind(roomId).first<{ dm_key: string | null }>();
-  if (kind0?.dm_key?.startsWith("secret:")) throw new HttpError(403, "Secret chats are text-only.");
+  await assertAllowed(env, me.id, "uploads");
   await rateLimit(env, `upload:${me.id}`, 60, TEN_MIN);
-
   const kind = url.searchParams.get("kind") as MediaKind;
   if (!MEDIA_KINDS.includes(kind)) throw new HttpError(400, "Unknown upload type.");
+
+  // Secret chats: only photos, and only already-encrypted ones (the server can't open them).
+  const kind0 = await env.DB.prepare("SELECT dm_key FROM rooms WHERE id = ?1").bind(roomId).first<{ dm_key: string | null }>();
+  if (kind0?.dm_key?.startsWith("secret:")) {
+    if (kind !== "image") throw new HttpError(403, "Secret chats can only send text and photos.");
+    const bytes = await readEncryptedUpload(request, LIMITS.uploadMaxBytes.image);
+    const mediaId = await room(env, roomId).putMedia(me.id, E2E_MEDIA_MIME, bytes);
+    return json({ mediaId }, 201);
+  }
   const name = kind === "file" ? cleanFileName(url.searchParams.get("name")) : undefined;
   const { bytes, mime } = await readUpload(request, kind, LIMITS.uploadMaxBytes[kind], name);
   const mediaId = await room(env, roomId).putMedia(me.id, mime, bytes, name);
@@ -418,7 +430,8 @@ export async function getMediaFile(env: Env, request: Request, roomId: string, m
     const info = await stub.mediaInfo(msg.media_id);
     if (!info) throw new HttpError(404, "File not found.");
     const download = msg.kind === "file" ? (info.name ?? "file") : undefined;
-    const headers = mediaHeaders(info.mime, "immutable", download);
+    // Secret photos are never kept in the browser's cache: once the chat ends they're gone.
+    const headers = mediaHeaders(info.mime, info.mime === E2E_MEDIA_MIME ? "no-store" : "immutable", download);
     const range = parseRange(request.headers.get("Range"), info.size);
     if (range === "invalid") {
       return new Response(null, { status: 416, headers: { ...headers, "Content-Range": `bytes */${info.size}` } });

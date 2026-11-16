@@ -108,14 +108,40 @@ test("mute, the muted hint, signal bars and reactions", async () => {
 test("screen sharing and video quality", async () => {
   await ann.getByRole("button", { name: "Share your screen" }).click();
   await expect.poll(() => call(ben, "(c) => c.getState().peerScreen")).toBe(true);
+  await expect(ben.getByText(/is sharing their screen/)).toBeVisible();
+  // Tuned for videos by default (smooth, not sharp-but-choppy).
+  expect(await call(ann, "(c) => c.videoSender.track?.contentHint")).toBe("motion");
+
+  // A shared tab's sound gets mixed with the mic: stand in a tone for the tab's audio.
+  const mixed = await call(ann, `async (c) => {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const dest = ctx.createMediaStreamDestination();
+    osc.connect(dest);
+    osc.start();
+    c.screenAudioTrack = dest.stream.getAudioTracks()[0];
+    await c.sendOutgoingAudio();
+    const sending = c.audioSender.track;
+    const mic = c.audioTrack();
+    const bitrate = c.audioSender.getParameters().encodings[0].maxBitrate;
+    // Muting the mic must not cut the music.
+    c.setMicOn(false);
+    const stillLive = sending.readyState === "live" && sending.enabled;
+    c.setMicOn(true);
+    return { differs: sending !== mic, stillLive, bitrate };
+  }`);
+  expect(mixed).toEqual({ differs: true, stillLive: true, bitrate: 128_000 });
+
   await ann.getByRole("button", { name: "Stop sharing your screen" }).click();
   await expect.poll(() => call(ben, "(c) => c.getState().peerScreen")).toBe(false);
+  // Back to just the mic once sharing stops.
+  await expect.poll(() => call(ann, "(c) => c.audioSender.track === c.audioTrack()")).toBe(true);
 
   await ann.getByRole("button", { name: /Turn camera on/ }).click();
   await ann.getByRole("button", { name: /Call settings/ }).click();
-  await ann.getByRole("radio", { name: "Data saver" }).click();
+  await ann.getByRole("radio", { name: "Data saver", exact: true }).click();
   await expect.poll(() => call(ann, "(c) => c.videoSender.getParameters().encodings[0].maxBitrate")).toBe(250_000);
-  await ann.getByRole("radio", { name: "Auto" }).click();
+  await ann.getByRole("radio", { name: "Auto", exact: true }).click();
 });
 
 test("push-to-talk", async () => {

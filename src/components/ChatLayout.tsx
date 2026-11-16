@@ -3,18 +3,22 @@ import { isMuted, type CallInfo, type ClientEvent, type LobbyEvent, type Me, typ
 import { messagePreview } from "../../shared/types";
 import { api, ApiError, UNAUTHORIZED_EVENT } from "../lib/api";
 import { calls } from "../lib/calls";
-import { connection } from "../lib/offline";
-import { adoptKey, createDeviceKey, e2eSupported, forgetKey } from "../lib/e2e";
+import { connection, offlineForgetRoom } from "../lib/offline";
+import { ALL_FEATURES_ON, siteStore, useFeature } from "../lib/site";
+import { adoptKey, createDeviceKey, e2eSupported, forgetKey, pruneKeys } from "../lib/e2e";
 import { plainText } from "../lib/richText";
 import { playMessageSound } from "../lib/sound";
 import { useLobbySocket } from "../lib/useRoomSocket";
 import { CallPill, useCallMinimized } from "./CallPill";
 import { ChatPane } from "./ChatPane";
+import { ChillView, type ChillTab } from "./Chill";
+import { YouTubeDock } from "./YouTubeDock";
 import { ConfirmDialog, NewGroupDialog } from "./Dialogs";
 import { InviteDialog, readInviteFromUrl, readProfileFromUrl } from "./InviteDialog";
 import { roomTitle } from "./RoomAvatar";
+import { Rail } from "./Rail";
 import { Sidebar } from "./Sidebar";
-import { ChatIcon, KeyIcon, LockIcon, Logo, WrenchIcon, XIcon } from "./ui";
+import { ChatIcon, KeyIcon, MegaphoneIcon, LockIcon, Logo, WrenchIcon, XIcon } from "./ui";
 
 export { roomTitle };
 
@@ -44,14 +48,17 @@ export function ChatLayout({
   const [roomsLoaded, setRoomsLoaded] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
+  /** Chill (Shorts & music) is open in place of a chat. */
+  const [chill, setChill] = useState<ChillTab | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Room | null>(null);
   const [presence, setPresence] = useState<PresenceMap>({});
   const [site, setSite] = useState<SiteSettings | null>(null);
+  useEffect(() => siteStore.set(site), [site]);
   const [toast, setToast] = useState<string | null>(null);
   /** "New sign-in to your account" alerts from the server. */
-  const [alert, setAlert] = useState<{ title: string; text: string } | null>(null);
+  const [alert, setAlert] = useState<{ title: string; text: string; notice?: boolean } | null>(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [inviteCode, setInviteCode] = useState<string | null>(readInviteFromUrl);
   const [profileLink, setProfileLink] = useState<string | null>(readProfileFromUrl);
@@ -79,7 +86,7 @@ export function ChatLayout({
       .site()
       .then((r) => setSite(r.site))
       // Never let a failed request keep the app offline: assume normal operation.
-      .catch(() => setSite((s) => s ?? { announcement: null, registrationOpen: true, maintenance: false }));
+      .catch(() => setSite((s) => s ?? { announcement: null, registrationOpen: true, maintenance: false, readOnly: false, features: ALL_FEATURES_ON }));
   }, []);
   useEffect(refreshSite, [refreshSite]);
 
@@ -88,7 +95,20 @@ export function ChatLayout({
 
   const refreshRooms = useCallback(async () => {
     try {
-      const { rooms } = await api.rooms();
+      const { rooms, offline } = await api.rooms();
+      // Secret chats that were ended elsewhere: destroy this device's key and saved copy.
+      if (!offline) {
+        const live = new Set(rooms.map((r) => r.id));
+        // Ended just now (it was in the list a moment ago): destroy straight away.
+        for (const r of roomsRef.current) {
+          if (r.secret && !live.has(r.id)) {
+            void forgetKey(r.id);
+            void offlineForgetRoom(r.id);
+          }
+        }
+        // Anything left over from earlier (ended while this device was off).
+        void pruneKeys(new Set(rooms.filter((r) => r.secret).map((r) => r.id))).then((ids) => ids.forEach((id) => void offlineForgetRoom(id)));
+      }
       const incoming = rooms.filter((r) => r.status === "pending" && r.requestedBy !== meRef.current.id);
       if (knownRequests.current) {
         for (const r of incoming) {
@@ -166,6 +186,10 @@ export function ChatLayout({
         case "signed-out":
           window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
           break;
+        case "broadcast":
+          setAlert({ title: e.title, text: e.text, notice: true });
+          notify(meRef.current, e.title, e.text, () => {}, true);
+          break;
         case "security":
           setAlert({ title: e.title, text: e.text });
           notify(meRef.current, e.title, e.text, () => setSettingsOpen(true), true);
@@ -240,6 +264,7 @@ export function ChatLayout({
 
   const selectRoom = useCallback((id: string | null) => {
     setActiveId(id);
+    if (id) setChill(null); // opening a chat closes Chill (the music keeps playing)
     if (id) setRooms((prev) => prev.map((r) => (r.id === id ? { ...r, unreadCount: 0, mentions: 0 } : r)));
   }, []);
 
@@ -318,6 +343,7 @@ export function ChatLayout({
     if (room.type === "group" && room.role !== "admin") await api.removeMember(room.id, meRef.current.id);
     else await api.deleteChat(room.id);
     if (room.secret) await forgetKey(room.id);
+    void offlineForgetRoom(room.id);
     setRooms((prev) => prev.filter((r) => r.id !== room.id));
     setActiveId((id) => (id === room.id ? null : id));
   }, []);
@@ -386,6 +412,8 @@ export function ChatLayout({
   }, []);
 
   const callMinimized = useCallMinimized();
+  const chillOn = useFeature("chill", me.role === "admin");
+  const groupsOn = useFeature("groups", me.role === "admin");
   const [callPeerId, setCallPeerId] = useState<string | null>(null);
   const [callOn, setCallOn] = useState(false);
   useEffect(
@@ -424,15 +452,40 @@ export function ChatLayout({
         <Suspense fallback={<div className="flex h-dvh items-center justify-center"><Logo size={40} /></div>}>
           <AdminPanel me={me} onClose={() => setAdminOpen(false)} callPill={<CallPill peer={callPeer} />} />
         </Suspense>
+        <YouTubeDock />
         {callScreen}
       </>
     );
   }
 
   return (
-    <div className="flex h-dvh overflow-hidden md:gap-2 md:p-2">
+    <div className="pane-split flex h-dvh overflow-hidden">
+      <YouTubeDock />
+      <div className="pane hidden md:block">
+        <Rail
+          rooms={rooms}
+          activeId={activeId}
+          chill={chill}
+          chillOn={chillOn}
+          onHome={() => {
+            setChill(null);
+            selectRoom(null);
+          }}
+          onSelect={(id) => {
+            setJump(null);
+            selectRoom(id);
+          }}
+          onNewGroup={groupsOn ? () => setNewGroupOpen(true) : undefined}
+          onChill={(tab) => {
+            setActiveId(null);
+            setChill(tab);
+          }}
+          onAdmin={me.role === "admin" ? () => setAdminOpen(true) : undefined}
+          onSettings={() => setSettingsOpen(true)}
+        />
+      </div>
       <div
-        className={`panel w-full shrink-0 md:block md:w-80 lg:w-96 ${active ? "hidden" : "block"}`}
+        className={`panel pane w-full shrink-0 md:block md:w-80 lg:w-[22rem] ${active || chill ? "hidden" : "block"}`}
       >
         <Sidebar
           me={me}
@@ -455,14 +508,20 @@ export function ChatLayout({
           onNewGroup={() => setNewGroupOpen(true)}
           onOpenAdmin={me.role === "admin" ? () => setAdminOpen(true) : undefined}
           onOpenSettings={() => setSettingsOpen(true)}
+          onOpenChill={(tab) => {
+            setActiveId(null);
+            setChill(tab);
+          }}
           onPrefs={onPrefs}
           onDelete={setConfirmDelete}
           callPill={!active && callMinimized ? <CallPill peer={callPeer} /> : null}
         />
       </div>
 
-      <div className={`min-w-0 flex-1 ${active ? "flex" : "hidden md:flex"}`}>
-        {active ? (
+      <div className={`pane min-w-0 flex-1 ${active || chill ? "flex" : "hidden md:flex"}`}>
+        {chill && !active ? (
+          <ChillView me={me} tab={chill} onTab={setChill} onClose={() => setChill(null)} />
+        ) : active ? (
           <ChatPane
             key={active.id}
             room={active}
@@ -531,11 +590,12 @@ export function ChatLayout({
       {alert && (
         <div role="alert" className="slide-up fixed top-[max(0.75rem,env(safe-area-inset-top))] left-1/2 z-50 flex w-[min(26rem,calc(100vw-1.5rem))] -translate-x-1/2 items-start gap-3 rounded-2xl bg-white p-3.5 shadow-xl ring-1 ring-zinc-900/10 dark:bg-zinc-800 dark:ring-white/10">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
-            <KeyIcon className="size-4.5" />
+            {alert.notice ? <MegaphoneIcon className="size-4.5" /> : <KeyIcon className="size-4.5" />}
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold">{alert.title}</p>
-            <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">{alert.text}</p>
+            <p className={`mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 ${alert.notice ? "whitespace-pre-wrap break-words" : "truncate"}`}>{alert.text}</p>
+            {!alert.notice && (
             <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
               Not you?{" "}
               <button
@@ -548,6 +608,7 @@ export function ChatLayout({
                 Review your devices
               </button>
             </p>
+            )}
           </div>
           <button onClick={() => setAlert(null)} className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700" aria-label="Dismiss">
             <XIcon className="size-4" />

@@ -13,8 +13,12 @@ export interface DevicePrefs {
   speaker: string;
   /** Your microphone volume, in percent (0–200). */
   micVolume: number;
-  /** How loud the other person is, in percent (0–100). */
+  /** How loud the other person is, in percent (0–200; above 100 boosts a quiet caller). */
   outputVolume: number;
+  /** How much audio you send: "high" for the clearest voice and music, "saver" for weak connections. */
+  audioQuality: AudioQuality;
+  /** Voice isolation (Chrome/Edge on supported devices, macOS/iOS mic modes): keeps only your voice. */
+  voiceIsolation: boolean;
   /** Show your own camera like a mirror (only on your screen; others always see you the right way round). */
   mirror: boolean;
   /** Answer video calls with your camera off. */
@@ -26,6 +30,19 @@ export interface DevicePrefs {
   ringtone: Ringtone;
   /** Ringtone volume, in percent (0–100). */
   ringVolume: number;
+  /** Which AI noise filter runs: "auto" picks by how strong the device is. */
+  aiEngine: AiEnginePref;
+  /** Screen sharing also sends the sound of the tab/screen (music, videos). */
+  shareAudio: boolean;
+  /** Screen sharing tuned for "motion" (videos, games: smooth) or "detail" (text, slides: sharp). */
+  shareMode: ShareMode;
+  /** Voice messages: playback volume (0–100), speed, and play the next one automatically. */
+  voiceVolume: number;
+  voiceRate: number;
+  voiceAutoplay: boolean;
+  /** New-message sound: which one and how loud (0–100). */
+  messageTone: MessageTone;
+  messageVolume: number;
   /**
    * Names of the chosen devices. Browsers may hand out new device IDs (Safari
    * every session, Chrome after clearing site data), so the name finds it again.
@@ -34,7 +51,18 @@ export interface DevicePrefs {
 }
 
 export type VideoQuality = "auto" | "hd" | "saver";
+export type AudioQuality = "auto" | "high" | "saver";
 export type Ringtone = "classic" | "marimba" | "digital" | "gentle" | "vibrate";
+export type AiEnginePref = "auto" | "gtcrn" | "rnnoise";
+export type ShareMode = "motion" | "detail";
+export type MessageTone = "pop" | "chime" | "drop" | "tick";
+export const MESSAGE_TONES: [MessageTone, string][] = [
+  ["pop", "Pop"],
+  ["chime", "Chime"],
+  ["drop", "Drop"],
+  ["tick", "Tick"],
+];
+export const VOICE_RATES = [0.75, 1, 1.25, 1.5, 1.75, 2] as const;
 export const RINGTONES: [Ringtone, string][] = [
   ["classic", "Classic"],
   ["marimba", "Marimba"],
@@ -50,12 +78,22 @@ const DEFAULTS: DevicePrefs = {
   speaker: "",
   micVolume: 100,
   outputVolume: 100,
+  audioQuality: "auto",
+  voiceIsolation: false,
   mirror: true,
   joinCameraOff: false,
   pushToTalk: false,
   videoQuality: "auto",
   ringtone: "classic",
   ringVolume: 80,
+  aiEngine: "auto",
+  shareAudio: true,
+  shareMode: "motion",
+  voiceVolume: 100,
+  voiceRate: 1,
+  voiceAutoplay: true,
+  messageTone: "pop",
+  messageVolume: 60,
   labels: { mic: "", camera: "", speaker: "" },
 };
 
@@ -68,13 +106,23 @@ function load(): DevicePrefs {
       camera: typeof raw.camera === "string" ? raw.camera : "",
       speaker: typeof raw.speaker === "string" ? raw.speaker : "",
       micVolume: num(raw.micVolume, 100, 200),
-      outputVolume: num(raw.outputVolume, 100, 100),
+      outputVolume: num(raw.outputVolume, 100, 200),
+      audioQuality: raw.audioQuality === "high" || raw.audioQuality === "saver" ? raw.audioQuality : "auto",
+      voiceIsolation: raw.voiceIsolation === true,
       mirror: typeof raw.mirror === "boolean" ? raw.mirror : true,
       joinCameraOff: typeof raw.joinCameraOff === "boolean" ? raw.joinCameraOff : false,
       pushToTalk: typeof raw.pushToTalk === "boolean" ? raw.pushToTalk : false,
       videoQuality: raw.videoQuality === "hd" || raw.videoQuality === "saver" ? raw.videoQuality : "auto",
       ringtone: RINGTONES.some(([r]) => r === raw.ringtone) ? (raw.ringtone as Ringtone) : "classic",
       ringVolume: num(raw.ringVolume, 80, 100),
+      aiEngine: raw.aiEngine === "gtcrn" || raw.aiEngine === "rnnoise" ? raw.aiEngine : "auto",
+      shareAudio: typeof raw.shareAudio === "boolean" ? raw.shareAudio : true,
+      shareMode: raw.shareMode === "detail" ? "detail" : "motion",
+      voiceVolume: num(raw.voiceVolume, 100, 100),
+      voiceRate: (VOICE_RATES as readonly number[]).includes(raw.voiceRate as number) ? (raw.voiceRate as number) : 1,
+      voiceAutoplay: typeof raw.voiceAutoplay === "boolean" ? raw.voiceAutoplay : true,
+      messageTone: MESSAGE_TONES.some(([t]) => t === raw.messageTone) ? (raw.messageTone as MessageTone) : "pop",
+      messageVolume: num(raw.messageVolume, 60, 100),
       labels: {
         mic: typeof raw.labels?.mic === "string" ? raw.labels.mic : "",
         camera: typeof raw.labels?.camera === "string" ? raw.labels.camera : "",
@@ -132,7 +180,7 @@ let list: DeviceList = EMPTY;
 const listListeners = new Set<(added: { kind: MediaDeviceKind; option: DeviceOption }[]) => void>();
 let watching = false;
 
-/** Can this browser send sound to a chosen speaker (Chrome, Edge, Firefox — not Safari)? */
+/** Can this browser send sound to a chosen speaker (Chrome, Edge, Firefox on computers; Safari 18.4+)? */
 export const canPickSpeaker = typeof HTMLMediaElement !== "undefined" && "setSinkId" in HTMLMediaElement.prototype;
 
 function clean(label: string) {
@@ -279,7 +327,8 @@ export async function playTestSound(speakerId: string, volume: number): Promise<
       const age = t - start;
       v += Math.sin(2 * Math.PI * f * age) * Math.exp(-age * 5) * Math.min(1, age * 200);
     }
-    data[i] = Math.max(-1, Math.min(1, v * 0.3)) * 0x7fff;
+    // Boosted volumes (over 100%) make the chime itself louder.
+    data[i] = Math.max(-1, Math.min(1, v * 0.3 * Math.max(1, volume / 100))) * 0x7fff;
   }
   // Wrap it in a tiny WAV file so a plain <audio> element (which can pick the speaker) plays it.
   const header = new DataView(new ArrayBuffer(44));

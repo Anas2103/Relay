@@ -9,11 +9,15 @@ import { E2E_PREFIX, isEncrypted, type SecretInfo } from "../../shared/types";
  *    leaves this device. Only the public key is sent to the server.
  *  - Both devices combine their private key with the other's public key (ECDH)
  *    and run HKDF-SHA256 (salted with the chat id) to get the same AES-256-GCM key.
- *  - Every message gets a fresh random 96-bit IV; the chat id is bound in as
- *    authenticated data, so ciphertext can't be replayed into another chat.
+ *  - Every message gets a fresh random 96-bit IV. The chat id AND the sender's id
+ *    are bound in as authenticated data: ciphertext can't be replayed into another
+ *    chat, and the server can't pass one person's message off as the other's.
  *  - Text is padded to a multiple of 32 bytes, so message lengths leak less.
+ *  - Photos are encrypted the same way (their own IV, padded to 4 KB steps), and
+ *    their size, type and caption travel inside the encrypted message.
  *
  * Format: "e2e1." + base64url(iv) + "." + base64url(ciphertext + GCM tag)
+ * Photos: "RLE1" + iv (12 bytes) + ciphertext + GCM tag
  */
 
 const DB_NAME = "relay-e2e";
@@ -27,6 +31,8 @@ interface StoredKey {
   deviceId: string;
   publicKey: string;
   privateKey: CryptoKey;
+  /** When this key was made (keys this new are never pruned: their chat may not be listed yet). */
+  createdAt?: number;
 }
 
 // ---------- base64url ----------
@@ -98,6 +104,25 @@ export async function wipeAllKeys(): Promise<void> {
   derived.clear();
 }
 
+/**
+ * Destroys the keys of secret chats that no longer exist (the other person ended
+ * it, or it was deleted on another device). Without the key, nothing from that
+ * chat can ever be decrypted again — anywhere — even if a copy survived somewhere.
+ * `liveIds` must be the full, fresh chat list from the server.
+ */
+export async function pruneKeys(liveIds: Set<string>): Promise<string[]> {
+  let all: StoredKey[] = [];
+  try {
+    all = ((await tx("readonly", (s) => s.getAll())) as StoredKey[]) ?? [];
+  } catch {
+    return [];
+  }
+  const now = Date.now();
+  const dead = all.filter((k) => !liveIds.has(k.roomId) && now - (k.createdAt ?? 0) > 10 * 60 * 1000);
+  for (const k of dead) await forgetKey(k.roomId);
+  return dead.map((k) => k.roomId);
+}
+
 export async function forgetKey(roomId: string): Promise<void> {
   derived.delete(roomId);
   try {
@@ -116,7 +141,7 @@ export async function createDeviceKey(pendingId: string): Promise<{ deviceId: st
   const pair = (await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, false, ["deriveBits"])) as CryptoKeyPair;
   const publicKey = b64url(new Uint8Array(await crypto.subtle.exportKey("raw", pair.publicKey)));
   const deviceId = crypto.randomUUID();
-  await tx("readwrite", (s) => s.put({ roomId: pendingId, deviceId, publicKey, privateKey: pair.privateKey } satisfies StoredKey));
+  await tx("readwrite", (s) => s.put({ roomId: pendingId, deviceId, publicKey, privateKey: pair.privateKey, createdAt: Date.now() } satisfies StoredKey));
   return { deviceId, publicKey };
 }
 
@@ -184,29 +209,96 @@ async function deriveKey(privateKey: CryptoKey, theirPublic: string, roomId: str
 
 // ---------- Messages ----------
 
-export async function encryptText(key: CryptoKey, roomId: string, text: string): Promise<string> {
+/** Authenticated data: which chat, and who wrote it. */
+const aad = (roomId: string, senderId: string) => enc.encode(`${roomId}|${senderId}`);
+
+export async function encryptText(key: CryptoKey, roomId: string, senderId: string, text: string): Promise<string> {
   const raw = enc.encode(text);
   const padded = new Uint8Array(Math.ceil((raw.length + 1) / PAD) * PAD);
   padded.set(raw); // the rest is zero bytes, stripped after decrypting
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: enc.encode(roomId) }, key, padded);
+  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: aad(roomId, senderId) }, key, padded);
   return `${E2E_PREFIX}${b64url(iv)}.${b64url(new Uint8Array(ct))}`;
 }
 
-/** Returns the text, or null if it can't be decrypted with this key (wrong device, tampered). */
-export async function decryptText(key: CryptoKey, roomId: string, body: string): Promise<string | null> {
+/**
+ * Returns the text, or null if it can't be decrypted with this key (wrong device,
+ * tampered, or not really from `senderId`). Messages from before sender-binding
+ * only had the chat id as authenticated data; those still open.
+ */
+export async function decryptText(key: CryptoKey, roomId: string, senderId: string, body: string): Promise<string | null> {
   if (!isEncrypted(body)) return null;
   const [ivPart, ctPart] = body.slice(E2E_PREFIX.length).split(".");
+  if (!ivPart || !ctPart) return null;
+  const iv = fromB64url(ivPart);
+  const ct = fromB64url(ctPart);
+  for (const additionalData of [aad(roomId, senderId), enc.encode(roomId)]) {
+    try {
+      const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv, additionalData }, key, ct);
+      const bytes = new Uint8Array(plain);
+      let end = bytes.length;
+      while (end > 0 && bytes[end - 1] === 0) end--;
+      return dec.decode(bytes.subarray(0, end));
+    } catch {
+      // try the next form
+    }
+  }
+  return null;
+}
+
+// ---------- Photos ----------
+
+const MEDIA_MAGIC = enc.encode("RLE1");
+const MEDIA_PAD = 4096;
+const mediaAad = (roomId: string, senderId: string) => enc.encode(`relay-media|${roomId}|${senderId}`);
+
+/** Encrypts a file's bytes. The result is all the server ever stores. */
+export async function encryptBytes(key: CryptoKey, roomId: string, senderId: string, data: Blob): Promise<Blob> {
+  const raw = new Uint8Array(await data.arrayBuffer());
+  // 4-byte length, the bytes, then zeros up to the next 4 KB (so the exact size doesn't leak).
+  const padded = new Uint8Array(Math.ceil((raw.length + 4) / MEDIA_PAD) * MEDIA_PAD);
+  new DataView(padded.buffer).setUint32(0, raw.length);
+  padded.set(raw, 4);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: mediaAad(roomId, senderId) }, key, padded));
+  return new Blob([MEDIA_MAGIC, iv, ct], { type: "application/octet-stream" });
+}
+
+/** Decrypts a photo; null if it isn't ours, was tampered with, or isn't from `senderId`. */
+export async function decryptBytes(key: CryptoKey, roomId: string, senderId: string, data: ArrayBuffer, mime: string): Promise<Blob | null> {
+  const b = new Uint8Array(data);
+  if (b.length < 4 + 12 + 16 || MEDIA_MAGIC.some((v, i) => b[i] !== v)) return null;
   try {
-    const plain = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: fromB64url(ivPart), additionalData: enc.encode(roomId) },
-      key,
-      fromB64url(ctPart),
+    const plain = new Uint8Array(
+      await crypto.subtle.decrypt({ name: "AES-GCM", iv: b.subarray(4, 16), additionalData: mediaAad(roomId, senderId) }, key, b.subarray(16)),
     );
-    const bytes = new Uint8Array(plain);
-    let end = bytes.length;
-    while (end > 0 && bytes[end - 1] === 0) end--;
-    return dec.decode(bytes.subarray(0, end));
+    const len = new DataView(plain.buffer).getUint32(0);
+    if (len > plain.length - 4) return null;
+    return new Blob([plain.subarray(4, 4 + len)], { type: mime });
+  } catch {
+    return null;
+  }
+}
+
+/** What a secret photo's (encrypted) message says: caption, size and type. */
+export interface SecretPhoto {
+  caption: string;
+  width: number;
+  height: number;
+  mime: string;
+}
+
+export function photoBody(p: SecretPhoto): string {
+  return JSON.stringify({ v: 1, c: p.caption, w: p.width, h: p.height, m: p.mime });
+}
+
+export function parsePhotoBody(text: string): SecretPhoto | null {
+  try {
+    const o = JSON.parse(text) as { v?: number; c?: unknown; w?: unknown; h?: unknown; m?: unknown };
+    if (o.v !== 1) return null;
+    const num = (v: unknown) => (typeof v === "number" && v > 0 && v < 20_000 ? Math.round(v) : 0);
+    const mime = typeof o.m === "string" && /^image\/(jpeg|png|webp|gif)$/.test(o.m) ? o.m : "image/jpeg";
+    return { caption: typeof o.c === "string" ? o.c : "", width: num(o.w), height: num(o.h), mime };
   } catch {
     return null;
   }

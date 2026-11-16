@@ -506,18 +506,25 @@ body {
 }
 
 /* ---------- Layout polish ---------- */
-/* Floating rounded panels on tablets and desktops */
+/* Desktop: edge-to-edge panes separated by hairlines (like Discord and Telegram Desktop). */
 @media (min-width: 768px) {
   .panel {
-    border-radius: 1.25rem;
     overflow: hidden;
-    box-shadow:
-      0 1px 2px rgb(0 0 0 / 0.04),
-      0 0 0 1px rgb(24 24 27 / 0.06);
   }
-  .dark .panel {
-    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.06);
+  .pane-split > .pane ~ .pane {
+    border-left: 1px solid color-mix(in oklab, var(--color-zinc-200) 80%, transparent);
   }
+  .dark .pane-split > .pane ~ .pane {
+    border-left-color: color-mix(in oklab, var(--color-zinc-800) 85%, transparent);
+  }
+}
+/* The far-left rail with chat shortcuts (desktop). */
+.rail {
+  --rail-bg: var(--color-zinc-100);
+  background: var(--rail-bg);
+}
+.dark .rail {
+  --rail-bg: color-mix(in oklab, var(--color-zinc-950) 70%, black);
 }
 /* Soft dividers instead of hard lines */
 .divider-b {
@@ -569,4 +576,64 @@ body {
 /* Simple mode: hide the extras, keep the essentials big and clear */
 [data-simple="on"] .simple-hide {
   display: none !important;
+}
+
+/* Chill: the little "now playing" equalizer bars on a song's cover. */
+@keyframes eq-bar {
+  0%, 100% { height: 20%; }
+  50% { height: 60%; }
+}
+.eq-bar {
+  height: 30%;
+  animation: eq-bar 0.9s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .eq-bar { animation: none; }
+}
+
+/* ---------- Chat themes (shared per chat, see shared/chatThemes.ts) ---------- */
+.ctheme {
+  /* Tailwind's color tokens resolve --accent at the root, so set them here too. */
+  --accent: var(--ct-accent);
+  --color-accent: var(--ct-accent);
+  --color-accent-ink: #ffffff;
+  --accent-fg: color-mix(in oklab, var(--ct-accent) 88%, black);
+  --color-accent-fg: var(--accent-fg);
+  background-color: var(--ct-light-2);
+  background-image: var(--ct-pattern, linear-gradient(transparent, transparent)), linear-gradient(180deg, var(--ct-light-1), var(--ct-light-2));
+  background-size: var(--ct-pattern-size, auto), 100% 100%;
+}
+.dark .ctheme {
+  --accent-fg: color-mix(in oklab, var(--ct-accent) 70%, white);
+  --color-accent-fg: var(--accent-fg);
+  background-color: var(--ct-dark-2);
+  background-image: var(--ct-pattern, linear-gradient(transparent, transparent)), linear-gradient(180deg, var(--ct-dark-1), var(--ct-dark-2));
+}
+/* Like Instagram: one gradient spans the screen, each bubble shows its own slice of it. */
+.ctheme .bubble-fill {
+  background-attachment: fixed;
+}
+.ctheme-hearts {
+  --ct-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56'%3E%3Cpath d='M14 22c-4-4-10-1-8 4 1.5 3.5 8 8 8 8s6.5-4.5 8-8c2-5-4-8-8-4z' fill='%23f43f5e' fill-opacity='.14'/%3E%3Cpath d='M42 48c-3-3-7.5-.8-6 3 1.1 2.6 6 6 6 6s4.9-3.4 6-6c1.5-3.8-3-6-6-3z' fill='%23fb7185' fill-opacity='.12'/%3E%3C/svg%3E");
+  --ct-pattern-size: 56px 56px;
+}
+.ctheme-stars {
+  --ct-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cpath d='M16 8l1.6 4.4L22 14l-4.4 1.6L16 20l-1.6-4.4L10 14l4.4-1.6z' fill='%23a78bfa' fill-opacity='.22'/%3E%3Ccircle cx='46' cy='40' r='1.6' fill='%2393c5fd' fill-opacity='.35'/%3E%3Cpath d='M48 50l.9 2.4 2.4.9-2.4.9-.9 2.4-.9-2.4-2.4-.9 2.4-.9z' fill='%23f0abfc' fill-opacity='.3'/%3E%3C/svg%3E");
+  --ct-pattern-size: 64px 64px;
+}
+.ctheme-dots {
+  --ct-pattern: radial-gradient(color-mix(in oklab, var(--ct-accent) 20%, transparent) 1.2px, transparent 1.6px);
+  --ct-pattern-size: 20px 20px;
+}
+.ctheme-waves {
+  --ct-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='24'%3E%3Cpath d='M0 12c10 0 10-8 20-8s10 8 20 8 10-8 20-8 10 8 20 8' fill='none' stroke='%230ea5e9' stroke-opacity='.14' stroke-width='2'/%3E%3C/svg%3E");
+  --ct-pattern-size: 80px 24px;
+}
+.ctheme-confetti {
+  --ct-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72'%3E%3Crect x='8' y='10' width='6' height='3' rx='1.5' transform='rotate(30 11 11)' fill='%23f43f5e' fill-opacity='.3'/%3E%3Crect x='44' y='18' width='6' height='3' rx='1.5' transform='rotate(-25 47 19)' fill='%2322c55e' fill-opacity='.3'/%3E%3Ccircle cx='28' cy='46' r='2' fill='%23eab308' fill-opacity='.4'/%3E%3Crect x='56' y='54' width='6' height='3' rx='1.5' transform='rotate(60 59 55)' fill='%233b82f6' fill-opacity='.3'/%3E%3C/svg%3E");
+  --ct-pattern-size: 72px 72px;
+}
+.ctheme-leaves {
+  --ct-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='70' height='70'%3E%3Cpath d='M14 30c0-10 8-16 18-16-1 10-8 16-18 16z' fill='%2316a34a' fill-opacity='.13'/%3E%3Cpath d='M48 60c0-7 6-12 13-12-1 7-6 12-13 12z' fill='%2365a30d' fill-opacity='.12'/%3E%3C/svg%3E");
+  --ct-pattern-size: 70px 70px;
 }

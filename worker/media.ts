@@ -1,5 +1,6 @@
 import {
   AUDIO_TYPES,
+  E2E_MEDIA_MAGIC,
   BLOCKED_EXTENSIONS,
   fileExtension,
   IMAGE_TYPES,
@@ -78,6 +79,21 @@ export async function readUpload(
     throw new HttpError(415, `That isn't ${what}.`);
   }
   return { bytes, mime };
+}
+
+/**
+ * A secret-chat photo: must be our encrypted container ("RLE1" + 12-byte IV +
+ * ciphertext + 16-byte tag). Anything else (a plain photo) is refused, so nothing
+ * readable can be stored in a secret chat by mistake.
+ */
+export async function readEncryptedUpload(request: Request, maxBytes: number): Promise<Uint8Array> {
+  // Padding to 4 KB and the header add a little to the photo's size.
+  const bytes = await readCapped(request, maxBytes + 8192);
+  const magic = String.fromCharCode(...bytes.subarray(0, 4));
+  if (magic !== E2E_MEDIA_MAGIC || bytes.byteLength < 4 + 12 + 16 + 4096) {
+    throw new HttpError(415, "Secret chats only accept photos encrypted on your device.");
+  }
+  return bytes;
 }
 
 /**

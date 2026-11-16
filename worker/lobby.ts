@@ -1,3 +1,4 @@
+import { policyBlock } from "./policy";
 import { DurableObject } from "cloudflare:workers";
 import { CALL_REACTIONS, CALL_SIGNAL_TYPES, type CallEnvelope, type LobbyEvent } from "../shared/types";
 import type { Env } from "./env";
@@ -84,6 +85,11 @@ export class Lobby extends DurableObject<Env> {
 
     const me = ws.deserializeAttachment() as LobbyAttachment;
     if (!(await this.canCall(me.userId, to, roomId))) return;
+    // Calls switched off, read-only mode or a restricted account: nobody gets rung.
+    if (signal.type === "invite" && (await policyBlock(this.env, me.userId, "calls"))) {
+      ws.send(JSON.stringify({ type: "call", from: to, fromName: "", roomId, callId, signal: { type: "unavailable" } } satisfies LobbyEvent));
+      return;
+    }
 
     // Nobody to ring: tell the caller straight away instead of ringing forever.
     if (signal.type === "invite" && !this.isUserOnline(to)) {

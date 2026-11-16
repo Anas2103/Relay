@@ -28,6 +28,24 @@ Real-time chat in the spirit of Telegram: groups, **end-to-end encrypted secret 
 - **Remind me** about any message (in 20 minutes, tonight, tomorrow, next Monday or any time): a reminder lands in Saved Messages with a notification, even if Relay is closed
 - **"Seen by"** in groups, an **"Unread messages"** divider, **group photos** and a shareable **profile link** (`/?u=username`)
 
+**Layout**
+- Desktop: a **rail on the far left** like Discord's server list (home, shortcuts to pinned and unread chats with unread pills, new group, Chill, games, settings), the chat list, and the chat, edge to edge. A user panel at the bottom of the list shows your status
+- Phones: a **bottom tab bar** like Telegram's (Chats with an unread badge, Chill, Games, Settings)
+
+**Chat themes (like Instagram)**
+- Give any chat one of 20 themes. It's **shared**: everyone in the chat sees it, switches to it live, and gets a "changed the theme" notice
+- Gradient themes span the screen, so each bubble shows its own slice of the gradient as you scroll
+- Themes are checked by the server (only known ones are stored); in announcement groups only admins can change them. Anyone can turn off "Show chat themes" to always keep their own look
+
+**Play together in any chat**
+- **Team games** where the whole chat plays against the puzzle: **Word Team** (guess a 5-letter word together in 6 tries), **Crack the Code** (find 4 hidden colors in 10 tries), **Pair Up** (a shared memory board with a miss limit and a "who found what" scoreboard)
+- **Head to head**: Tic-tac-toe, Connect Four, Checkers (forced captures, multi-jumps, kings), Five in a Row, **Reversi**, **Mancala**, Dots & Boxes, Hangman Duel, Rock paper scissors (best of 3)
+- **Watch together**: a YouTube video kept in sync for everyone
+- The server is the referee: every move goes through the shared rules in `shared/games.ts`, moves on one game are serialized, and hidden information (the secret word, the code, face-down cards, rock-paper-scissors picks) never leaves the server until it's revealed
+
+**Chill**
+- Music (real catalog via Apple's search, played from the official video), YouTube Shorts, live radio, podcasts, jokes and trivia, plus 16 solo games with best scores. Music keeps playing while you chat
+
 **Moderation**
 - **Report** a message or a person; the reported text is copied at the time, so deleting it afterwards doesn't hide it. In secret chats, the reporter chooses to share the decrypted text
 - Admins get a **Reports** tab (resolve, dismiss, suspend), with every action in the audit log
@@ -36,7 +54,10 @@ Real-time chat in the spirit of Telegram: groups, **end-to-end encrypted secret 
 **Secret chats (end-to-end encrypted)**
 - Start one from any 1:1 chat. Keys are made on your device (ECDH P-256 → HKDF-SHA256 → AES-256-GCM via WebCrypto); the private key is **non-extractable**, so not even the app's own JavaScript can read it out
 - The server only ever stores ciphertext and **refuses anything else** in a secret chat (and refuses ciphertext in normal chats, so nothing can fake being private). Nobody else can read them: not the server, not admins, not the owner
-- Like Telegram: device-bound, text-only, can't be forwarded, support disappearing messages, and signing out removes their keys from that device
+- **Encrypted photos** (and view-once photos): encrypted on your device before upload, padded to hide their exact size, with size, type and caption inside the encrypted message. The server stores an opaque blob it refuses to cache, and refuses plain photos in a secret chat. Decrypted copies live only in the open tab's memory
+- Every message and photo is bound to the chat **and to its sender**, so the server can't pass one person's message off as the other's
+- **Ending a secret chat erases it everywhere**: messages and photo files are deleted from the server, and *both* devices destroy their keys (the other person's device does it as soon as it sees the chat is gone), so even a surviving copy could never be decrypted again
+- Like Telegram: device-bound, can't be forwarded or saved as stickers, never searched, previewed or translated by the server, support disappearing messages, and signing out removes their keys from that device. "Read aloud" uses only on-device voices there
 - An 8-emoji key fingerprint both people can compare to rule out a man-in-the-middle
 
 **Telegram-style chats**
@@ -49,7 +70,10 @@ Real-time chat in the spirit of Telegram: groups, **end-to-end encrypted secret 
 - **Voice and video calls** over WebRTC, peer-to-peer and encrypted (DTLS-SRTP); the server only relays the setup messages
 - Ringing on all your devices (stops everywhere once you answer on one), mute, camera on/off, front/back camera, minimize to keep chatting
 - **AI noise suppression** running on your device (GTCRN or RNNoise in an AudioWorklet), switchable mid-call without dropping it, plus echo cancellation, gain control, a noise gate and the option to clean up the other person's voice too
-- **Choose your microphone, speaker and camera** (in Settings or mid-call, without dropping the call), mic boost up to 200%, call volume, speaker test and camera preview. Unplug a headset and the call carries on with the default mic; plug one in and Relay offers to switch to it
+- **Choose your microphone, speaker and camera** (in Settings or mid-call, without dropping the call), mic boost up to 200%, call volume up to 200% (with a limiter so it never distorts), speaker test and camera preview. Unplug a headset and the call carries on with the default mic; plug one in and Relay offers to switch to it
+- **Sound output on every device**: a speaker list on computers and iPhone/iPad (Safari 18.4+), **loudspeaker / earpiece / wired / Bluetooth routes on Android**, Safari's AirPlay & Bluetooth picker and Firefox's speaker picker, plus a quick output button on the call screen. Where the page truly can't choose, it says how to switch on the device
+- **Voice quality**: Opus tuned with forward error correction and full-band audio; choose Clear, Studio (up to 128 kbps, for music) or Data saver. Voice gets network priority over video. Voice isolation where the device supports it
+- Works around phone quirks: call volume works on iPhones (where web volume is normally fixed), "Tap to hear the call" if a browser blocks sound or pauses audio in the background
 - **Turn a voice call into a video call**, **screen sharing** (desktop), **answer without video**, video quality (Auto / HD / Data saver)
 - **Floating emoji reactions**, **push-to-talk** (hold Space or the mic button), "You're muted" hint when you talk while muted, speaking indicators
 - Live **connection bars** (delay, packet loss, direct or relayed), with a tip to drop video when the line gets weak
@@ -93,7 +117,15 @@ Real-time chat in the spirit of Telegram: groups, **end-to-end encrypted secret 
 - Layouts built for every size: bottom sheets on phones, side panels and popovers on desktop, safe areas for notches
 
 **Admin & owner**
-- **Admins** manage regular accounts only. **The owner (super admin)** can do everything: manage admins too, review and moderate any conversation or group, and control the site (announcement banner, sign-ups, **maintenance mode**). Secret chats are the one thing nobody can read
+- **Admins** manage regular accounts: edit, reset passwords, sign out, **restrict** (read-only for a while) or **suspend for a set time with a reason** the person sees, delete
+- **The owner (super admin) is the highest authority** and can do everything:
+  - manage admins too (nobody else can touch admins or the owner account)
+  - see any account's **devices, chats and activity**, sign out a single device, and **erase everything someone wrote**
+  - review, **search across every conversation**, export and delete any chat or group, and **join any group as its admin** to moderate it from inside
+  - remove anyone's story
+  - run the site: announcement banner, **broadcast alerts** to every screen (and phone), sign-ups, **maintenance mode**, **read-only mode**, **switch any feature off for everyone** (calls, secret chats, stories, uploads, groups, new chats, AI), and **sign everyone out**
+  - search the full audit log, where all of the above is recorded
+  - Secret chats are the one thing nobody can read, the owner included: that's what end-to-end encryption means
 - Live overview: who's online, messages per day (14-day chart), most active people, pending requests
 - User management with filters (online, admins, suspended) and sorting: create, edit, reset password, promote, suspend, sign out everywhere, delete
 - Searchable, filterable audit log of every admin action
@@ -146,7 +178,7 @@ avatars           (in its own SQLite storage)
 
 **Known limit:** a web page can't block screenshots, so view-once stops saving and re-opening, not a determined screenshot.
 
-**Secret chats:** end-to-end encrypted as described above. Known limits, stated plainly: one static key per secret chat (no ratchet, so no per-message forward secrecy), and trust in the served JavaScript (as with any web E2EE). Compare the emoji fingerprint to detect key substitution. Normal chats and groups are protected in transit and by access control, and the owner can review them.
+**Secret chats:** end-to-end encrypted as described above. Known limits, stated plainly: the server can see that a photo was sent and roughly how big it is (to the nearest 4 KB), one static key per secret chat (no ratchet, so no per-message forward secrecy), and trust in the served JavaScript (as with any web E2EE). Compare the emoji fingerprint to detect key substitution. Normal chats and groups are protected in transit and by access control, and the owner can review them.
 
 ## Tech stack
 
@@ -217,6 +249,8 @@ npx wrangler secret put VAPID_PRIVATE_KEY
 - [x] Deep customization (fonts, sizes, shapes, custom colors, density, privacy)
 - [x] Owner / admin roles, maintenance mode
 - [x] Automated end-to-end tests in CI (GitHub Actions)
+- [x] Chat games (team and head to head), watch together, Chill
+- [x] Shared chat themes, Discord-style rail and Telegram-style tab bar
 - [ ] Native mobile app (the PWA works today)
 
 ---

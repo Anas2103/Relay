@@ -1,3 +1,4 @@
+import { assertAllowed } from "./policy";
 import { MUTE_FOREVER, type SecretInfo } from "../shared/types";
 import { rateLimit, requireUser } from "./auth";
 import { lobby, room, type Env } from "./env";
@@ -151,6 +152,7 @@ export async function deleteChat(request: Request, env: Env, roomId: string): Pr
 /** Starts a secret chat with the other person in an accepted 1:1 chat. */
 export async function startSecret(request: Request, env: Env, dmId: string): Promise<Response> {
   const me = await requireUser(request, env);
+  await assertAllowed(env, me.id, "secretChats");
   await assertMember(env, dmId, me.id);
   const key = cleanKey(await readJson(request));
   const dm = await roomRow(env, dmId);
@@ -195,6 +197,7 @@ export async function startSecret(request: Request, env: Env, dmId: string): Pro
 /** The invited person accepts on one of their devices, which registers that device's key. */
 export async function acceptSecret(request: Request, env: Env, roomId: string): Promise<Response> {
   const me = await requireUser(request, env);
+  await assertAllowed(env, me.id, "secretChats");
   await assertMember(env, roomId, me.id);
   const key = cleanKey(await readJson(request));
   const r = await roomRow(env, roomId);

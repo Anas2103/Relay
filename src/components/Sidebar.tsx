@@ -1,5 +1,8 @@
+import { useFeature } from "../lib/site";
 import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { connection } from "../lib/offline";
+import { StoryBar } from "./Stories";
+import { MiniPlayer, type ChillTab } from "./Chill";
 import { isMuted, MUTE_FOREVER, type Me, type Message, type Room, type SiteSettings, type User } from "../../shared/types";
 import { api, ApiError } from "../lib/api";
 import { useDrafts } from "../lib/drafts";
@@ -28,6 +31,8 @@ import {
   TrashIcon,
   UsersIcon,
   XIcon,
+  MusicIcon,
+  GamepadIcon,
 } from "./ui";
 
 export interface ChatActions {
@@ -51,6 +56,8 @@ interface Props extends ChatActions {
   onNewGroup: () => void;
   onOpenAdmin?: () => void;
   onOpenSettings: () => void;
+  /** Opens Chill (YouTube Shorts & music). */
+  onOpenChill: (tab: ChillTab) => void;
   /** A minimized call, shown in the header when no chat is open. */
   callPill?: ReactNode;
 }
@@ -91,6 +98,7 @@ export function Sidebar({
   onNewGroup,
   onOpenAdmin,
   onOpenSettings,
+  onOpenChill,
   onPrefs,
   onDelete,
   callPill,
@@ -210,6 +218,10 @@ export function Sidebar({
     }
   }
 
+  const storiesOn = useFeature("stories", me.role === "admin");
+  const chillOn = useFeature("chill", me.role === "admin");
+  const groupsOn = useFeature("groups", me.role === "admin");
+
   function clearSearch() {
     setQuery("");
     setResults([]);
@@ -271,8 +283,13 @@ export function Sidebar({
     <aside className="safe-top flex h-full flex-col bg-white dark:bg-zinc-900">
       <header className="flex items-center justify-between gap-2 px-3 pt-3 pb-2 md:px-4 md:pt-4">
         <div className="flex min-w-0 items-center gap-2.5">
-          <Logo size={28} />
-          <span className="text-lg font-semibold tracking-tight">Relay</span>
+          <span className="md:hidden">
+            <Logo size={28} />
+          </span>
+          <span className="text-lg font-semibold tracking-tight md:text-xl">
+            <span className="md:hidden">Relay</span>
+            <span className="hidden md:inline">Chats</span>
+          </span>
           {offline ? (
             <span className="flex items-center gap-1 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200" role="status" title="Showing chats saved on this device. Messages you write are sent when you're back online.">
               <span className="size-1.5 rounded-full bg-zinc-500" /> Offline
@@ -294,7 +311,7 @@ export function Sidebar({
               setMenu({
                 at: { x: r.left - 180, y: r.bottom + 6 },
                 items: [
-                  { icon: <UsersIcon />, label: "New group", hint: "Chat with several friends", onClick: onNewGroup },
+                  ...(groupsOn ? [{ icon: <UsersIcon />, label: "New group", hint: "Chat with several friends", onClick: onNewGroup }] : []),
                   { icon: <BookmarkIcon />, label: "Saved Messages", hint: "Notes, links and files for yourself", onClick: onOpenSaved },
                   { icon: <SearchIcon />, label: "Find a friend", hint: "Search by username", onClick: () => searchRef.current?.focus() },
                 ],
@@ -306,14 +323,12 @@ export function Sidebar({
           >
             <PencilIcon className="size-5" />
           </button>
+          {/* Chill, games and settings live in the rail (desktop) and the tab bar (phones). */}
           {onOpenAdmin && (
-            <button onClick={onOpenAdmin} className={iconButton} title="Admin panel" aria-label="Admin panel">
+            <button onClick={onOpenAdmin} className={`${iconButton} md:hidden`} title="Admin panel" aria-label="Admin panel">
               <ShieldIcon className="size-5" />
             </button>
           )}
-          <button onClick={onOpenSettings} className={iconButton} title="Settings" aria-label="Settings">
-            <SettingsIcon className="size-5" />
-          </button>
         </div>
       </header>
 
@@ -369,6 +384,7 @@ export function Sidebar({
         {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
       </div>
 
+      {!q && !showArchive && loaded && storiesOn && <StoryBar me={me} rooms={rooms} />}
       {!q && !showArchive && loaded && main.length > 0 && (
         <div className="simple-hide no-scrollbar fade-x flex shrink-0 gap-1.5 overflow-x-auto px-3 pb-2 md:px-4" role="tablist" aria-label="Chat folders">
           {folders.map(([f, label, count]) => (
@@ -562,13 +578,20 @@ export function Sidebar({
         )}
       </nav>
 
-      <footer className="divider-t px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      {chillOn && <MiniPlayer onOpen={() => onOpenChill("music")} />}
+      <footer className="divider-t hidden bg-zinc-50 px-2 py-2 md:flex md:items-center md:gap-1 dark:bg-zinc-950/40">
         <button
           onClick={onOpenSettings}
-          className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-zinc-100 dark:hover:bg-zinc-800/70"
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-1.5 text-left transition hover:bg-zinc-200/70 dark:hover:bg-zinc-800/70"
           title="Profile & settings"
         >
-          <Avatar name={me.displayName} seed={me.id} size="sm" user={me} />
+          <span className="relative shrink-0">
+            <Avatar name={me.displayName} seed={me.id} size="sm" user={me} />
+            <span
+              className={`absolute -right-0.5 -bottom-0.5 size-3 rounded-full ring-2 ring-zinc-50 dark:ring-zinc-900 ${s.presence === "dnd" ? "bg-red-500" : s.presence === "invisible" ? "bg-zinc-400" : connected ? "bg-emerald-500" : "bg-amber-500"}`}
+              aria-hidden="true"
+            />
+          </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{me.displayName}</p>
             <p className="flex items-center gap-1 truncate text-xs text-zinc-500 dark:text-zinc-400">
@@ -584,7 +607,21 @@ export function Sidebar({
             <span className="rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent-fg uppercase">Admin</span>
           ) : null}
         </button>
+        <button onClick={onOpenSettings} className={iconButton} title="Settings" aria-label="Settings">
+          <SettingsIcon className="size-5" />
+        </button>
       </footer>
+      <TabBar
+        unread={main.reduce((n, r) => n + (isMuted(r) ? 0 : r.unreadCount), 0)}
+        chillOn={chillOn}
+        onChats={() => {
+          setShowArchive(false);
+          setShowRequests(false);
+          setFolder("all");
+        }}
+        onChill={onOpenChill}
+        onSettings={onOpenSettings}
+      />
 
       {menu && <PopMenu at={menu.at} title={menu.title} items={menu.items} onClose={() => setMenu(null)} />}
     </aside>
@@ -838,5 +875,47 @@ function RoomSkeleton() {
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Phones: the bottom tab bar (like Telegram's). On desktop the rail does this job. */
+function TabBar({
+  unread,
+  chillOn,
+  onChats,
+  onChill,
+  onSettings,
+}: {
+  unread: number;
+  chillOn: boolean;
+  onChats: () => void;
+  onChill: (tab: ChillTab) => void;
+  onSettings: () => void;
+}) {
+  const tab = (label: string, icon: ReactNode, onClick: () => void, current = false, badge = 0) => (
+    <button
+      onClick={onClick}
+      aria-current={current ? "page" : undefined}
+      aria-label={badge ? `${label}, ${badge} unread` : label}
+      className={`relative flex flex-1 flex-col items-center gap-0.5 pt-2 pb-1 text-[11px] font-medium ${current ? "text-accent-fg" : "text-zinc-500 dark:text-zinc-400"}`}
+    >
+      <span className="relative">
+        {icon}
+        {badge > 0 && (
+          <span className="absolute -top-1.5 left-3.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white tabular-nums">
+            {badge > 99 ? "99+" : badge}
+          </span>
+        )}
+      </span>
+      {label}
+    </button>
+  );
+  return (
+    <nav className="divider-t flex bg-white/95 pb-[max(0.25rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden dark:bg-zinc-900/95" aria-label="Sections">
+      {tab("Chats", <ChatIcon className="size-6" />, onChats, true, unread)}
+      {chillOn && tab("Chill", <MusicIcon className="size-6" />, () => onChill("shorts"))}
+      {chillOn && tab("Games", <GamepadIcon className="size-6" />, () => onChill("games"))}
+      {tab("Settings", <SettingsIcon className="size-6" />, onSettings)}
+    </nav>
   );
 }

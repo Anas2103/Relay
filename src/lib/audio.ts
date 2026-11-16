@@ -21,9 +21,16 @@ export function micConstraints(v: VoiceSettings, deviceId = liveChoice("mic")): 
     echoCancellation: v.echoCancellation,
     autoGainControl: v.autoGainControl,
     noiseSuppression: v.noiseSuppression === "standard",
+    ...(voiceIsolationSupported ? { voiceIsolation: devicePrefs.get().voiceIsolation } : {}),
     channelCount: 1,
-  };
+    sampleRate: { ideal: 48_000 },
+  } as MediaTrackConstraints;
 }
+
+/** Chrome/Edge (on devices with a voice-isolation mic mode) and Safari support "voice isolation". */
+export const voiceIsolationSupported =
+  typeof navigator !== "undefined" &&
+  !!(navigator.mediaDevices?.getSupportedConstraints?.() as Record<string, boolean> | undefined)?.voiceIsolation;
 
 /**
  * Must be called synchronously inside a tap/click (iPhones only allow audio to
@@ -47,12 +54,15 @@ export type AiEngine = "gtcrn" | "rnnoise";
  * Which neural network to run in AI mode. Measured on real speech mixed with fan
  * noise and background voices: GTCRN keeps the voice intact and removes the most
  * noise (SNR 3 dB → 15.5 dB) but needs more CPU; RNNoise is ~1.5x lighter
- * (3 dB → 12.8 dB). Computers and phones with 8+ cores get GTCRN.
+ * (3 dB → 12.8 dB). On "auto" only devices with 8+ cores get GTCRN: on a
+ * weaker laptop it can't keep up in real time and the voice turns choppy or
+ * robotic. Settings → Voice & video lets you force either one.
  */
 export function pickAiEngine(): AiEngine {
+  const pref = devicePrefs.get().aiEngine;
+  if (pref !== "auto") return pref;
   const cores = navigator.hardwareConcurrency ?? 4;
-  const desktop = window.matchMedia("(pointer: fine)").matches;
-  return desktop || cores >= 8 ? "gtcrn" : "rnnoise";
+  return cores >= 8 ? "gtcrn" : "rnnoise";
 }
 const loadedModules = new WeakMap<AudioContext, Set<string>>();
 

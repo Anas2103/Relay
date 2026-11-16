@@ -3,6 +3,7 @@ import { api } from "./api";
 import { createAudioContext, micConstraints, processMic, type AiEngine, type ProcessedMic, type VoiceSettings } from "./audio";
 import { deviceConstraint, devicePrefs, devices, liveChoice, type DeviceOption } from "./devices";
 import { canUseDevices, deviceProblem, type DeviceProblem } from "./media";
+import { isMobile, needsAudioRelay } from "./output";
 import { startTone } from "./sound";
 
 export type CallPhase = "idle" | "outgoing" | "incoming" | "connecting" | "active" | "ended";
@@ -49,6 +50,8 @@ export interface CallState {
   peerScreen: boolean;
   /** You're showing your screen. */
   screenSharing: boolean;
+  /** The sound of what you're sharing (a tab's music or video) goes to the other person too. */
+  screenAudio: boolean;
   /** This call can carry video (false only when talking to an old version of the app on a voice call). */
   canVideo: boolean;
   facing: "user" | "environment";
@@ -68,6 +71,10 @@ export interface CallState {
   /** What you hear: the remote audio, or a cleaned-up version when "clean incoming" is on. */
   playbackStream: MediaStream | null;
   incomingCleaned: boolean;
+  /** What you hear runs through a Web Audio volume knob (iPhone, or boosted above 100%). */
+  outputRelayed: boolean;
+  /** The browser paused audio processing (iPhone in the background, an interruption): a tap restarts it. */
+  audioPaused: boolean;
   /** Your raw mic (unaffected by mute), for "you're muted" hints and the speaking ring. */
   micMonitor: MediaStream | null;
   /** The devices actually in use right now. */
@@ -98,6 +105,7 @@ const IDLE: CallState = {
   peerCamOn: true,
   peerScreen: false,
   screenSharing: false,
+  screenAudio: false,
   canVideo: false,
   facing: "user",
   connectedAt: null,
@@ -109,6 +117,8 @@ const IDLE: CallState = {
   minimized: false,
   playbackStream: null,
   incomingCleaned: false,
+  outputRelayed: false,
+  audioPaused: false,
   micMonitor: null,
   micId: "",
   cameraId: "",
@@ -123,11 +133,44 @@ const RING_TIMEOUT_MS = 45_000;
 const RECONNECT_GRACE_MS = 12_000;
 const NOTICE_MS = 7000;
 
-/** Can this browser share the screen (desktop browsers; not phones)? */
-export const canShareScreen =
-  typeof navigator !== "undefined" &&
-  !!navigator.mediaDevices?.getDisplayMedia &&
-  !window.matchMedia?.("(pointer: coarse)").matches;
+/**
+ * Asks for better Opus voice than the browser default: forward error correction
+ * (hides lost packets), up to 128 kbps (the rate actually used follows
+ * Settings → Audio quality) and full-band 48 kHz. Only Opus's a=fmtp line
+ * changes, so every browser still understands the description.
+ */
+export function tuneOpus(sdp: string): string {
+  const pt = /a=rtpmap:(\d+) opus\/48000/i.exec(sdp)?.[1];
+  if (!pt) return sdp;
+  const want: [string, string][] = [
+    ["useinbandfec", "1"],
+    ["maxaveragebitrate", "128000"],
+    ["maxplaybackrate", "48000"],
+  ];
+  const lines = sdp.split("\r\n");
+  const i = lines.findIndex((l) => l.startsWith(`a=fmtp:${pt} `));
+  if (i === -1) {
+    const at = lines.findIndex((l) => l.startsWith(`a=rtpmap:${pt} `));
+    lines.splice(at + 1, 0, `a=fmtp:${pt} ${want.map((kv) => kv.join("=")).join(";")}`);
+    return lines.join("\r\n");
+  }
+  const params = new Map(
+    lines[i]
+      .slice(`a=fmtp:${pt} `.length)
+      .split(";")
+      .map((kv) => kv.trim().split("=") as [string, string])
+      .filter(([k]) => !!k),
+  );
+  for (const [k, v] of want) if (!params.has(k)) params.set(k, v);
+  lines[i] = `a=fmtp:${pt} ${[...params].map((kv) => kv.join("=")).join(";")}`;
+  return lines.join("\r\n");
+}
+
+/**
+ * Can this browser share the screen? Desktop browsers can; phones can't. (This used
+ * to check "pointer: coarse", which also hid the button on touchscreen laptops.)
+ */
+export const canShareScreen = typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia && !isMobile;
 
 /**
  * One-to-one voice/video calls over WebRTC. Audio and video go directly between
@@ -162,6 +205,9 @@ class CallManager {
   private audioCtx: AudioContext | null = null;
   private camTrack: MediaStreamTrack | null = null;
   private screenTrack: MediaStreamTrack | null = null;
+  /** The shared tab's/screen's own sound, mixed with your mic while you stream. */
+  private screenAudioTrack: MediaStreamTrack | null = null;
+  private mix: { track: MediaStreamTrack; dispose: () => void } | null = null;
   private audioSender: RTCRtpSender | null = null;
   private videoSender: RTCRtpSender | null = null;
   private remote = new MediaStream();
@@ -173,6 +219,29 @@ class CallManager {
     if (typeof window === "undefined") return;
     devicePrefs.subscribe(() => this.onPrefs());
     devices.subscribe((added) => this.onDevicesAdded(added));
+    // iPhones pause audio processing in the background or during a phone call: pick it back up.
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") void this.resumeAudio();
+    });
+  }
+
+  /** Restarts paused audio processing (call it from a tap if the browser insists). */
+  async resumeAudio(): Promise<void> {
+    const ctx = this.audioCtx;
+    if (!ctx || ctx.state === "running" || ctx.state === "closed") return;
+    await ctx.resume().catch(() => {});
+  }
+
+  private watchAudioContext(ctx: AudioContext) {
+    const update = () => {
+      if (this.audioCtx !== ctx) return;
+      // "suspended"/"interrupted": no sound gets through until it runs again.
+      const paused = ctx.state !== "running" && ctx.state !== "closed";
+      if (paused !== this.state.audioPaused) this.set({ audioPaused: paused });
+    };
+    ctx.addEventListener("statechange", update);
+    // Give the first start a moment before calling it paused.
+    window.setTimeout(update, 1500);
   }
 
   private serial<T>(job: () => Promise<T>): Promise<T> {
@@ -196,6 +265,7 @@ class CallManager {
    */
   private async openMedia(camera: boolean): Promise<void> {
     this.audioCtx = createAudioContext();
+    this.watchAudioContext(this.audioCtx);
     const raw = navigator.mediaDevices.getUserMedia({
       audio: micConstraints(this.voice),
       video: camera ? this.videoConstraints() : false,
@@ -229,6 +299,46 @@ class CallManager {
     return this.processedMic?.stream.getAudioTracks()[0] ?? null;
   }
 
+  /**
+   * What goes out on the audio channel: your mic, or — while you share a tab with
+   * sound — your mic mixed with that sound. Muting only silences the mic, so the
+   * music keeps playing for the other person.
+   */
+  private outgoingAudio(): MediaStreamTrack | null {
+    const mic = this.audioTrack();
+    const ctx = this.audioCtx;
+    this.mix?.dispose();
+    this.mix = null;
+    const tab = this.screenAudioTrack;
+    if (!tab || tab.readyState !== "live" || !ctx || !mic) return mic;
+    try {
+      const dest = ctx.createMediaStreamDestination();
+      const micIn = ctx.createMediaStreamSource(new MediaStream([mic]));
+      const tabIn = ctx.createMediaStreamSource(new MediaStream([tab]));
+      micIn.connect(dest);
+      tabIn.connect(dest);
+      ctx.resume().catch(() => {});
+      const out = dest.stream.getAudioTracks()[0];
+      this.mix = {
+        track: out,
+        dispose: () => {
+          out.stop();
+          micIn.disconnect();
+          tabIn.disconnect();
+        },
+      };
+      return out;
+    } catch (err) {
+      console.warn("Couldn't mix the shared sound in", err);
+      return mic;
+    }
+  }
+
+  private async sendOutgoingAudio() {
+    await this.audioSender?.replaceTrack(this.outgoingAudio()).catch(() => {});
+    await this.applyAudioQuality();
+  }
+
   /** Rebuilds the outgoing audio (new mic, new settings) and swaps it in place — no dropped call. */
   private swapAudio(newRaw: MediaStream | null) {
     return this.serial(async () => {
@@ -250,9 +360,9 @@ class CallManager {
       }
       const track = processed.stream.getAudioTracks()[0];
       track.enabled = this.state.micOn;
-      await this.audioSender?.replaceTrack(track).catch(() => {});
-      if (previous && previous.stream.getAudioTracks()[0] !== track) previous.dispose();
       this.processedMic = processed;
+      await this.sendOutgoingAudio();
+      if (previous && previous.stream.getAudioTracks()[0] !== track) previous.dispose();
       if (newRaw && newRaw !== previousRaw) {
         previousRaw?.getTracks().forEach((t) => t.stop());
         this.adoptMic(newRaw);
@@ -326,6 +436,8 @@ class CallManager {
     const params = sender.getParameters();
     if (!params.encodings?.length) return; // not negotiated yet; applied again once connected
     const screen = !!this.screenTrack;
+    // A shared video should stay smooth; shared text should stay sharp.
+    params.degradationPreference = screen && devicePrefs.get().shareMode === "detail" ? "maintain-resolution" : screen ? "maintain-framerate" : "balanced";
     for (const e of params.encodings) {
       if (quality === "saver") {
         e.maxBitrate = screen ? 500_000 : 250_000;
@@ -337,6 +449,29 @@ class CallManager {
         delete e.maxBitrate;
         e.scaleResolutionDownBy = 1;
       }
+    }
+    await sender.setParameters(params).catch(() => {});
+  }
+
+  /**
+   * Voice quality you send (Opus). "auto" is clear voice (up to 48 kbps, and the browser
+   * still lowers it on a bad network), "high" allows up to 128 kbps for the clearest voice and music,
+   * "saver" caps it at 16 kbps for very weak connections. Voice always gets
+   * priority over video when the network is busy.
+   */
+  private async applyAudioQuality() {
+    const sender = this.audioSender;
+    if (!sender) return;
+    const quality = devicePrefs.get().audioQuality;
+    const params = sender.getParameters();
+    if (!params.encodings?.length) return;
+    // Streaming a tab's music or video: give it room, unless you asked to save data.
+    const music = !!this.mix;
+    for (const e of params.encodings) {
+      // "auto": 48 kbps is clear wideband voice and still tiny next to video.
+      e.maxBitrate = quality === "saver" ? (music ? 32_000 : 16_000) : quality === "high" || music ? 128_000 : 48_000;
+      e.priority = "high";
+      (e as RTCRtpEncodingParameters & { networkPriority?: RTCPriorityType }).networkPriority = "high";
     }
     await sender.setParameters(params).catch(() => {});
   }
@@ -450,6 +585,18 @@ class CallManager {
     }
     if (p.pushToTalk !== before.pushToTalk) this.setMicOn(!p.pushToTalk);
     if (p.videoQuality !== before.videoQuality) void this.applyVideoQuality();
+    if (p.audioQuality !== before.audioQuality) void this.applyAudioQuality();
+    if (p.outputVolume !== before.outputVolume) this.onOutputVolume(p.outputVolume);
+    if (p.voiceIsolation !== before.voiceIsolation && p.mic === before.mic) {
+      void this.openMicOnly(liveChoice("mic"))
+        .then((fresh) => this.swapAudio(fresh))
+        .catch(() => this.notify("Couldn't change voice isolation"));
+    }
+    if (p.aiEngine !== before.aiEngine && this.voice.noiseSuppression === "ai") void this.swapAudio(null);
+    if (p.shareMode !== before.shareMode && this.screenTrack) {
+      this.screenTrack.contentHint = p.shareMode === "motion" ? "motion" : "detail";
+      void this.applyVideoQuality();
+    }
     if (p.micVolume !== before.micVolume) {
       if (this.processedMic?.setVolume) this.processedMic.setVolume(p.micVolume);
       else void this.swapAudio(null);
@@ -513,14 +660,10 @@ class CallManager {
     }
     const audio = remote.getAudioTracks();
     if (!this.cleanIncoming || !this.audioCtx || audio.length === 0) {
-      this.set({ playbackStream: remote, incomingCleaned: false });
+      this.set({ playbackStream: this.withOutputStage(remote, remote), incomingCleaned: false });
       return;
     }
-    // Chrome only feeds a remote WebRTC stream into Web Audio while it's also attached to a media element.
-    this.feeder ??= new Audio();
-    this.feeder.muted = true;
-    this.feeder.srcObject = remote;
-    this.feeder.play().catch(() => {});
+    this.feed(remote);
     const processed = await processMic(
       new MediaStream(audio),
       { noiseSuppression: "ai", echoCancellation: false, autoGainControl: false, noiseGate: false },
@@ -533,15 +676,90 @@ class CallManager {
     }
     if (processed.mode !== "ai" || this.state.remoteStream !== remote) {
       processed.dispose();
-      this.set({ playbackStream: this.state.remoteStream, incomingCleaned: false });
+      const now = this.state.remoteStream;
+      this.set({ playbackStream: now ? this.withOutputStage(now, now) : null, incomingCleaned: false });
       return;
     }
     this.incomingProcessed = processed;
-    this.set({ playbackStream: new MediaStream([...processed.stream.getAudioTracks(), ...remote.getVideoTracks()]), incomingCleaned: true });
+    const cleaned = new MediaStream([...processed.stream.getAudioTracks(), ...remote.getVideoTracks()]);
+    this.set({ playbackStream: this.withOutputStage(cleaned, remote), incomingCleaned: true });
+  }
+
+  /** Chrome only feeds a remote WebRTC stream into Web Audio while it's also attached to a media element. */
+  private feed(remote: MediaStream) {
+    this.feeder ??= new Audio();
+    this.feeder.muted = true;
+    if (this.feeder.srcObject !== remote) this.feeder.srcObject = remote;
+    this.feeder.play().catch(() => {});
+  }
+
+  private outputStage: { gain: GainNode; dispose: () => void } | null = null;
+
+  /**
+   * The volume knob for what you hear. Usually the <audio> element's own volume
+   * does it; but on iPhone/iPad that volume is fixed, boosting above 100% needs
+   * Web Audio, and Safari only honours a chosen speaker for WebRTC audio after it
+   * has passed through Web Audio. In those cases the sound goes
+   * remote → gain → a fresh stream → the same <audio> element (so the speaker
+   * choice still applies there).
+   */
+  private withOutputStage(stream: MediaStream, remote: MediaStream): MediaStream {
+    this.outputStage?.dispose();
+    this.outputStage = null;
+    const ctx = this.audioCtx;
+    const volume = devicePrefs.get().outputVolume;
+    const audio = stream.getAudioTracks();
+    if (!ctx || audio.length === 0 || !needsAudioRelay(volume)) {
+      if (this.state.outputRelayed) this.set({ outputRelayed: false });
+      return stream;
+    }
+    try {
+      if (stream === remote) this.feed(remote);
+      const source = ctx.createMediaStreamSource(new MediaStream(audio));
+      const gain = ctx.createGain();
+      gain.gain.value = volume / 100;
+      // A gentle limiter so a boosted voice never clips into distortion.
+      const limiter = ctx.createDynamicsCompressor();
+      limiter.threshold.value = -3;
+      limiter.knee.value = 0;
+      limiter.ratio.value = 20;
+      limiter.attack.value = 0.003;
+      limiter.release.value = 0.1;
+      const dest = ctx.createMediaStreamDestination();
+      source.connect(gain).connect(limiter).connect(dest);
+      ctx.resume().catch(() => {});
+      const out = dest.stream.getAudioTracks()[0];
+      this.outputStage = {
+        gain,
+        dispose: () => {
+          out.stop();
+          for (const n of [source, gain, limiter]) n.disconnect();
+        },
+      };
+      this.set({ outputRelayed: true });
+      // Keep the video track in the stream: Safari ignores the speaker choice on single-track streams.
+      return new MediaStream([out, ...remote.getVideoTracks()]);
+    } catch (err) {
+      console.warn("Volume control unavailable, playing directly", err);
+      this.set({ outputRelayed: false });
+      return stream;
+    }
+  }
+
+  private onOutputVolume(volume: number) {
+    if (this.outputStage && needsAudioRelay(volume)) {
+      const ctx = this.audioCtx;
+      if (ctx) this.outputStage.gain.gain.setTargetAtTime(volume / 100, ctx.currentTime, 0.03);
+      return;
+    }
+    // Crossed 100% (or the stage isn't there yet): rebuild what you hear.
+    if (!!this.outputStage !== needsAudioRelay(volume)) void this.setupPlayback();
   }
 
   private releaseMedia() {
     this.playbackRun++;
+    this.outputStage?.dispose();
+    this.outputStage = null;
     this.incomingProcessed?.dispose();
     this.incomingProcessed = null;
     if (this.feeder) this.feeder.srcObject = null;
@@ -553,6 +771,10 @@ class CallManager {
     this.camTrack = null;
     this.screenTrack?.stop();
     this.screenTrack = null;
+    this.mix?.dispose();
+    this.mix = null;
+    this.screenAudioTrack?.stop();
+    this.screenAudioTrack = null;
     this.state.micMonitor?.getTracks().forEach((t) => t.stop());
     this.audioCtx?.close().catch(() => {});
     this.audioCtx = null;
@@ -621,7 +843,8 @@ class CallManager {
       // (Same stream id as the audio, so older app versions keep both in one stream.)
       this.videoSender = pc.addTransceiver(this.camTrack ?? "video", { direction: "sendrecv", streams: [this.state.localStream!] }).sender;
       this.set({ canVideo: true });
-      const offer = await pc.createOffer();
+      const raw = await pc.createOffer();
+      const offer = { type: raw.type, sdp: tuneOpus(raw.sdp ?? "") };
       await pc.setLocalDescription(offer);
       if (!this.signal({ type: "invite", sdp: offer.sdp ?? "", video })) {
         return this.finish("You're offline", "failed");
@@ -764,7 +987,8 @@ class CallManager {
       }
       this.set({ canVideo: !!videoTx });
       await this.flushIce();
-      const answer = await pc.createAnswer();
+      const raw = await pc.createAnswer();
+      const answer = { type: raw.type, sdp: tuneOpus(raw.sdp ?? "") };
       await pc.setLocalDescription(answer);
       this.signal({ type: "accept", sdp: answer.sdp ?? "" });
       this.sendMedia();
@@ -886,28 +1110,59 @@ class CallManager {
     });
   }
 
-  /** Shows your screen (or a window/tab) instead of your camera. Desktop only. */
+  /**
+   * Streams your screen, a window or a browser tab instead of your camera — with
+   * its sound (music, a video) mixed into what the other person hears. Desktop only.
+   */
   async toggleScreenShare() {
-    if (this.screenTrack) return this.stopScreenShare();
-    if (!canShareScreen || !this.state.canVideo || !this.videoSender) return;
-    let track: MediaStreamTrack;
+    if (this.screenTrack) return this.serial(() => this.stopScreenShare());
+    if (!canShareScreen || !this.videoSender) return;
+    if (!this.state.canVideo) return this.notify("Their app is out of date — they need to reload Relay to see your screen");
+    const prefs = devicePrefs.get();
+    const motion = prefs.shareMode === "motion";
+    let s: MediaStream;
     try {
-      const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15, max: 30 } }, audio: false });
-      track = s.getVideoTracks()[0];
-    } catch {
+      // Called straight from the tap (no await before it), or the browser refuses.
+      s = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal: motion ? 30 : 15, max: 30 }, width: { max: 1920 }, height: { max: 1080 } },
+        // Raw sound: the voice filters would wreck music.
+        audio: prefs.shareAudio ? { echoCancellation: false, noiseSuppression: false, autoGainControl: false } : false,
+        // Chrome/Edge: offer "share system audio" too, and don't offer Relay's own tab (it would echo forever).
+        systemAudio: "include",
+        selfBrowserSurface: "exclude",
+        surfaceSwitching: "include",
+      } as DisplayMediaStreamOptions);
+    } catch (err) {
+      const name = (err as { name?: string })?.name;
+      if (name !== "NotAllowedError" && name !== "AbortError") this.notify("Couldn't share your screen in this browser");
       return; // picker closed
     }
-    if (!this.live) return track.stop();
-    track.contentHint = "detail"; // keep text sharp
-    track.addEventListener("ended", () => {
-      if (this.screenTrack === track) void this.stopScreenShare(); // "Stop sharing" in the browser bar
+    const track = s.getVideoTracks()[0];
+    const sound = s.getAudioTracks()[0] ?? null;
+    return this.serial(async () => {
+      if (!this.live || !track) {
+        s.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      track.contentHint = motion ? "motion" : "detail";
+      track.addEventListener("ended", () => {
+        if (this.screenTrack === track) void this.serial(() => this.stopScreenShare()); // "Stop sharing" in the browser bar
+      });
+      this.screenTrack = track;
+      await this.videoSender?.replaceTrack(track).catch(() => {});
+      if (sound) {
+        sound.contentHint = "music";
+        this.screenAudioTrack = sound;
+        await this.sendOutgoingAudio();
+      }
+      this.set({ screenSharing: true, screenAudio: !!sound && !!this.mix });
+      this.composeLocal();
+      this.sendMedia();
+      void this.applyVideoQuality();
+      if (prefs.shareAudio && !sound) {
+        this.notify("Sharing without sound — to stream music or a video, share a browser tab and turn on “Share tab audio”");
+      }
     });
-    this.screenTrack = track;
-    await this.videoSender.replaceTrack(track).catch(() => {});
-    this.set({ screenSharing: true });
-    this.composeLocal();
-    this.sendMedia();
-    void this.applyVideoQuality();
   }
 
   private async stopScreenShare() {
@@ -915,10 +1170,15 @@ class CallManager {
     if (!track) return;
     this.screenTrack = null;
     track.stop();
+    const sound = this.screenAudioTrack;
+    this.screenAudioTrack = null;
+    sound?.stop();
+    if (sound) await this.sendOutgoingAudio();
     await this.videoSender?.replaceTrack(this.state.camOn ? this.camTrack : null).catch(() => {});
-    this.set({ screenSharing: false });
+    this.set({ screenSharing: false, screenAudio: false });
     this.composeLocal();
     this.sendMedia();
+    void this.applyVideoQuality();
   }
 
   // ---- internals ----
@@ -956,6 +1216,7 @@ class CallManager {
           this.sendMedia();
           this.startStats(pc);
           void this.applyVideoQuality();
+          void this.applyAudioQuality();
         }
       } else if (s === "disconnected") {
         this.set({ reconnecting: true });
@@ -1059,6 +1320,7 @@ class CallManager {
       incomingCleaned: false,
       reconnecting: false,
       screenSharing: false,
+      screenAudio: false,
       notice: null,
       quality: null,
       stats: null,

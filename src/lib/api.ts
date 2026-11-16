@@ -1,4 +1,5 @@
-import type { Sticker,
+import type { ChatThemeId } from "../../shared/chatThemes";
+import type { ChillEpisode, ChillPodcast, ChillStation, ChillTrack, ChillVideo, FunItem, TriviaQuestion, Sticker, StoryGroup, OwnerSearchHit, OwnerStory, OwnerUserDetail, SiteFeatures,
   AdminReport,
   AdminRoom,
   GroupBan,
@@ -173,10 +174,32 @@ export const api = {
     request<{ text: string; language: string | null }>(`/api/rooms/${roomId}/messages/${messageId}/transcript`, { method: "POST", body: {} }),
   translate: (roomId: string, messageId: string, lang: string) =>
     request<{ text: string }>(`/api/rooms/${roomId}/messages/${messageId}/translate`, { method: "POST", body: { lang } }),
+  stories: () => request<{ groups: StoryGroup[] }>("/api/stories"),
+  postTextStory: (text: string, background: string) => request<{ id: string }>("/api/stories", { method: "POST", body: { text, background } }),
+  postPhotoStory: (blob: Blob, width: number, height: number, text: string) =>
+    request<{ id: string }>(`/api/stories?w=${width}&h=${height}&text=${encodeURIComponent(text)}`, { method: "POST", raw: blob }),
+  viewStory: (id: string) => request<{ ok: true }>(`/api/stories/${id}/view`, { method: "POST", body: {} }),
+  storyViewers: (id: string) => request<{ viewers: { user: User; viewedAt: number }[] }>(`/api/stories/${id}/viewers`),
+  deleteStory: (id: string) => request<{ ok: true }>(`/api/stories/${id}`, { method: "DELETE" }),
   stickers: () => request<{ stickers: Sticker[] }>("/api/stickers"),
   addSticker: (blob: Blob, width: number, height: number) =>
     request<{ sticker: Sticker }>(`/api/stickers?w=${width}&h=${height}`, { method: "POST", raw: blob }),
   removeSticker: (id: string) => request<{ ok: true }>(`/api/stickers/${id}`, { method: "DELETE" }),
+  chillStatus: () => request<{ youtube: boolean }>("/api/chill/status"),
+  shorts: (o: { topic?: string; q?: string; page?: string }) =>
+    request<{ videos: ChillVideo[]; next: string | null }>(
+      `/api/chill/shorts?${new URLSearchParams(Object.entries(o).filter(([, v]) => !!v) as [string, string][])}`,
+    ),
+  videos: (q: string) => request<{ videos: ChillVideo[] }>(`/api/chill/videos?q=${encodeURIComponent(q)}`),
+  songs: (q: string) => request<{ tracks: ChillTrack[] }>(`/api/chill/songs?q=${encodeURIComponent(q)}`),
+  music: (q: string) => request<{ tracks: ChillTrack[] }>(`/api/chill/music?q=${encodeURIComponent(q)}`),
+  radio: (o: { q?: string; country?: string; tag?: string }) =>
+    request<{ stations: ChillStation[] }>(`/api/chill/radio?${new URLSearchParams(Object.entries(o).filter(([, v]) => !!v) as [string, string][])}`),
+  podcasts: (q: string) => request<{ podcasts: ChillPodcast[] }>(`/api/chill/podcasts?q=${encodeURIComponent(q)}`),
+  episodes: (id: string) => request<{ episodes: ChillEpisode[] }>(`/api/chill/podcasts/${id}`),
+  trivia: (category: string, difficulty: string) =>
+    request<{ questions: TriviaQuestion[] }>(`/api/chill/trivia?category=${encodeURIComponent(category)}&difficulty=${encodeURIComponent(difficulty)}`),
+  fun: (kind: "joke" | "fact") => request<{ item: FunItem }>(`/api/chill/fun?kind=${kind}`),
   openSaved: () => request<{ room: Room }>("/api/rooms/saved", { method: "POST", body: {} }),
   deleteChat: (roomId: string) => request<{ ok: true }>(`/api/rooms/${roomId}`, { method: "DELETE", body: {} }),
   updatePrefs: (roomId: string, data: { pinned?: boolean; archived?: boolean; mutedUntil?: number | null }) =>
@@ -188,7 +211,7 @@ export const api = {
   secretInfo: (roomId: string) => request<{ secret: SecretInfo }>(`/api/rooms/${roomId}/secret`),
   exportUrl: "/api/account/export",
   createGroup: (name: string, memberIds: string[]) => request<{ room: Room }>("/api/groups", { method: "POST", body: { name, memberIds } }),
-  updateRoom: (roomId: string, data: { name?: string; disappearMs?: number | null; adminsOnly?: boolean; slowModeMs?: number }) =>
+  updateRoom: (roomId: string, data: { name?: string; disappearMs?: number | null; adminsOnly?: boolean; slowModeMs?: number; theme?: ChatThemeId | null }) =>
     request<{ room: Room }>(`/api/rooms/${roomId}`, { method: "PATCH", body: data }),
   setInvite: (roomId: string, on: boolean) =>
     request<{ room: Room }>(`/api/rooms/${roomId}/invite`, { method: on ? "POST" : "DELETE", body: {} }),
@@ -279,7 +302,8 @@ export const api = {
     signOutEverywhere: (id: string) =>
       request<{ user: AdminUser }>(`/api/admin/users/${id}/sessions`, { method: "DELETE", body: {} }),
     deleteUser: (id: string) => request<{ ok: true }>(`/api/admin/users/${id}`, { method: "DELETE", body: {} }),
-    audit: () => request<{ entries: AuditEntry[] }>("/api/admin/audit"),
+    audit: (q = "", before?: number) =>
+      request<{ entries: AuditEntry[] }>(`/api/admin/audit?q=${encodeURIComponent(q)}${before ? `&before=${before}` : ""}`),
     reports: (status: "open" | "closed" = "open") => request<{ reports: AdminReport[]; open: number }>(`/api/admin/reports?status=${status}`),
     resolveReport: (id: string, status: "resolved" | "dismissed") =>
       request<{ ok: true }>(`/api/admin/reports/${id}`, { method: "PATCH", body: { status } }),
@@ -295,7 +319,23 @@ export const api = {
     deleteRoom: (roomId: string) => request<{ ok: true }>(`/api/admin/rooms/${roomId}`, { method: "DELETE", body: {} }),
     exportUrl: (roomId: string) => `/api/admin/rooms/${roomId}/export`,
     site: () => request<{ site: SiteSettings }>("/api/admin/site"),
-    updateSite: (data: { announcement?: string; registrationOpen?: boolean; maintenance?: boolean }) =>
+    updateSite: (data: { announcement?: string; registrationOpen?: boolean; maintenance?: boolean; readOnly?: boolean; features?: Partial<SiteFeatures> }) =>
       request<{ site: SiteSettings }>("/api/admin/site", { method: "PUT", body: data }),
+    /** Owner only (the highest authority). */
+    owner: {
+      broadcast: (title: string, text: string, push: boolean) =>
+        request<{ ok: true; sent: number }>("/api/admin/owner/broadcast", { method: "POST", body: { title, text, push } }),
+      signOutAll: () => request<{ ok: true; accounts: number }>("/api/admin/owner/signout-all", { method: "POST", body: {} }),
+      user: (id: string) => request<{ detail: OwnerUserDetail }>(`/api/admin/owner/users/${id}`),
+      signOutDevice: (userId: string, sessionId: string) =>
+        request<{ ok: true }>(`/api/admin/owner/users/${userId}/sessions/${sessionId}`, { method: "DELETE", body: {} }),
+      eraseMessages: (userId: string) =>
+        request<{ ok: true; deleted: number }>(`/api/admin/owner/users/${userId}/messages`, { method: "DELETE", body: {} }),
+      joinGroup: (roomId: string) => request<{ ok: true; roomId: string }>(`/api/admin/owner/rooms/${roomId}/join`, { method: "POST", body: {} }),
+      stories: () => request<{ stories: OwnerStory[] }>("/api/admin/owner/stories"),
+      storyMediaUrl: (id: string) => `/api/admin/owner/stories/${id}/media`,
+      deleteStory: (id: string) => request<{ ok: true }>(`/api/admin/owner/stories/${id}`, { method: "DELETE", body: {} }),
+      search: (q: string) => request<{ hits: OwnerSearchHit[] }>(`/api/admin/owner/search?q=${encodeURIComponent(q)}`),
+    },
   },
 };

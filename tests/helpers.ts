@@ -72,7 +72,7 @@ export function call<T>(page: Page, fn: string): Promise<T> {
       if (r.type === "inbound-rtp" && r.kind === "audio") audioIn += r.bytesReceived;
       if (r.type === "inbound-rtp" && r.kind === "video") frames += r.framesDecoded ?? 0;
     });
-    const result = (0, eval)(fn)(calls, { audioIn, frames });
+    const result = await (0, eval)(fn)(calls, { audioIn, frames });
     return JSON.parse(JSON.stringify(result ?? null, (_k, v) => (v instanceof MediaStream ? v.getTracks().map((t) => t.kind).join(",") : v)));
   }, fn) as Promise<T>;
 }

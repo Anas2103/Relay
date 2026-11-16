@@ -17,6 +17,7 @@ export function MessageMenu({
   canForward,
   canRemind,
   canTranslate,
+  canSticker = false,
   seenCount,
   onAction,
   onClose,
@@ -33,6 +34,8 @@ export function MessageMenu({
   canRemind?: boolean;
   /** Not in secret chats (the server would have to read it). */
   canTranslate?: boolean;
+  /** Not in secret chats (your sticker collection is stored on the server, unencrypted). */
+  canSticker?: boolean;
   onAction: (action: MenuAction) => void;
   onClose: () => void;
 }) {
@@ -66,7 +69,7 @@ export function MessageMenu({
   }, [onClose]);
 
   const locked = (message as UiMessage & { locked?: boolean }).locked === true;
-  const canCopy = !locked && (message.kind === "text" || !!message.body);
+  const canCopy = !locked && message.kind !== "game" && (message.kind === "text" || !!message.body);
   const canEdit = mine && message.kind === "text" && !locked;
   const canPin = message.kind !== "call";
   // Simple mode keeps only the everyday actions.
@@ -108,7 +111,7 @@ export function MessageMenu({
           {canTranslate && !locked && (message.kind === "voice" ? message.transcript?.state === "done" || !!message.transcriptText : !!message.body.trim() && !message.meta?.location) && message.kind !== "call" && (
             <MenuItem icon={<GlobeIcon className="size-4" />} label={message.translation ? "Translate again" : "Translate"} onClick={() => onAction("translate")} />
           )}
-          {message.kind === "image" && !message.meta?.viewOnce && !locked && !message.meta?.sticker && (
+          {canSticker && message.kind === "image" && !message.meta?.viewOnce && !locked && !message.meta?.sticker && (
             <MenuItem icon={<SmileIcon className="size-4" />} label="Add to stickers" onClick={() => onAction("sticker")} />
           )}
           {canRemind && message.kind !== "call" && (

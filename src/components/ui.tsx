@@ -611,3 +611,68 @@ export const ClockIcon = (p: IconProps) => (
     <path d="M12 7v5l3 2" />
   </svg>
 );
+
+// ---------- Chill (music & Shorts) ----------
+export const MusicIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M9 18V5l12-2v13" />
+    <circle cx="6" cy="18" r="3" />
+    <circle cx="18" cy="16" r="3" />
+  </svg>
+);
+export const SkipNextIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="m5 4 10 8-10 8z" fill="currentColor" />
+    <path d="M19 5v14" />
+  </svg>
+);
+export const SkipPrevIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="m19 20-10-8 10-8z" fill="currentColor" />
+    <path d="M5 19V5" />
+  </svg>
+);
+export const ShuffleIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22" />
+    <path d="m18 2 4 4-4 4" />
+    <path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2" />
+    <path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8" />
+    <path d="m18 14 4 4-4 4" />
+  </svg>
+);
+export const RepeatIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="m17 2 4 4-4 4" />
+    <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+    <path d="m7 22-4-4 4-4" />
+    <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+  </svg>
+);
+export const VolumeOffIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M11 5 6 9H2v6h4l5 4z" />
+    <path d="m22 9-6 6" />
+    <path d="m16 9 6 6" />
+  </svg>
+);
+export const ListIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M3 6h13M3 12h13M3 18h9" />
+    <path d="M19 14v7" />
+    <path d="M16 18h6" />
+  </svg>
+);
+export const ClapperIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect x="3" y="7" width="18" height="14" rx="2" />
+    <path d="m3 7 3.5-4 3.4 4M10 3l3.5 4M14 3l3.5 4" />
+  </svg>
+);
+
+export const GamepadIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M6 11h4M8 9v4M15 12h.01M18 10h.01" />
+    <path d="M17.3 5H6.7a4 4 0 0 0-3.96 3.43l-.73 5.1A3 3 0 0 0 7.3 15.6L9 14h6l1.7 1.6a3 3 0 0 0 5.29-2.07l-.73-5.1A4 4 0 0 0 17.3 5Z" />
+  </svg>
+);

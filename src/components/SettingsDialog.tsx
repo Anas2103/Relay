@@ -24,10 +24,24 @@ import { TRANSLATE_LANGUAGES,
   type Wallpaper,
 } from "../../shared/types";
 import { api, ApiError } from "../lib/api";
-import { createAudioContext, micConstraints, processMic, type VoiceSettings } from "../lib/audio";
+import { createAudioContext, micConstraints, processMic, voiceIsolationSupported, type VoiceSettings } from "../lib/audio";
 import { hasAnySecretKeys } from "../lib/e2e";
 import { deviceProblem, prepareAvatar, type DeviceProblem } from "../lib/media";
-import { canPickSpeaker, deviceConstraint, devicePrefs, liveChoice, playTestSound, refreshDevices, RINGTONES, unlockDeviceNames, type DeviceOption } from "../lib/devices";
+import { elementVolumeWorks, outputMethod } from "../lib/output";
+import { OutputPicker } from "./OutputPicker";
+import {
+  applySpeaker,
+  deviceConstraint,
+  devicePrefs,
+  liveChoice,
+  MESSAGE_TONES,
+  refreshDevices,
+  RINGTONES,
+  unlockDeviceNames,
+  VOICE_RATES,
+  type DeviceOption,
+} from "../lib/devices";
+import { canShareScreen } from "../lib/calls";
 import { useDeviceList, useDevicePrefs } from "../lib/useDevices";
 import { offlineEnabled, setOfflineEnabled } from "../lib/offline";
 import { canInstall, disablePush, enablePush, install, isInstalled, onInstallChange, pushStatus, type PushStatus } from "../lib/pwa";
@@ -511,6 +525,12 @@ function AppearanceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => v
             checked={s.showOthersBubbles}
             onChange={() => save({ showOthersBubbles: !s.showOthersBubbles })}
           />
+          <ToggleRow
+            title="Show chat themes"
+            description="Chats can have their own theme, picked by anyone in them. Turn off to always use your own colors and wallpaper."
+            checked={s.chatThemes}
+            onChange={() => save({ chatThemes: !s.chatThemes })}
+          />
         </div>
       </section>
 
@@ -943,6 +963,7 @@ function VoiceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void }
             </button>
           ))}
         </div>
+        {s.noiseSuppression === "ai" && <AiEngineSetting />}
       </section>
 
       <section className="space-y-4">
@@ -974,8 +995,113 @@ function VoiceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void }
       </section>
 
       <MicTest voice={s} />
+      <VoiceMessagesSection />
+      {canShareScreen && <ScreenShareSection />}
       {error && <StatusLine status={{ kind: "error", text: error }} />}
     </div>
+  );
+}
+
+/** Which new-message sound, and how loud (saved on this device). */
+function MessageSoundPicker() {
+  const prefs = useDevicePrefs();
+  return (
+    <div className="space-y-3 rounded-xl bg-zinc-50 p-3 dark:bg-zinc-800/60">
+      <Segmented
+        label="Sound"
+        value={prefs.messageTone}
+        options={MESSAGE_TONES}
+        onPick={(v) => {
+          devicePrefs.set({ messageTone: v });
+          playMessageSound({ tone: v, volume: prefs.messageVolume });
+        }}
+      />
+      <Slider
+        label="Volume"
+        value={prefs.messageVolume}
+        min={0}
+        max={100}
+        step={5}
+        unit="%"
+        onChange={(v) => devicePrefs.set({ messageVolume: v })}
+      />
+      <button
+        onClick={() => playMessageSound({ tone: prefs.messageTone, volume: prefs.messageVolume })}
+        className="rounded-lg bg-zinc-200 px-3 py-1.5 text-xs font-semibold hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600"
+      >
+        Play it
+      </button>
+    </div>
+  );
+}
+
+function AiEngineSetting() {
+  const prefs = useDevicePrefs();
+  return (
+    <div className="mt-3">
+      <Segmented
+        label="AI filter"
+        value={prefs.aiEngine}
+        options={[
+          ["auto", "Auto"],
+          ["gtcrn", "Max quality"],
+          ["rnnoise", "Light"],
+        ]}
+        onPick={(v) => devicePrefs.set({ aiEngine: v })}
+      />
+      <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+        Max quality removes the most noise but needs a strong computer. If your voice sounds choppy or robotic to others, pick Light. Auto chooses for this device.
+      </p>
+    </div>
+  );
+}
+
+function VoiceMessagesSection() {
+  const prefs = useDevicePrefs();
+  return (
+    <section className="space-y-4 border-t border-zinc-200 pt-5 dark:border-zinc-800">
+      <SectionTitle title="Voice messages" hint="How voice messages play on this device." />
+      <Slider label="Volume" value={prefs.voiceVolume} min={0} max={100} step={5} unit="%" onChange={(v) => devicePrefs.set({ voiceVolume: v })} />
+      <Segmented
+        label="Speed"
+        value={String(prefs.voiceRate)}
+        options={VOICE_RATES.map((r) => [String(r), `${r}×`] as [string, string])}
+        onPick={(v) => devicePrefs.set({ voiceRate: Number(v) })}
+      />
+      <ToggleRow
+        title="Play the next one automatically"
+        description="When a voice message ends, the next one in the chat starts, like a playlist."
+        checked={prefs.voiceAutoplay}
+        onChange={() => devicePrefs.set({ voiceAutoplay: !prefs.voiceAutoplay })}
+      />
+    </section>
+  );
+}
+
+function ScreenShareSection() {
+  const prefs = useDevicePrefs();
+  return (
+    <section className="space-y-4 border-t border-zinc-200 pt-5 dark:border-zinc-800">
+      <SectionTitle
+        title="Screen sharing"
+        hint="Stream a tab, a window or your whole screen in a call (computers only). To share music or a video with sound, share a browser tab."
+      />
+      <Segmented
+        label="Optimize for"
+        value={prefs.shareMode}
+        options={[
+          ["motion", "Videos & music"],
+          ["detail", "Text & slides"],
+        ]}
+        onPick={(v) => devicePrefs.set({ shareMode: v })}
+      />
+      <ToggleRow
+        title="Share the sound too"
+        description="The other person hears what's playing in the tab you share (Chrome and Edge also offer your whole computer's sound). Use headphones so your mic doesn't pick it up twice."
+        checked={prefs.shareAudio}
+        onChange={() => devicePrefs.set({ shareAudio: !prefs.shareAudio })}
+      />
+    </section>
   );
 }
 
@@ -986,7 +1112,6 @@ function DevicesSection() {
   const [unlocking, setUnlocking] = useState(false);
   const [problem, setProblem] = useState<DeviceProblem | null>(null);
   const [preview, setPreview] = useState(false);
-  const [testing, setTesting] = useState(false);
 
   async function unlock() {
     setUnlocking(true);
@@ -998,12 +1123,6 @@ function DevicesSection() {
     } finally {
       setUnlocking(false);
     }
-  }
-
-  async function testSpeaker() {
-    setTesting(true);
-    await playTestSound(liveChoice("speaker"), prefs.outputVolume).catch(() => {});
-    window.setTimeout(() => setTesting(false), 900);
   }
 
   return (
@@ -1032,42 +1151,46 @@ function DevicesSection() {
         unit="%"
         onChange={(v) => devicePrefs.set({ micVolume: v })}
       />
-      {canPickSpeaker ? (
-        <DevicePicker
-          label="Speaker"
-          value={liveChoice("speaker")}
-          options={list.speakers}
-          onPick={(id) => devicePrefs.set({ speaker: id })}
-          extra={
-            <button
-              onClick={() => void testSpeaker()}
-              className="shrink-0 rounded-xl bg-zinc-100 px-3 text-sm font-medium hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-            >
-              {testing ? "Playing…" : "Test"}
-            </button>
-          }
-        />
-      ) : (
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">This browser plays calls through your system's speaker — change it in your device's sound settings.</p>
-          <button
-            onClick={() => void testSpeaker()}
-            className="shrink-0 rounded-xl bg-zinc-100 px-3 py-2 text-sm font-medium hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-          >
-            {testing ? "Playing…" : "Test sound"}
-          </button>
-        </div>
-      )}
+      <div>
+        <p className="mb-1.5 text-sm font-medium">Sound output</p>
+        <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+          {outputMethod === "route"
+            ? "Loudspeaker, phone earpiece, wired or Bluetooth headphones."
+            : "Where you hear calls, voice messages and ringtones."}
+        </p>
+        <OutputPicker audioEl={null} light />
+      </div>
       <Slider
         label="Call volume"
-        hint="How loud the other person is."
+        hint={elementVolumeWorks ? "How loud the other person is. Above 100% boosts a quiet caller." : "How loud the other person is (on top of your side buttons). Above 100% boosts a quiet caller."}
         value={prefs.outputVolume}
         min={0}
-        max={100}
+        max={200}
         step={5}
         unit="%"
         onChange={(v) => devicePrefs.set({ outputVolume: v })}
       />
+      <Segmented
+        label="Voice quality I send"
+        value={prefs.audioQuality}
+        options={[
+          ["auto", "Clear"],
+          ["high", "Studio"],
+          ["saver", "Data saver"],
+        ]}
+        onPick={(v) => devicePrefs.set({ audioQuality: v })}
+      />
+      <p className="-mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        Clear is great for talking. Studio sends up to 128 kbps (music, singing). Data saver uses very little on weak connections.
+      </p>
+      {voiceIsolationSupported ? (
+        <ToggleRow
+          title="Voice isolation"
+          description="Uses your device's own voice filter to keep only your voice. Works with or without AI noise suppression."
+          checked={prefs.voiceIsolation}
+          onChange={() => devicePrefs.set({ voiceIsolation: !prefs.voiceIsolation })}
+        />
+      ) : null}
       <DevicePicker label="Camera" value={liveChoice("camera")} options={list.cameras} onPick={(id) => devicePrefs.set({ camera: id })}
         extra={
           <button
@@ -1223,7 +1346,7 @@ function MicTest({ voice }: { voice: VoiceSettings }) {
   const session = useRef<{ stop: () => void; setListen: (on: boolean) => void } | null>(null);
 
   // Restart with new settings when they change mid-test.
-  const key = JSON.stringify([voice, prefs.mic, prefs.micVolume, prefs.speaker]);
+  const key = JSON.stringify([voice, prefs.mic, prefs.micVolume, prefs.speaker, prefs.voiceIsolation, prefs.aiEngine]);
   useEffect(() => {
     if (!running) return;
     session.current?.stop();
@@ -1235,9 +1358,7 @@ function MicTest({ voice }: { voice: VoiceSettings }) {
 
   async function start() {
     const ctx = createAudioContext();
-    // "Hear yourself" plays on the chosen speaker (Chrome/Edge).
-    const speaker = liveChoice("speaker");
-    if (speaker) void (ctx as AudioContext & { setSinkId?: (id: string) => Promise<void> }).setSinkId?.(speaker).catch(() => {});
+    ctx.resume().catch(() => {});
     let raw: MediaStream;
     try {
       raw = await navigator.mediaDevices.getUserMedia({ audio: micConstraints(voice) });
@@ -1252,9 +1373,17 @@ function MicTest({ voice }: { voice: VoiceSettings }) {
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 1024;
     source.connect(analyser);
+    // "Hear yourself" plays through a normal <audio> element, so it uses the chosen
+    // speaker everywhere and isn't sent to the quiet earpiece on iPhones (which
+    // happens to Web Audio's own output while the mic is open).
     const monitor = ctx.createGain();
     monitor.gain.value = 0;
-    source.connect(monitor).connect(ctx.destination);
+    const out = ctx.createMediaStreamDestination();
+    source.connect(monitor).connect(out);
+    const player = new Audio();
+    player.srcObject = out.stream;
+    void applySpeaker(player, liveChoice("speaker"));
+    player.play().catch(() => {});
     const buf = new Float32Array(analyser.fftSize);
     let raf = 0;
     const tick = () => {
@@ -1273,6 +1402,8 @@ function MicTest({ voice }: { voice: VoiceSettings }) {
         cancelAnimationFrame(raf);
         processed.dispose();
         raw.getTracks().forEach((t) => t.stop());
+        player.pause();
+        player.srcObject = null;
         ctx.close().catch(() => {});
         setLevel(0);
       },
@@ -1424,10 +1555,11 @@ function NotificationsTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) =
           description="Play a soft sound for new messages in other chats."
           checked={me.settings.sounds}
           onChange={() => {
-            if (!me.settings.sounds) playMessageSound();
+            if (!me.settings.sounds) playMessageSound({ tone: devicePrefs.get().messageTone, volume: devicePrefs.get().messageVolume });
             save({ sounds: !me.settings.sounds });
           }}
         />
+        {me.settings.sounds && <MessageSoundPicker />}
         <p className="text-xs text-zinc-500 dark:text-zinc-400">Mute individual chats from their menu (right-click or long-press in the chat list).</p>
       </section>
 

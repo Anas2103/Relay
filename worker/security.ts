@@ -1,3 +1,4 @@
+import { assertNotSuspended } from "./policy";
 import { SESSION_IDLE_OPTIONS, type SecurityOverview, type SessionInfo } from "../shared/types";
 import {
   createSession,
@@ -228,8 +229,7 @@ export async function verifyLogin(request: Request, env: Env): Promise<Response>
     throw new HttpError(400, "That code isn't right. Check your authenticator app and try again.");
   }
   await env.DB.prepare("DELETE FROM login_challenges WHERE token_hash = ?1").bind(tokenHash).run();
-  const user = await env.DB.prepare("SELECT suspended_at FROM users WHERE id = ?1").bind(challenge.user_id).first<{ suspended_at: number | null }>();
-  if (!user || user.suspended_at !== null) throw new HttpError(403, "This account has been suspended.");
+  await assertNotSuspended(env, challenge.user_id);
   return finishLogin(env, challenge.user_id, challenge.device, challenge.location);
 }
 

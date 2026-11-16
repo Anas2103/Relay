@@ -1,3 +1,6 @@
+import { CHAT_THEMES, type ChatTheme } from "../../shared/chatThemes";
+import { chatThemeStyle } from "../lib/chatTheme";
+import { useFeature, useSite } from "../lib/site";
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { toggleSpeak } from "../lib/speak";
 import { connection } from "../lib/offline";
@@ -19,6 +22,8 @@ import { ConfirmDialog, ForwardDialog } from "./Dialogs";
 import { ReportDialog, ScheduleDialog, ScheduledSheet, SeenBySheet } from "./ChatExtras";
 import { ImageViewer } from "./ImageViewer";
 import { MessageBubble, type BubbleAction, type UiMessage } from "./MessageBubble";
+import { GameNames } from "./gameNames";
+import type { ChatGameType } from "../../shared/games";
 import { MessageMenu, type MenuAction } from "./MessageMenu";
 import { RoomAvatar, roomTitle } from "./RoomAvatar";
 import {
@@ -45,6 +50,7 @@ const ChatInfo = lazy(() => import("./ChatInfo").then((m) => ({ default: m.ChatI
 const SearchPanel = lazy(() => import("./SearchPanel").then((m) => ({ default: m.SearchPanel })));
 const RemindDialog = lazy(() => import("./RemindDialog").then((m) => ({ default: m.RemindDialog })));
 const PollDialog = lazy(() => import("./PollDialog").then((m) => ({ default: m.PollDialog })));
+const GameDialog = lazy(() => import("./GameDialog").then((m) => ({ default: m.GameDialog })));
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 const TYPING_EXPIRE_MS = 5000;
@@ -84,7 +90,7 @@ interface Outgoing {
   replyToId?: string;
   blob?: Blob;
   name?: string;
-  meta?: Pick<MediaMeta, "width" | "height" | "duration" | "waveform" | "viewOnce" | "poll" | "location" | "sticker">;
+  meta?: Pick<MediaMeta, "width" | "height" | "duration" | "waveform" | "viewOnce" | "poll" | "location" | "sticker"> & { newGame?: { type: ChatGameType; video?: string; word?: string } };
   mediaId?: string;
   /** No alerts or sounds for the people receiving it. */
   silent?: boolean;
@@ -160,6 +166,7 @@ export function ChatPane({
   const [selected, setSelected] = useState<Set<string> | null>(null);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [pollOpen, setPollOpen] = useState(false);
+  const [gameOpen, setGameOpen] = useState(false);
   const [members, setMembers] = useState<User[]>([]);
   const [reporting, setReporting] = useState<UiMessage | null>(null);
   const [scheduled, setScheduled] = useState<ScheduledMessage[]>([]);
@@ -184,6 +191,10 @@ export function ChatPane({
   const [loadingNewer, setLoadingNewer] = useState(false);
   const [typing, setTyping] = useState<Record<string, { name: string; until: number }>>({});
   const [notice, setNotice] = useState<string | null>(null);
+  // The chat's shared theme; changes arrive live from whoever picked it.
+  const [chatTheme, setChatTheme] = useState(room.theme);
+  useEffect(() => setChatTheme(room.theme), [room.theme]);
+  const themed = chatTheme && me.settings.chatThemes ? chatTheme : null;
   const [replyTo, setReplyTo] = useState<UiMessage | null>(null);
   const [editing, setEditing] = useState<UiMessage | null>(null);
   const [menu, setMenu] = useState<{ message: UiMessage; rect: DOMRect } | null>(null);
@@ -206,6 +217,14 @@ export function ChatPane({
 
   const title = roomTitle(room);
   const peer = room.peer;
+  // Names for the people in a game ("You" for yourself).
+  const gameNames = useMemo(() => {
+    const names: Record<string, string> = {};
+    for (const u of members) names[u.id] = u.displayName;
+    if (peer) names[peer.id] = peer.displayName;
+    names[me.id] = "You";
+    return names;
+  }, [members, peer, me.id]);
 
   useEffect(() => {
     hasNewerRef.current = hasNewer;
@@ -347,9 +366,18 @@ export function ChatPane({
         case "votes":
           patch(e.messageId, (m) => ({ ...m, votes: e.votes }));
           break;
+        case "game":
+          patch(e.messageId, (m) => ({ ...m, meta: { ...(m.meta ?? { mime: "", size: 0 }), game: e.game } }));
+          break;
         case "scheduled":
           setScheduled(e.items);
           break;
+        case "theme": {
+          setChatTheme(e.theme);
+          const label = e.theme ? CHAT_THEMES[e.theme].label : "the default";
+          setNotice(`${e.userId === me.id ? "You" : e.displayName} changed the theme to ${label}`);
+          break;
+        }
         case "expired": {
           const gone = new Set(e.messageIds);
           setMessages((prev) => prev.filter((m) => !gone.has(m.id)));
@@ -621,7 +649,23 @@ export function ChatPane({
     );
   };
 
-  const sendImage = (image: PreparedImage, caption: string, viewOnce: boolean) =>
+  const sendImage = (image: PreparedImage, caption: string, viewOnce: boolean) => {
+    if (room.secret) {
+      // Secret chat: the photo and its caption are encrypted here; the server stores only ciphertext.
+      const replyToId = replyTo?.id;
+      const localUrl = URL.createObjectURL(image.blob);
+      secret
+        .encryptPhoto(image.blob, { caption: viewOnce ? "" : caption, width: image.width, height: image.height, mime: image.blob.type })
+        .then(
+          ({ file, body }) =>
+            queue({ kind: "image", body, replyToId, blob: file, meta: viewOnce ? { viewOnce: true } : undefined }, localUrl),
+          (err: Error) => {
+            URL.revokeObjectURL(localUrl);
+            setNotice(err.message);
+          },
+        );
+      return;
+    }
     queue(
       {
         kind: "image",
@@ -632,6 +676,7 @@ export function ChatPane({
       },
       URL.createObjectURL(image.blob),
     );
+  };
 
   const sendVideo = (video: PreparedVideo, caption: string, viewOnce = false) =>
     queue(
@@ -646,6 +691,10 @@ export function ChatPane({
     );
 
   const sendPoll = (question: string, poll: PollInfo) => queue({ kind: "poll", body: question, meta: { poll } });
+  const sendGame = (type: ChatGameType, video?: string, word?: string) => queue({ kind: "game", body: "", meta: { newGame: { type, video, word } } });
+  // For the (memoized) bubble actions: always the latest.
+  const sendGameRef = useRef(sendGame);
+  sendGameRef.current = sendGame;
 
   // ---- Share location: ask the device, show it, send only after you confirm ----
   const [locating, setLocating] = useState<GeoPoint | "finding" | null>(null);
@@ -758,8 +807,8 @@ export function ChatPane({
   const openViewOnce = useCallback(
     async (message: UiMessage) => {
       try {
-        const blob = await fetchMedia(mediaUrl(message.roomId, message.id));
-        setViewer({ src: URL.createObjectURL(blob), viewOnce: true, video: message.kind === "video" });
+        const src = room.secret ? await secret.openPhoto(message) : URL.createObjectURL(await fetchMedia(mediaUrl(message.roomId, message.id)));
+        setViewer({ src, viewOnce: true, video: message.kind === "video" });
       } catch (err) {
         setNotice(err instanceof ApiError ? err.message : "Couldn't open this.");
       } finally {
@@ -768,7 +817,7 @@ export function ChatPane({
         );
       }
     },
-    [me.id],
+    [me.id, room.secret, secret.openPhoto],
   );
 
   const onBubbleAction = useCallback(
@@ -824,6 +873,12 @@ export function ChatPane({
             return next.size ? next : null;
           });
           break;
+        case "game-move":
+          if (!stateRef.current.send({ type: "game-move", messageId: a.message.id, move: a.move })) setNotice("You're offline. Try again in a moment.");
+          break;
+        case "game-new":
+          sendGameRef.current(a.gameType, undefined, a.word);
+          break;
         case "vote": {
           if (!stateRef.current.send({ type: "vote", messageId: a.message.id, options: a.options })) {
             setNotice("You're offline. Try again in a moment.");
@@ -875,7 +930,8 @@ export function ChatPane({
         break;
       }
       case "speak":
-        toggleSpeak(m.id, m.body);
+        // Secret chats: only a voice built into this device, never an online one.
+        if (!toggleSpeak(m.id, m.body, { localOnly: room.secret })) setNotice("This device has no built-in voice to read it privately.");
         break;
       case "edit":
         setReplyTo(null);
@@ -939,7 +995,7 @@ export function ChatPane({
   // Same color as yours? Then theirs stays neutral, so you can always tell the two sides apart.
   const peerBubble =
     me.settings.showOthersBubbles && peer?.bubbleColor && peer.bubbleColor !== me.settings.bubbleColor ? peer.bubbleColor : undefined;
-  const peerTint = useMemo(() => (peerBubble ? bubbleLook(peerBubble) : undefined), [peerBubble]);
+  const peerTint = useMemo(() => (peerBubble && !themed ? bubbleLook(peerBubble) : undefined), [peerBubble, themed]);
   const typingNames = Object.values(typing).map((t) => t.name);
   const statusText =
     typingNames.length > 0
@@ -1021,7 +1077,7 @@ export function ChatPane({
   const selectedList = selected ? view.filter((m) => selected.has(m.id)) : [];
   const allMine = selectedList.length > 0 && selectedList.every((m) => m.userId === me.id);
   const canForwardSelected =
-    !room.secret && selectedList.length > 0 && selectedList.every((m) => !m.locked && m.kind !== "call" && m.kind !== "poll" && !m.meta?.viewOnce);
+    !room.secret && selectedList.length > 0 && selectedList.every((m) => !m.locked && m.kind !== "call" && m.kind !== "poll" && m.kind !== "game" && !m.meta?.viewOnce);
   useEffect(() => {
     if (!selected) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setSelected(null);
@@ -1048,15 +1104,23 @@ export function ChatPane({
 
   // Announcement channels and slow mode (admins are exempt).
   const readOnly = room.type === "group" && room.adminsOnly && room.role !== "admin";
+  // The owner's site switches (admins keep everything).
+  const isAdmin = me.role === "admin";
+  const site = useSite();
+  const siteReadOnly = !!site?.readOnly && !isAdmin;
+  const canCall = useFeature("calls", isAdmin);
+  const canUpload = useFeature("uploads", isAdmin);
   const slowLabel = room.type === "group" && room.slowModeMs && room.role !== "admin" ? SLOW_MODE_OPTIONS.find((o) => o.ms === room.slowModeMs)?.label : null;
 
   const headerButton =
     "flex size-10 items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100";
 
   return (
-    <div className="flex min-w-0 flex-1 md:gap-2">
+    <div className="pane-split flex min-w-0 flex-1">
       <section
-        className={`panel chat-wall wall-${me.settings.wallpaper} relative flex min-w-0 flex-1 flex-col`}
+        className={`panel pane chat-wall ${themed ? `ctheme ctheme-${(CHAT_THEMES[themed] as ChatTheme).pattern ?? "plain"}` : `wall-${me.settings.wallpaper}`} relative flex min-w-0 flex-1 flex-col`}
+        style={themed ? chatThemeStyle(themed) : undefined}
+        data-chat-theme={themed ?? undefined}
         aria-label={`Chat with ${title}`}
         onDragOver={(e) => {
           if ([...e.dataTransfer.types].includes("Files")) {
@@ -1123,7 +1187,7 @@ export function ChatPane({
             <CallPill peer={callPeer} />
           ) : (
             <div className="flex shrink-0 items-center">
-              {peer && canChat && (
+              {peer && canChat && canCall && (
                 <>
                   <button onClick={() => onStartCall(true)} className={`${headerButton} max-[380px]:hidden`} aria-label="Video call" title="Video call">
                     <VideoIcon className="size-5" />
@@ -1281,6 +1345,7 @@ export function ChatPane({
                         <span className="h-px flex-1 bg-accent/30" />
                       </div>
                     )}
+                    <GameNames.Provider value={gameNames}>
                     <MessageBubble
                       message={m}
                       meId={me.id}
@@ -1298,6 +1363,7 @@ export function ChatPane({
                       linkPreviews={me.settings.linkPreviews && !room.secret}
                       onAction={onBubbleAction}
                     />
+                    </GameNames.Provider>
                   </div>
                 );
               })}
@@ -1385,10 +1451,10 @@ export function ChatPane({
             {scheduled.length} scheduled {scheduled.length === 1 ? "message" : "messages"}
           </button>
         )}
-        {blocked || blockedMe || (room.secret && secret.state.kind !== "ready") || !accepted ? null : readOnly ? (
+        {blocked || blockedMe || (room.secret && secret.state.kind !== "ready") || !accepted ? null : readOnly || siteReadOnly ? (
           <div className="divider-t flex items-center justify-center gap-2 bg-white/85 px-4 pt-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] text-sm text-zinc-500 backdrop-blur-md dark:bg-zinc-900/85 dark:text-zinc-400">
             <MegaphoneIcon className="size-4 shrink-0" />
-            Only admins can send messages in this group.
+            {siteReadOnly ? "Relay is in read-only mode right now. You can read, but not send." : "Only admins can send messages in this group."}
           </div>
         ) : (
         <Composer
@@ -1397,6 +1463,7 @@ export function ChatPane({
           draftKey={room.secret ? undefined : room.id}
           mentionables={room.type === "group" ? members : undefined}
           onCreatePoll={room.secret || room.saved ? undefined : () => setPollOpen(true)}
+          onPlayGame={room.secret || room.saved ? undefined : () => setGameOpen(true)}
           onShareLocation={room.secret ? undefined : shareLocation}
           onSendSticker={room.secret ? undefined : (s) => void sendSticker(s)}
           onSchedule={scheduleMessage}
@@ -1419,6 +1486,7 @@ export function ChatPane({
           onError={setNotice}
           voice={me.settings}
           textOnly={room.secret}
+          uploads={canUpload}
           enterToSend={me.settings.enterToSend}
           placeholder={
             room.saved ? "Write a note to yourself" : room.secret ? "Encrypted message" : slowLabel ? `Slow mode · 1 message every ${slowLabel}` : undefined
@@ -1446,16 +1514,22 @@ export function ChatPane({
                 : undefined
             }
             canForward={
-              !room.secret && !menu.message.locked && menu.message.kind !== "call" && !menu.message.meta?.viewOnce && !menu.message.deletedAt
+              !room.secret && !menu.message.locked && menu.message.kind !== "call" && menu.message.kind !== "game" && !menu.message.meta?.viewOnce && !menu.message.deletedAt
             }
             canRemind={!room.secret && !menu.message.locked && !menu.message.deletedAt}
             canTranslate={!room.secret && !menu.message.deletedAt}
+            canSticker={!room.secret}
             onAction={onMenuAction}
             onClose={() => setMenu(null)}
           />
         )}
 
         {forwarding && <ForwardDialog rooms={rooms} fromRoomId={room.id} onPick={forwardTo} onClose={() => setForwarding(null)} />}
+        {gameOpen && (
+          <Suspense fallback={null}>
+            <GameDialog onStart={sendGame} onClose={() => setGameOpen(false)} />
+          </Suspense>
+        )}
         {pollOpen && (
           <Suspense fallback={null}>
             <PollDialog onCreate={sendPoll} onClose={() => setPollOpen(false)} />

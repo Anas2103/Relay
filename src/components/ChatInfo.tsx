@@ -1,3 +1,4 @@
+import { useFeature } from "../lib/site";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   DISAPPEAR_OPTIONS,
@@ -23,6 +24,8 @@ import type { Presence } from "./ChatLayout";
 import { AddMembersDialog, PopMenu, type MenuItem } from "./Dialogs";
 import { inviteLink } from "./InviteDialog";
 import { ReportDialog } from "./ChatExtras";
+import { ChatThemePicker } from "./ChatThemePicker";
+import { CHAT_THEMES } from "../../shared/chatThemes";
 import { prepareAvatar } from "../lib/media";
 import { ImageViewer } from "./ImageViewer";
 import { RoomAvatar, roomTitle } from "./RoomAvatar";
@@ -40,6 +43,7 @@ import {
   LockIcon,
   MegaphoneIcon,
   MoreIcon,
+  PaletteIcon,
   PencilIcon,
   PhoneIcon,
   PinIcon,
@@ -93,6 +97,7 @@ interface Props {
 /** Everything about a chat: profile / group, settings, secret-chat key, shared media. Side panel on desktop, full screen on phones. */
 export function ChatInfo(props: Props) {
   const { room, me, presence, onClose, onCall, onBlock, onUnblock, onPrefs, onDelete, secretState } = props;
+  const secretOn = useFeature("secretChats", me.role === "admin");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [zoom, setZoom] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -139,6 +144,7 @@ export function ChatInfo(props: Props) {
           : "Last seen recently";
   const picture = peer && !room.saved ? avatarUrl(peer) : null;
   const [reporting, setReporting] = useState(false);
+  const [themeOpen, setThemeOpen] = useState(false);
   const heading = room.saved ? "Saved Messages" : room.secret ? "Secret chat" : room.type === "group" ? "Group info" : "Contact info";
 
   return (
@@ -146,7 +152,7 @@ export function ChatInfo(props: Props) {
     {/* Tablets and small laptops: the panel slides over the chat (there isn't room for three columns). */}
     <div className="fade-in fixed inset-0 z-30 hidden bg-zinc-950/30 backdrop-blur-[2px] md:block xl:hidden" onClick={onClose} aria-hidden="true" />
     <aside
-      className="panel slide-up safe-top fixed inset-0 z-40 flex flex-col bg-white md:inset-y-2 md:right-2 md:left-auto md:w-[24rem] md:shadow-2xl xl:static xl:z-auto xl:w-96 xl:shrink-0 xl:shadow-none dark:bg-zinc-900"
+      className="panel pane slide-up safe-top fixed inset-0 z-40 flex flex-col bg-white md:inset-y-0 md:right-0 md:left-auto md:w-[24rem] md:shadow-2xl xl:static xl:z-auto xl:w-96 xl:shrink-0 xl:shadow-none dark:bg-zinc-900"
       aria-label={heading}
     >
       <div className="flex items-center justify-between px-4 py-3">
@@ -198,7 +204,7 @@ export function ChatInfo(props: Props) {
                   onClick={() => onPrefs(room, { mutedUntil: muted ? null : MUTE_FOREVER })}
                 />
               )}
-              {isDm && !room.secret && !room.blocked && !room.blockedMe && (
+              {isDm && !room.secret && !room.blocked && !room.blockedMe && secretOn && (
                 <InfoAction
                   icon={busy === "secret" ? <Spinner className="size-5" /> : <LockIcon className="size-5" />}
                   label="Secret chat"
@@ -229,6 +235,11 @@ export function ChatInfo(props: Props) {
         {/* Chat settings */}
         {accepted && (
           <div className="mx-4 mb-4 divide-y divide-zinc-100 overflow-hidden rounded-2xl ring-1 ring-zinc-200 dark:divide-zinc-800 dark:ring-zinc-800">
+            <button onClick={() => setThemeOpen(true)} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
+              <PaletteIcon className="size-5 text-zinc-500 dark:text-zinc-400" />
+              <span className="flex-1">Theme</span>
+              <span className="text-zinc-500 dark:text-zinc-400">{room.theme ? CHAT_THEMES[room.theme].label : "Default"}</span>
+            </button>
             <DisappearRow room={room} canChange={canChange} onSaved={props.onRoomUpdated} />
             {!room.archived && (
               <ToggleItem icon={<PinIcon className="size-5" />} label="Pin to top of chat list" checked={room.pinned} onChange={() => onPrefs(room, { pinned: !room.pinned })} />
@@ -297,6 +308,7 @@ export function ChatInfo(props: Props) {
       </div>
 
       {zoom && picture && <ImageViewer src={picture} onClose={() => setZoom(false)} />}
+      {themeOpen && <ChatThemePicker room={room} onSaved={props.onRoomUpdated} onClose={() => setThemeOpen(false)} />}
       {reporting && peer && <ReportDialog target={{ userId: peer.id, name: title }} onClose={() => setReporting(false)} />}
     </aside>
     </>

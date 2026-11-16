@@ -15,6 +15,8 @@ export interface Env {
   VAPID_PRIVATE_KEY?: string;
   /** Contact URL sent to push services (defaults to the app's address). */
   VAPID_SUBJECT?: string;
+  /** Optional YouTube Data API key for Chill → Shorts (free; `wrangler secret put YOUTUBE_API_KEY`). */
+  YOUTUBE_API_KEY?: string;
 }
 
 /** There is one Lobby instance for the whole app (presence + sidebar updates). */
