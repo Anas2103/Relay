@@ -1,0 +1,6 @@
+# The app itself is private (sign-in required); only the public pages are worth indexing.
+User-agent: *
+Allow: /$
+Allow: /legal/
+Disallow: /api/
+Sitemap: https://relay-chat.bunbunchat.workers.dev/sitemap.xml

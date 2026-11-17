@@ -44,9 +44,7 @@ export function toggleSpeak(id: string, text: string, opts: { localOnly?: boolea
   const local = voices.filter((v) => v.localService);
   const matches = (v: SpeechSynthesisVoice) => v.lang.toLowerCase().startsWith(lang);
   const voice =
-    local.find((v) => matches(v) && v.default) ??
-    local.find(matches) ??
-    (opts.localOnly ? local.find((v) => v.default) ?? local[0] : voices.find(matches));
+    local.find((v) => matches(v) && v.default) ?? local.find(matches) ?? (opts.localOnly ? (local.find((v) => v.default) ?? local[0]) : voices.find(matches));
   if (opts.localOnly && !voice) return false;
   u.lang = voice?.lang ?? lang;
   if (voice) u.voice = voice;

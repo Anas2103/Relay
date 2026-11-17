@@ -48,7 +48,16 @@ export function Memory({ onExit }: { onExit: () => void }) {
   };
 
   return (
-    <GameShell title="Memory" onExit={onExit} stats={[["Moves", moves], ["Best", best ?? "—"]]} onRestart={reset} hint="Find all 8 pairs in as few moves as you can.">
+    <GameShell
+      title="Memory"
+      onExit={onExit}
+      stats={[
+        ["Moves", moves],
+        ["Best", best ?? "—"],
+      ]}
+      onRestart={reset}
+      hint="Find all 8 pairs in as few moves as you can."
+    >
       <div className={`relative ${BOARD} grid grid-cols-4 gap-2`}>
         {cards.map((c, i) => {
           const shown = open.includes(i) || found.has(c);

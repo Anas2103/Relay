@@ -114,7 +114,9 @@ export function OwnerConversations({ openRoomId = null }: { openRoomId?: string 
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="flex items-baseline justify-between gap-2">
-                          <span className={`flex min-w-0 items-center gap-1 truncate text-sm font-semibold ${r.secret ? "text-emerald-700 dark:text-emerald-400" : ""}`}>
+                          <span
+                            className={`flex min-w-0 items-center gap-1 truncate text-sm font-semibold ${r.secret ? "text-emerald-700 dark:text-emerald-400" : ""}`}
+                          >
                             {r.secret && <LockIcon className="size-3.5 shrink-0" />}
                             <span className="truncate">{r.secret ? `Secret: ${roomName(r)}` : r.type === "group" ? `👥 ${roomName(r)}` : roomName(r)}</span>
                           </span>
@@ -147,8 +149,7 @@ export function OwnerConversations({ openRoomId = null }: { openRoomId?: string 
             </div>
             <h2 className="mt-4 font-semibold">Conversations</h2>
             <p className="mt-1 max-w-sm text-sm text-zinc-500 dark:text-zinc-400">
-              Pick a conversation to review it. It's read-only: nothing you do here is visible to its members, and
-              view-once media stays sealed.
+              Pick a conversation to review it. It's read-only: nothing you do here is visible to its members, and view-once media stays sealed.
             </p>
           </div>
         )}
@@ -208,9 +209,7 @@ function ConversationViewer({ room, onBack }: { room: AdminRoom; onBack: () => v
   }, [messages]);
 
   const q = filter.trim().toLowerCase();
-  const shown = q
-    ? messages.filter((m) => m.body.toLowerCase().includes(q) || (m.meta?.name ?? "").toLowerCase().includes(q))
-    : messages;
+  const shown = q ? messages.filter((m) => m.body.toLowerCase().includes(q) || (m.meta?.name ?? "").toLowerCase().includes(q)) : messages;
 
   return (
     <>
@@ -225,8 +224,7 @@ function ConversationViewer({ room, onBack }: { room: AdminRoom; onBack: () => v
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{roomName(room)}</p>
           <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
-            {members.map((m) => `@${m.username}`).join(" · ")} · {room.messageCount.toLocaleString()} messages · started{" "}
-            {formatRelative(room.createdAt)}
+            {members.map((m) => `@${m.username}`).join(" · ")} · {room.messageCount.toLocaleString()} messages · started {formatRelative(room.createdAt)}
           </p>
         </div>
         {room.type === "group" && <JoinGroupButton roomId={room.id} />}
@@ -303,9 +301,7 @@ function ConversationViewer({ room, onBack }: { room: AdminRoom; onBack: () => v
 function ReadOnlyBubble({ message: m, roomId, right, showName }: { message: Message; roomId: string; right: boolean; showName: boolean }) {
   const src = m.mediaId ? api.admin.mediaUrl(roomId, m.id) : null;
   const reactions = Object.values(m.reactions);
-  const bubble = right
-    ? "bg-accent text-accent-ink"
-    : "bg-white text-zinc-900 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-800";
+  const bubble = right ? "bg-accent text-accent-ink" : "bg-white text-zinc-900 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-800";
 
   let content: ReactNode;
   if (m.deletedAt) {
@@ -377,7 +373,9 @@ function ReadOnlyBubble({ message: m, roomId, right, showName }: { message: Mess
       {showName && <span className="mb-0.5 px-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">{m.displayName}</span>}
       <div className={`max-w-[85%] rounded-2xl text-sm shadow-sm sm:max-w-[70%] ${bubble} ${media ? "w-72 p-1" : "px-3.5 py-2"}`}>
         {m.replyTo && (
-          <div className={`mb-1.5 rounded-lg border-l-2 px-2 py-1 text-xs ${right ? "border-white/60 bg-white/15" : "border-accent bg-zinc-100 dark:bg-zinc-800"}`}>
+          <div
+            className={`mb-1.5 rounded-lg border-l-2 px-2 py-1 text-xs ${right ? "border-white/60 bg-white/15" : "border-accent bg-zinc-100 dark:bg-zinc-800"}`}
+          >
             <span className="font-medium">{m.replyTo.displayName}</span>
             <span className="block truncate opacity-80">{m.replyTo.deleted ? "Deleted message" : m.replyTo.body || "Attachment"}</span>
           </div>

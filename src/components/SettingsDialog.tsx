@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { TRANSLATE_LANGUAGES,
+import {
+  TRANSLATE_LANGUAGES,
   bubbleLook,
   colorInfo,
   DARK_THEMES,
@@ -102,17 +103,7 @@ type Status = { kind: "error" | "success"; text: string } | null;
 const errText = (e: unknown) => (e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Something went wrong.");
 
 /** Full screen on phones (list → page), two columns on bigger screens. */
-export function SettingsDialog({
-  me,
-  onClose,
-  onMeUpdated,
-  onLogout,
-}: {
-  me: Me;
-  onClose: () => void;
-  onMeUpdated: (me: Me) => void;
-  onLogout: () => void;
-}) {
+export function SettingsDialog({ me, onClose, onMeUpdated, onLogout }: { me: Me; onClose: () => void; onMeUpdated: (me: Me) => void; onLogout: () => void }) {
   const [section, setSection] = useState<Section | null>(() => (window.matchMedia("(min-width: 768px)").matches ? "profile" : null));
   const [confirmLogout, setConfirmLogout] = useState<string | null>(null);
 
@@ -148,15 +139,25 @@ export function SettingsDialog({
         className="safe-top flex w-full flex-col overflow-hidden bg-white shadow-2xl md:h-[min(760px,92dvh)] md:max-w-4xl md:flex-row md:rounded-3xl dark:bg-zinc-900"
       >
         {/* Section list */}
-        <nav className={`flex-col border-zinc-200 md:flex md:w-64 md:shrink-0 md:border-r dark:border-zinc-800 ${section ? "hidden" : "flex"} min-h-0 flex-1 md:flex-none`} aria-label="Settings sections">
+        <nav
+          className={`flex-col border-zinc-200 md:flex md:w-64 md:shrink-0 md:border-r dark:border-zinc-800 ${section ? "hidden" : "flex"} min-h-0 flex-1 md:flex-none`}
+          aria-label="Settings sections"
+        >
           <div className="flex items-center justify-between px-4 pt-4 pb-2">
             <h2 className="text-lg font-semibold">Settings</h2>
-            <button onClick={onClose} className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 md:hidden dark:hover:bg-zinc-800" aria-label="Close">
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 md:hidden dark:hover:bg-zinc-800"
+              aria-label="Close"
+            >
               <XIcon className="size-5" />
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-2 pb-2">
-            <button onClick={() => setSection("profile")} className="mb-2 flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-zinc-100 md:hidden dark:hover:bg-zinc-800">
+            <button
+              onClick={() => setSection("profile")}
+              className="mb-2 flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-zinc-100 md:hidden dark:hover:bg-zinc-800"
+            >
               <Avatar name={me.displayName} seed={me.id} user={me} size="lg" />
               <span className="min-w-0">
                 <span className="block truncate font-semibold">{me.displayName}</span>
@@ -185,7 +186,10 @@ export function SettingsDialog({
             </ul>
           </div>
           <div className="border-t border-zinc-200 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] dark:border-zinc-800">
-            <button onClick={signOut} className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40">
+            <button
+              onClick={signOut}
+              className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+            >
               <span className="flex size-8 items-center justify-center rounded-lg bg-red-500 text-white">
                 <LogoutIcon className="size-4" />
               </span>
@@ -197,11 +201,19 @@ export function SettingsDialog({
         {/* Section content */}
         <div className={`min-h-0 min-w-0 flex-1 flex-col ${section ? "flex" : "hidden md:flex"}`}>
           <div className="flex shrink-0 items-center gap-2 border-b border-zinc-200 px-3 py-3 md:px-6 md:py-4 dark:border-zinc-800">
-            <button onClick={() => setSection(null)} className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 md:hidden dark:hover:bg-zinc-800" aria-label="Back to settings">
+            <button
+              onClick={() => setSection(null)}
+              className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 md:hidden dark:hover:bg-zinc-800"
+              aria-label="Back to settings"
+            >
               <BackIcon className="size-5" />
             </button>
             <h3 className="flex-1 truncate text-base font-semibold md:text-lg">{current?.label}</h3>
-            <button onClick={onClose} className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200" aria-label="Close settings">
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              aria-label="Close settings"
+            >
               <XIcon className="size-5" />
             </button>
           </div>
@@ -285,7 +297,13 @@ function ProfileTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void
   return (
     <form onSubmit={save} className="mx-auto max-w-xl space-y-5">
       <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
-        <button type="button" onClick={() => fileRef.current?.click()} className="group avatar-shape relative" aria-label="Change profile picture" disabled={busy !== null}>
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="group avatar-shape relative"
+          aria-label="Change profile picture"
+          disabled={busy !== null}
+        >
           <Avatar name={me.displayName} seed={me.id} user={me} size="xl" />
           <span className="avatar-shape absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
             {busy === "avatar" ? <Spinner className="size-6" /> : <CameraIcon className="size-6" />}
@@ -307,7 +325,12 @@ function ProfileTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void
               {me.avatarVersion ? "Change photo" : "Add photo"}
             </button>
             {me.avatarVersion && (
-              <button type="button" onClick={removePicture} disabled={busy !== null} className="rounded-lg px-2.5 py-1 text-sm font-medium text-zinc-500 transition hover:bg-zinc-100 disabled:opacity-50 dark:hover:bg-zinc-800">
+              <button
+                type="button"
+                onClick={removePicture}
+                disabled={busy !== null}
+                className="rounded-lg px-2.5 py-1 text-sm font-medium text-zinc-500 transition hover:bg-zinc-100 disabled:opacity-50 dark:hover:bg-zinc-800"
+              >
                 Remove
               </button>
             )}
@@ -328,7 +351,13 @@ function ProfileTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void
 
       <label className="block">
         <span className="mb-1.5 block text-sm font-medium">Display name</span>
-        <input className={inputClass} value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={LIMITS.displayNameMax} autoComplete="nickname" />
+        <input
+          className={inputClass}
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          maxLength={LIMITS.displayNameMax}
+          autoComplete="nickname"
+        />
       </label>
       <label className="block">
         <span className="mb-1.5 flex justify-between text-sm font-medium">
@@ -337,7 +366,14 @@ function ProfileTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void
             {bio.length}/{LIMITS.bioMax}
           </span>
         </span>
-        <textarea className={`${inputClass} resize-none`} rows={3} value={bio} onChange={(e) => setBio(e.target.value)} maxLength={LIMITS.bioMax} placeholder="A few words about you" />
+        <textarea
+          className={`${inputClass} resize-none`}
+          rows={3}
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          maxLength={LIMITS.bioMax}
+          placeholder="A few words about you"
+        />
       </label>
       <StatusLine status={status} />
       <div className="flex justify-end">
@@ -429,7 +465,9 @@ function AppearanceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => v
               aria-checked={s.theme === value}
               onClick={() => save({ theme: value })}
               className={`flex flex-col items-center gap-1.5 rounded-xl px-3 py-3 text-sm font-medium ring-1 transition ${
-                s.theme === value ? "bg-accent/10 text-accent-fg ring-2 ring-accent" : "ring-zinc-200 hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800"
+                s.theme === value
+                  ? "bg-accent/10 text-accent-fg ring-2 ring-accent"
+                  : "ring-zinc-200 hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800"
               }`}
             >
               {icon}
@@ -489,7 +527,10 @@ function AppearanceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => v
         <div className="flex items-end justify-between gap-3">
           <SectionTitle title="Your bubble" hint="Your messages. Your friends see this color too." />
           {s.bubbleColor !== s.accentColor && (
-            <button onClick={() => save({ bubbleColor: s.accentColor })} className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-accent-fg hover:bg-accent/10">
+            <button
+              onClick={() => save({ bubbleColor: s.accentColor })}
+              className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-accent-fg hover:bg-accent/10"
+            >
               Match app color
             </button>
           )}
@@ -538,7 +579,13 @@ function AppearanceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => v
         <SectionTitle title="Chat wallpaper" />
         <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5" role="radiogroup" aria-label="Chat wallpaper">
           {(Object.entries(WALLPAPERS) as [Wallpaper, string][]).map(([name, label]) => (
-            <button key={name} role="radio" aria-checked={s.wallpaper === name} onClick={() => save({ wallpaper: name })} className="group flex flex-col items-center gap-1.5">
+            <button
+              key={name}
+              role="radio"
+              aria-checked={s.wallpaper === name}
+              onClick={() => save({ wallpaper: name })}
+              className="group flex flex-col items-center gap-1.5"
+            >
               <span
                 className={`chat-wall wall-${name} relative flex h-16 w-full items-end justify-end overflow-hidden rounded-xl p-1.5 ring-1 transition group-hover:scale-[1.03] ${
                   s.wallpaper === name ? "ring-2 ring-accent" : "ring-zinc-200 dark:ring-zinc-700"
@@ -569,7 +616,12 @@ function AppearanceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => v
           ]}
           onPick={(v) => save({ avatarShape: v })}
         />
-        <ToggleRow title="Animations" description="Message pop-ins, transitions and effects. Turn off for a calmer, faster feel." checked={s.animations} onChange={() => save({ animations: !s.animations })} />
+        <ToggleRow
+          title="Animations"
+          description="Message pop-ins, transitions and effects. Turn off for a calmer, faster feel."
+          checked={s.animations}
+          onChange={() => save({ animations: !s.animations })}
+        />
       </section>
 
       {error && <StatusLine status={{ kind: "error", text: error }} />}
@@ -652,7 +704,12 @@ function ChatsTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void }
 
       <section className="space-y-4">
         <SectionTitle title="Messages" />
-        <ToggleRow title="Big emoji" description="Messages of just 1 to 3 emoji are shown large, without a bubble." checked={s.bigEmoji} onChange={() => save({ bigEmoji: !s.bigEmoji })} />
+        <ToggleRow
+          title="Big emoji"
+          description="Messages of just 1 to 3 emoji are shown large, without a bubble."
+          checked={s.bigEmoji}
+          onChange={() => save({ bigEmoji: !s.bigEmoji })}
+        />
         <label className="-mx-2 flex items-center justify-between gap-4 rounded-xl px-2 py-1.5">
           <span className="min-w-0">
             <span className="block text-sm font-medium">Translate messages into</span>
@@ -681,7 +738,9 @@ function ChatsTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void }
         />
         <ToggleRow
           title="Enter sends the message"
-          description={s.enterToSend ? "Shift+Enter adds a new line. (On phones, use the send button.)" : "Enter adds a new line; Ctrl+Enter (⌘+Enter on Mac) sends."}
+          description={
+            s.enterToSend ? "Shift+Enter adds a new line. (On phones, use the send button.)" : "Enter adds a new line; Ctrl+Enter (⌘+Enter on Mac) sends."
+          }
           checked={s.enterToSend}
           onChange={() => save({ enterToSend: !s.enterToSend })}
         />
@@ -689,8 +748,18 @@ function ChatsTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void }
 
       <section className="space-y-4">
         <SectionTitle title="Chat list" />
-        <ToggleRow title="Message previews" description="Show the last message under each chat." checked={s.listPreviews} onChange={() => save({ listPreviews: !s.listPreviews })} />
-        <ToggleRow title={`"Online now" row`} description="Friends who are online, at the top of your chats." checked={s.showOnlineRow} onChange={() => save({ showOnlineRow: !s.showOnlineRow })} />
+        <ToggleRow
+          title="Message previews"
+          description="Show the last message under each chat."
+          checked={s.listPreviews}
+          onChange={() => save({ listPreviews: !s.listPreviews })}
+        />
+        <ToggleRow
+          title={`"Online now" row`}
+          description="Friends who are online, at the top of your chats."
+          checked={s.showOnlineRow}
+          onChange={() => save({ showOnlineRow: !s.showOnlineRow })}
+        />
       </section>
       {error && <StatusLine status={{ kind: "error", text: error }} />}
     </div>
@@ -755,7 +824,12 @@ function Segmented<T extends string>({ label, value, options, onPick }: { label:
   return (
     <div>
       <p className="mb-2 text-sm font-medium">{label}</p>
-      <div className="grid gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }} role="radiogroup" aria-label={label}>
+      <div
+        className="grid gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800"
+        style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+        role="radiogroup"
+        aria-label={label}
+      >
         {options.map(([v, l]) => (
           <button
             key={v}
@@ -763,7 +837,9 @@ function Segmented<T extends string>({ label, value, options, onPick }: { label:
             aria-checked={value === v}
             onClick={() => onPick(v)}
             className={`truncate rounded-lg px-2 py-1.5 text-sm font-medium transition ${
-              value === v ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-600 dark:text-white" : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+              value === v
+                ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-600 dark:text-white"
+                : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
             }`}
           >
             {l}
@@ -842,7 +918,11 @@ function CustomColor({ value, onPick }: { value: string; onPick: (c: AccentColor
   const info = colorInfo(draft as AccentColor);
   return (
     <div className={`mt-3 flex items-center gap-3 rounded-xl p-2 ring-1 ${custom ? "ring-2 ring-accent" : "ring-zinc-200 dark:ring-zinc-700"}`}>
-      <label className="relative size-9 shrink-0 cursor-pointer overflow-hidden rounded-full ring-1 ring-black/10" style={{ background: draft }} title="Pick a custom color">
+      <label
+        className="relative size-9 shrink-0 cursor-pointer overflow-hidden rounded-full ring-1 ring-black/10"
+        style={{ background: draft }}
+        title="Pick a custom color"
+      >
         <input
           type="color"
           value={draft}
@@ -862,7 +942,10 @@ function CustomColor({ value, onPick }: { value: string; onPick: (c: AccentColor
         <span className="block font-mono text-xs text-zinc-500 uppercase dark:text-zinc-400">{draft}</span>
       </span>
       {!custom && (
-        <button onClick={() => onPick(draft as AccentColor)} className="rounded-lg px-3 py-2 text-xs font-semibold text-accent-fg ring-1 ring-accent/30 hover:bg-accent/10">
+        <button
+          onClick={() => onPick(draft as AccentColor)}
+          className="rounded-lg px-3 py-2 text-xs font-semibold text-accent-fg ring-1 ring-accent/30 hover:bg-accent/10"
+        >
           Use
         </button>
       )}
@@ -937,9 +1020,7 @@ function VoiceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void }
               aria-checked={s.noiseSuppression === value}
               onClick={() => save({ noiseSuppression: value })}
               className={`flex w-full items-start gap-3 rounded-xl p-3 text-left ring-1 transition ${
-                s.noiseSuppression === value
-                  ? "bg-accent/10 ring-2 ring-accent"
-                  : "ring-zinc-200 hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800"
+                s.noiseSuppression === value ? "bg-accent/10 ring-2 ring-accent" : "ring-zinc-200 hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800"
               }`}
             >
               <span
@@ -953,9 +1034,7 @@ function VoiceTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void }
                 <span className="flex items-center gap-2 text-sm font-medium">
                   {title}
                   {value === "ai" && (
-                    <span className="rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-accent-ink uppercase">
-                      Best
-                    </span>
+                    <span className="rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-accent-ink uppercase">Best</span>
                   )}
                 </span>
                 <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">{description}</span>
@@ -1016,15 +1095,7 @@ function MessageSoundPicker() {
           playMessageSound({ tone: v, volume: prefs.messageVolume });
         }}
       />
-      <Slider
-        label="Volume"
-        value={prefs.messageVolume}
-        min={0}
-        max={100}
-        step={5}
-        unit="%"
-        onChange={(v) => devicePrefs.set({ messageVolume: v })}
-      />
+      <Slider label="Volume" value={prefs.messageVolume} min={0} max={100} step={5} unit="%" onChange={(v) => devicePrefs.set({ messageVolume: v })} />
       <button
         onClick={() => playMessageSound({ tone: prefs.messageTone, volume: prefs.messageVolume })}
         className="rounded-lg bg-zinc-200 px-3 py-1.5 text-xs font-semibold hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600"
@@ -1050,7 +1121,8 @@ function AiEngineSetting() {
         onPick={(v) => devicePrefs.set({ aiEngine: v })}
       />
       <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-        Max quality removes the most noise but needs a strong computer. If your voice sounds choppy or robotic to others, pick Light. Auto chooses for this device.
+        Max quality removes the most noise but needs a strong computer. If your voice sounds choppy or robotic to others, pick Light. Auto chooses for this
+        device.
       </p>
     </div>
   );
@@ -1154,15 +1226,17 @@ function DevicesSection() {
       <div>
         <p className="mb-1.5 text-sm font-medium">Sound output</p>
         <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
-          {outputMethod === "route"
-            ? "Loudspeaker, phone earpiece, wired or Bluetooth headphones."
-            : "Where you hear calls, voice messages and ringtones."}
+          {outputMethod === "route" ? "Loudspeaker, phone earpiece, wired or Bluetooth headphones." : "Where you hear calls, voice messages and ringtones."}
         </p>
         <OutputPicker audioEl={null} light />
       </div>
       <Slider
         label="Call volume"
-        hint={elementVolumeWorks ? "How loud the other person is. Above 100% boosts a quiet caller." : "How loud the other person is (on top of your side buttons). Above 100% boosts a quiet caller."}
+        hint={
+          elementVolumeWorks
+            ? "How loud the other person is. Above 100% boosts a quiet caller."
+            : "How loud the other person is (on top of your side buttons). Above 100% boosts a quiet caller."
+        }
         value={prefs.outputVolume}
         min={0}
         max={200}
@@ -1191,7 +1265,11 @@ function DevicesSection() {
           onChange={() => devicePrefs.set({ voiceIsolation: !prefs.voiceIsolation })}
         />
       ) : null}
-      <DevicePicker label="Camera" value={liveChoice("camera")} options={list.cameras} onPick={(id) => devicePrefs.set({ camera: id })}
+      <DevicePicker
+        label="Camera"
+        value={liveChoice("camera")}
+        options={list.cameras}
+        onPick={(id) => devicePrefs.set({ camera: id })}
         extra={
           <button
             onClick={() => setPreview((p) => !p)}
@@ -1201,7 +1279,16 @@ function DevicesSection() {
           </button>
         }
       />
-      {preview && <CameraPreview cameraId={liveChoice("camera")} mirror={prefs.mirror} onProblem={(p) => { setProblem(p); setPreview(false); }} />}
+      {preview && (
+        <CameraPreview
+          cameraId={liveChoice("camera")}
+          mirror={prefs.mirror}
+          onProblem={(p) => {
+            setProblem(p);
+            setPreview(false);
+          }}
+        />
+      )}
       <ToggleRow
         title="Mirror my camera"
         description="Show your own video like a mirror. Only on your screen — others always see you the right way round."
@@ -1253,15 +1340,7 @@ function DevicesSection() {
           ))}
         </div>
         {prefs.ringtone !== "vibrate" && (
-          <Slider
-            label="Ringtone volume"
-            value={prefs.ringVolume}
-            min={0}
-            max={100}
-            step={5}
-            unit="%"
-            onChange={(v) => devicePrefs.set({ ringVolume: v })}
-          />
+          <Slider label="Ringtone volume" value={prefs.ringVolume} min={0} max={100} step={5} unit="%" onChange={(v) => devicePrefs.set({ ringVolume: v })} />
         )}
       </div>
     </section>
@@ -1437,7 +1516,14 @@ function MicTest({ voice }: { voice: VoiceSettings }) {
           {running ? "Stop" : "Let's check"}
         </button>
       </div>
-      <div className="mt-4 flex h-3 gap-[3px]" aria-label="Microphone level" role="meter" aria-valuenow={Math.round(level * 100)} aria-valuemin={0} aria-valuemax={100}>
+      <div
+        className="mt-4 flex h-3 gap-[3px]"
+        aria-label="Microphone level"
+        role="meter"
+        aria-valuenow={Math.round(level * 100)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
         {Array.from({ length: 32 }, (_, i) => (
           <span
             key={i}
@@ -1452,7 +1538,11 @@ function MicTest({ voice }: { voice: VoiceSettings }) {
           <span>
             Active:{" "}
             <span className="font-medium text-zinc-700 dark:text-zinc-200">
-              {mode === "ai" ? `AI noise suppression (${engine === "gtcrn" ? "GTCRN, max quality" : "RNNoise, battery saver"})` : mode === "standard" ? "Standard" : "Off"}
+              {mode === "ai"
+                ? `AI noise suppression (${engine === "gtcrn" ? "GTCRN, max quality" : "RNNoise, battery saver"})`
+                : mode === "standard"
+                  ? "Standard"
+                  : "Off"}
               {mode && mode !== voice.noiseSuppression && " (AI isn't supported in this browser)"}
             </span>
           </span>
@@ -1610,7 +1700,12 @@ function PrivacyTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void
             ? "Nobody sees when you're online. Like Telegram, it works both ways: you won't see anyone else's either."
             : "Only people you've accepted a friend request with. Strangers never see it."}
         </p>
-        <ToggleRow title="Typing indicator" description={`Let others see "typing…" while you write.`} checked={s.sendTyping} onChange={() => save({ sendTyping: !s.sendTyping })} />
+        <ToggleRow
+          title="Typing indicator"
+          description={`Let others see "typing…" while you write.`}
+          checked={s.sendTyping}
+          onChange={() => save({ sendTyping: !s.sendTyping })}
+        />
         <OfflineToggle />
         {error && <StatusLine status={{ kind: "error", text: error }} />}
       </section>
@@ -1620,7 +1715,8 @@ function PrivacyTab({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => void
           <LockIcon className="size-4" /> Secret chats
         </p>
         <p className="mt-1 text-xs leading-relaxed">
-          Open any 1:1 chat, tap the name, then <strong>Secret chat</strong>. Messages are end-to-end encrypted on your device: no one else can read them, not even the server or the admins. They only live on the two devices that set them up, and signing out removes them from this device.
+          Open any 1:1 chat, tap the name, then <strong>Secret chat</strong>. Messages are end-to-end encrypted on your device: no one else can read them, not
+          even the server or the admins. They only live on the two devices that set them up, and signing out removes them from this device.
         </p>
       </section>
 
@@ -1720,19 +1816,35 @@ function StatusSection({ me, onMeUpdated }: { me: Me; onMeUpdated: (me: Me) => v
       >
         <span className="block text-sm font-medium">Custom status</span>
         <div className="flex gap-2">
-          <input className={inputClass} value={text} onChange={(e) => setText(e.target.value)} maxLength={LIMITS.statusMax} placeholder="What's happening?" aria-label="Custom status" />
+          <input
+            className={inputClass}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            maxLength={LIMITS.statusMax}
+            placeholder="What's happening?"
+            aria-label="Custom status"
+          />
           <button type="submit" disabled={busy || text.trim() === me.statusText} className={`${primaryButton} shrink-0`}>
             {busy ? <Spinner /> : "Set"}
           </button>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {STATUS_IDEAS.map((idea) => (
-            <button key={idea} type="button" onClick={() => saveText(idea)} className="min-h-9 rounded-full px-3 py-1.5 text-xs ring-1 ring-zinc-200 transition hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800">
+            <button
+              key={idea}
+              type="button"
+              onClick={() => saveText(idea)}
+              className="min-h-9 rounded-full px-3 py-1.5 text-xs ring-1 ring-zinc-200 transition hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800"
+            >
               {idea}
             </button>
           ))}
           {me.statusText && (
-            <button type="button" onClick={() => saveText("")} className="min-h-9 rounded-full px-3 py-1.5 text-xs font-medium text-red-600 ring-1 ring-red-600/25 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40">
+            <button
+              type="button"
+              onClick={() => saveText("")}
+              className="min-h-9 rounded-full px-3 py-1.5 text-xs font-medium text-red-600 ring-1 ring-red-600/25 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+            >
               Clear
             </button>
           )}
@@ -1837,17 +1949,40 @@ function PasswordSection({ username }: { username: string }) {
       <input type="text" autoComplete="username" className="hidden" readOnly tabIndex={-1} aria-hidden="true" />
       <label className="block">
         <span className="mb-1.5 block text-sm font-medium">Current password</span>
-        <input type="password" className={inputClass} value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" maxLength={LIMITS.passwordMax} />
+        <input
+          type="password"
+          className={inputClass}
+          value={current}
+          onChange={(e) => setCurrent(e.target.value)}
+          autoComplete="current-password"
+          maxLength={LIMITS.passwordMax}
+        />
       </label>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium">New password</span>
-          <input type="password" className={inputClass} value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" maxLength={LIMITS.passwordMax} aria-invalid={tooShort} />
+          <input
+            type="password"
+            className={inputClass}
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+            autoComplete="new-password"
+            maxLength={LIMITS.passwordMax}
+            aria-invalid={tooShort}
+          />
           <PasswordStrength password={next} username={username} />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium">Confirm new password</span>
-          <input type="password" className={inputClass} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" maxLength={LIMITS.passwordMax} aria-invalid={mismatch} />
+          <input
+            type="password"
+            className={inputClass}
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            autoComplete="new-password"
+            maxLength={LIMITS.passwordMax}
+            aria-invalid={mismatch}
+          />
           {mismatch && <span className="mt-1.5 block text-xs text-red-600 dark:text-red-400">Passwords don't match.</span>}
         </label>
       </div>
@@ -1864,6 +1999,15 @@ function PasswordSection({ username }: { username: string }) {
 
 // ---------- Your data ----------
 
+const LEGAL_LINKS: [string, string][] = [
+  ["Privacy Policy", "/legal/privacy.html"],
+  ["Terms of Service", "/legal/terms.html"],
+  ["Community Guidelines", "/legal/guidelines.html"],
+  ["Cookies & storage", "/legal/cookies.html"],
+  ["Accessibility", "/legal/accessibility.html"],
+  ["Help & FAQ", "/legal/help.html"],
+];
+
 function DataTab({ me }: { me: Me }) {
   const [password, setPassword] = useState("");
   const [confirming, setConfirming] = useState(false);
@@ -1871,7 +2015,10 @@ function DataTab({ me }: { me: Me }) {
     <div className="mx-auto max-w-2xl space-y-8">
       <section className="rounded-2xl bg-zinc-50 p-4 dark:bg-zinc-800/60">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <SectionTitle title="Download your data" hint="Your profile, settings and every message in your chats, as a JSON file. Secret chats stay encrypted." />
+          <SectionTitle
+            title="Download your data"
+            hint="Your profile, settings, devices, blocks, stories and every message in your chats, as a JSON file. Secret chats stay encrypted."
+          />
           <a href={api.exportUrl} download className={`${primaryButton} shrink-0`}>
             <DownloadIcon className="size-4" /> Export
           </a>
@@ -1904,11 +2051,34 @@ function DataTab({ me }: { me: Me }) {
               autoComplete="current-password"
               className={inputClass}
             />
-            <button type="submit" disabled={!password} className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500 disabled:opacity-50">
+            <button
+              type="submit"
+              disabled={!password}
+              className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500 disabled:opacity-50"
+            >
               <TrashIcon className="size-4" /> Delete account
             </button>
           </form>
         )}
+      </section>
+
+      <section>
+        <SectionTitle title="Legal & help" hint="How Relay handles your data, the rules everyone agrees to, and answers to common questions." />
+        <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+          {LEGAL_LINKS.map(([label, href]) => (
+            <li key={href}>
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener"
+                className="flex items-center justify-between rounded-xl bg-zinc-50 px-4 py-3 text-sm font-medium hover:bg-zinc-100 dark:bg-zinc-800/60 dark:hover:bg-zinc-800"
+              >
+                {label}
+                <ChevronRightIcon className="size-4 text-zinc-400" />
+              </a>
+            </li>
+          ))}
+        </ul>
       </section>
       {confirming && (
         <ConfirmDialog
@@ -1960,7 +2130,9 @@ function ToggleRow({
 }) {
   // The whole row is the label, so tapping the text toggles it too (big, easy target on phones).
   return (
-    <label className={`-mx-2 flex items-start justify-between gap-4 rounded-xl px-2 py-1.5 ${disabled ? "" : "cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50"}`}>
+    <label
+      className={`-mx-2 flex items-start justify-between gap-4 rounded-xl px-2 py-1.5 ${disabled ? "" : "cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50"}`}
+    >
       <div className="min-w-0">
         <p className="text-sm font-medium">{title}</p>
         <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{description}</p>

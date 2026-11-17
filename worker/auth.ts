@@ -1,4 +1,6 @@
-import { TRANSLATE_LANGUAGES,
+import { TERMS_VERSION } from "../shared/legal";
+import {
+  TRANSLATE_LANGUAGES,
   DEFAULT_SETTINGS,
   isBubbleStyle,
   isAccentColor,
@@ -43,11 +45,7 @@ export async function sha256Hex(input: string): Promise<string> {
 
 async function pbkdf2(password: string, salt: Uint8Array, iterations: number): Promise<Uint8Array> {
   const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", hash: "SHA-256", salt, iterations },
-    key,
-    256,
-  );
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256);
   return new Uint8Array(bits);
 }
 
@@ -81,11 +79,7 @@ export type SessionUser = User & { sessionHash: string };
 const ACTIVE_WRITE_MS = 5 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export async function createSession(
-  env: Env,
-  userId: string,
-  info: { device: string; location: string },
-): Promise<{ token: string; maxAge: number }> {
+export async function createSession(env: Env, userId: string, info: { device: string; location: string }): Promise<{ token: string; maxAge: number }> {
   const token = toB64Url(crypto.getRandomValues(new Uint8Array(32)));
   const now = Date.now();
   await env.DB.prepare(
@@ -99,7 +93,9 @@ export async function createSession(
 export async function deleteSession(env: Env, request: Request): Promise<void> {
   const token = readCookie(request, SESSION_COOKIE);
   if (!token) return;
-  await env.DB.prepare("DELETE FROM sessions WHERE token_hash = ?1").bind(await sha256Hex(token)).run();
+  await env.DB.prepare("DELETE FROM sessions WHERE token_hash = ?1")
+    .bind(await sha256Hex(token))
+    .run();
 }
 
 export function sessionCookie(token: string, maxAge: number): string {
@@ -149,7 +145,7 @@ export async function getSessionUser(request: Request, env: Env): Promise<Sessio
 /** The signed-in user's full profile including private settings. */
 export async function loadMe(env: Env, userId: string): Promise<Me> {
   const row = await env.DB.prepare(
-    "SELECT id, username, display_name, role, super_admin, avatar_version, bio, settings, status_text, totp_secret IS NOT NULL AS two_factor FROM users WHERE id = ?1",
+    "SELECT id, username, display_name, role, super_admin, avatar_version, bio, settings, status_text, totp_secret IS NOT NULL AS two_factor, birth_date, terms_version FROM users WHERE id = ?1",
   )
     .bind(userId)
     .first<{
@@ -163,6 +159,8 @@ export async function loadMe(env: Env, userId: string): Promise<Me> {
       settings: string;
       status_text: string;
       two_factor: number;
+      birth_date: string | null;
+      terms_version: string | null;
     }>();
   if (!row) throw new HttpError(401, "Please sign in.");
   return {
@@ -176,6 +174,8 @@ export async function loadMe(env: Env, userId: string): Promise<Me> {
     settings: parseSettings(row.settings),
     statusText: row.status_text ?? "",
     twoFactor: row.two_factor === 1,
+    needsConsent: row.terms_version !== TERMS_VERSION,
+    needsBirthDate: row.birth_date === null,
   };
 }
 
@@ -190,8 +190,7 @@ export function parseSettings(raw: string | null): Settings {
   const bool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fallback);
   const num = (v: unknown, min: number, max: number, fallback: number) =>
     typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(max, Math.max(min, v))) : fallback;
-  const oneOf = <T extends string>(v: unknown, options: readonly T[], fallback: T): T =>
-    options.includes(v as T) ? (v as T) : fallback;
+  const oneOf = <T extends string>(v: unknown, options: readonly T[], fallback: T): T => (options.includes(v as T) ? (v as T) : fallback);
   const bubbleColor = isBubbleStyle(parsed.bubbleColor) ? parsed.bubbleColor : d.bubbleColor;
   return {
     theme: parsed.theme === "light" || parsed.theme === "dark" ? parsed.theme : "system",

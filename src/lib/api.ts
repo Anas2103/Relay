@@ -1,5 +1,18 @@
 import type { ChatThemeId } from "../../shared/chatThemes";
-import type { ChillEpisode, ChillPodcast, ChillStation, ChillTrack, ChillVideo, FunItem, TriviaQuestion, Sticker, StoryGroup, OwnerSearchHit, OwnerStory, OwnerUserDetail, SiteFeatures,
+import type {
+  ChillEpisode,
+  ChillPodcast,
+  ChillStation,
+  ChillTrack,
+  ChillVideo,
+  FunItem,
+  TriviaQuestion,
+  Sticker,
+  StoryGroup,
+  OwnerSearchHit,
+  OwnerStory,
+  OwnerUserDetail,
+  SiteFeatures,
   AdminReport,
   AdminRoom,
   GroupBan,
@@ -60,10 +73,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(
-  path: string,
-  options: { method?: string; body?: unknown; raw?: Blob; signal?: AbortSignal } = {},
-): Promise<T> {
+async function request<T>(path: string, options: { method?: string; body?: unknown; raw?: Blob; signal?: AbortSignal } = {}): Promise<T> {
   let res: Response;
   try {
     res = await fetch(path, {
@@ -151,13 +161,14 @@ export async function fetchMedia(url: string): Promise<Blob> {
 
 export const api = {
   me: () => cached("me", () => request<{ user: Me }>("/api/me")),
-  register: (username: string, password: string, displayName: string) =>
-    request<{ user: Me }>("/api/auth/register", { method: "POST", body: { username, password, displayName } }),
+  register: (data: { username: string; password: string; displayName: string; birthDate: string; acceptTerms: boolean }) =>
+    request<{ user: Me }>("/api/auth/register", { method: "POST", body: data }),
+  /** Accept the current Terms and Privacy Policy (older accounts also give their birth date). */
+  consent: (data: { acceptTerms: true; birthDate?: string }) => request<{ user: Me }>("/api/account/consent", { method: "POST", body: data }),
   /** Returns the user, or a challenge when two-step verification is on. */
   login: (username: string, password: string) =>
     request<{ user: Me } | { twoFactor: true; challenge: string }>("/api/auth/login", { method: "POST", body: { username, password } }),
-  verifyLogin: (challenge: string, code: string) =>
-    request<{ user: Me }>("/api/auth/2fa", { method: "POST", body: { challenge, code } }),
+  verifyLogin: (challenge: string, code: string) => request<{ user: Me }>("/api/auth/2fa", { method: "POST", body: { challenge, code } }),
   logout: () => request<{ ok: true }>("/api/auth/logout", { method: "POST", body: {} }),
 
   searchUsers: (q: string) => request<{ users: User[] }>(`/api/users/search?q=${encodeURIComponent(q)}`),
@@ -213,13 +224,11 @@ export const api = {
   createGroup: (name: string, memberIds: string[]) => request<{ room: Room }>("/api/groups", { method: "POST", body: { name, memberIds } }),
   updateRoom: (roomId: string, data: { name?: string; disappearMs?: number | null; adminsOnly?: boolean; slowModeMs?: number; theme?: ChatThemeId | null }) =>
     request<{ room: Room }>(`/api/rooms/${roomId}`, { method: "PATCH", body: data }),
-  setInvite: (roomId: string, on: boolean) =>
-    request<{ room: Room }>(`/api/rooms/${roomId}/invite`, { method: on ? "POST" : "DELETE", body: {} }),
+  setInvite: (roomId: string, on: boolean) => request<{ room: Room }>(`/api/rooms/${roomId}/invite`, { method: on ? "POST" : "DELETE", body: {} }),
   invite: (code: string) => request<{ invite: InvitePreview }>(`/api/invite/${encodeURIComponent(code)}`),
   joinInvite: (code: string) => request<{ room: Room }>(`/api/invite/${encodeURIComponent(code)}`, { method: "POST", body: {} }),
   members: (roomId: string) => request<{ members: GroupMember[] }>(`/api/rooms/${roomId}/members`),
-  addMembers: (roomId: string, userIds: string[]) =>
-    request<{ added: number }>(`/api/rooms/${roomId}/members`, { method: "POST", body: { userIds } }),
+  addMembers: (roomId: string, userIds: string[]) => request<{ added: number }>(`/api/rooms/${roomId}/members`, { method: "POST", body: { userIds } }),
   removeMember: (roomId: string, userId: string, ban = false) =>
     request<{ ok: true }>(`/api/rooms/${roomId}/members/${userId}${ban ? "?ban=1" : ""}`, { method: "DELETE", body: {} }),
   bans: (roomId: string) => request<{ bans: GroupBan[] }>(`/api/rooms/${roomId}/bans`),
@@ -236,10 +245,10 @@ export const api = {
   star: (roomId: string, messageId: string, on: boolean) =>
     request<{ ok: true }>(`/api/rooms/${roomId}/messages/${messageId}/star`, { method: on ? "POST" : "DELETE", body: {} }),
   forwardMedia: (targetRoomId: string, fromRoomId: string, messageId: string) =>
-    request<{ mediaId: string; kind: Message["kind"]; body: string; meta: NonNullable<Message["meta"]> }>(
-      `/api/rooms/${targetRoomId}/forward`,
-      { method: "POST", body: { fromRoomId, messageId } },
-    ),
+    request<{ mediaId: string; kind: Message["kind"]; body: string; meta: NonNullable<Message["meta"]> }>(`/api/rooms/${targetRoomId}/forward`, {
+      method: "POST",
+      body: { fromRoomId, messageId },
+    }),
   linkPreview: (url: string) => request<{ preview: LinkPreview | null }>(`/api/link-preview?url=${encodeURIComponent(url)}`),
   site: () => request<{ site: SiteSettings }>("/api/site"),
   pushKey: () => request<{ key: string | null }>("/api/push/key"),
@@ -247,10 +256,7 @@ export const api = {
   pushUnsubscribe: (endpoint: string) => request<{ ok: true }>("/api/push/unsubscribe", { method: "POST", body: { endpoint } }),
   deleteAccount: (password: string) => request<{ ok: true }>("/api/account", { method: "DELETE", body: { password } }),
   /** Latest page, or older (`before`), newer (`after`), or a window around one message (`around`). */
-  messages: (
-    roomId: string,
-    opts: { before?: Cursor; after?: Cursor; around?: string } = {},
-  ) => {
+  messages: (roomId: string, opts: { before?: Cursor; after?: Cursor; around?: string } = {}) => {
     const qs = opts.around
       ? `?around=${encodeURIComponent(opts.around)}`
       : opts.after
@@ -288,8 +294,7 @@ export const api = {
     setup2fa: (password: string) => request<{ secret: string; uri: string }>("/api/account/2fa/setup", { method: "POST", body: { password } }),
     enable2fa: (code: string) => request<{ recoveryCodes: string[]; user: Me }>("/api/account/2fa/enable", { method: "POST", body: { code } }),
     disable2fa: (password: string) => request<{ user: Me }>("/api/account/2fa/disable", { method: "POST", body: { password } }),
-    newRecoveryCodes: (password: string) =>
-      request<{ recoveryCodes: string[] }>("/api/account/2fa/recovery", { method: "POST", body: { password } }),
+    newRecoveryCodes: (password: string) => request<{ recoveryCodes: string[] }>("/api/account/2fa/recovery", { method: "POST", body: { password } }),
   },
 
   admin: {
@@ -297,16 +302,12 @@ export const api = {
     users: (q = "") => request<{ users: AdminUser[] }>(`/api/admin/users?q=${encodeURIComponent(q)}`),
     createUser: (data: { username: string; displayName: string; password: string; role: Role }) =>
       request<{ user: AdminUser }>("/api/admin/users", { method: "POST", body: data }),
-    updateUser: (id: string, data: AdminUserUpdate) =>
-      request<{ user: AdminUser }>(`/api/admin/users/${id}`, { method: "PATCH", body: data }),
-    signOutEverywhere: (id: string) =>
-      request<{ user: AdminUser }>(`/api/admin/users/${id}/sessions`, { method: "DELETE", body: {} }),
+    updateUser: (id: string, data: AdminUserUpdate) => request<{ user: AdminUser }>(`/api/admin/users/${id}`, { method: "PATCH", body: data }),
+    signOutEverywhere: (id: string) => request<{ user: AdminUser }>(`/api/admin/users/${id}/sessions`, { method: "DELETE", body: {} }),
     deleteUser: (id: string) => request<{ ok: true }>(`/api/admin/users/${id}`, { method: "DELETE", body: {} }),
-    audit: (q = "", before?: number) =>
-      request<{ entries: AuditEntry[] }>(`/api/admin/audit?q=${encodeURIComponent(q)}${before ? `&before=${before}` : ""}`),
+    audit: (q = "", before?: number) => request<{ entries: AuditEntry[] }>(`/api/admin/audit?q=${encodeURIComponent(q)}${before ? `&before=${before}` : ""}`),
     reports: (status: "open" | "closed" = "open") => request<{ reports: AdminReport[]; open: number }>(`/api/admin/reports?status=${status}`),
-    resolveReport: (id: string, status: "resolved" | "dismissed") =>
-      request<{ ok: true }>(`/api/admin/reports/${id}`, { method: "PATCH", body: { status } }),
+    resolveReport: (id: string, status: "resolved" | "dismissed") => request<{ ok: true }>(`/api/admin/reports/${id}`, { method: "PATCH", body: { status } }),
     // Owner only (Grimm)
     rooms: (q = "") => request<{ rooms: AdminRoom[] }>(`/api/admin/rooms?q=${encodeURIComponent(q)}`),
     roomMessages: (roomId: string, before?: Cursor) =>
@@ -329,8 +330,7 @@ export const api = {
       user: (id: string) => request<{ detail: OwnerUserDetail }>(`/api/admin/owner/users/${id}`),
       signOutDevice: (userId: string, sessionId: string) =>
         request<{ ok: true }>(`/api/admin/owner/users/${userId}/sessions/${sessionId}`, { method: "DELETE", body: {} }),
-      eraseMessages: (userId: string) =>
-        request<{ ok: true; deleted: number }>(`/api/admin/owner/users/${userId}/messages`, { method: "DELETE", body: {} }),
+      eraseMessages: (userId: string) => request<{ ok: true; deleted: number }>(`/api/admin/owner/users/${userId}/messages`, { method: "DELETE", body: {} }),
       joinGroup: (roomId: string) => request<{ ok: true; roomId: string }>(`/api/admin/owner/rooms/${roomId}/join`, { method: "POST", body: {} }),
       stories: () => request<{ stories: OwnerStory[] }>("/api/admin/owner/stories"),
       storyMediaUrl: (id: string) => `/api/admin/owner/stories/${id}/media`,

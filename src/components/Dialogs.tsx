@@ -53,12 +53,18 @@ export function Sheet({
         <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-zinc-300 md:hidden dark:bg-zinc-700" aria-hidden="true" />
         <div className="flex shrink-0 items-center justify-between gap-3 px-5 pt-3 pb-2 md:pt-5">
           <h2 className="text-lg font-semibold">{title}</h2>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200" aria-label="Close">
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            aria-label="Close"
+          >
             <XIcon className="size-5" />
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4">{children}</div>
-        {footer && <div className="shrink-0 border-t border-zinc-200 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-zinc-800">{footer}</div>}
+        {footer && (
+          <div className="shrink-0 border-t border-zinc-200 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-zinc-800">{footer}</div>
+        )}
       </div>
     </div>
   );
@@ -73,17 +79,7 @@ export interface MenuItem {
 }
 
 /** Context menu: a popover at the pointer on desktop, a bottom sheet on phones. */
-export function PopMenu({
-  at,
-  title,
-  items,
-  onClose,
-}: {
-  at: { x: number; y: number };
-  title?: string;
-  items: MenuItem[];
-  onClose: () => void;
-}) {
+export function PopMenu({ at, title, items, onClose }: { at: { x: number; y: number }; title?: string; items: MenuItem[]; onClose: () => void }) {
   const compact = useCompact();
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -128,7 +124,10 @@ export function PopMenu({
   if (compact) {
     return (
       <div className="fade-in fixed inset-0 z-50 flex items-end bg-zinc-950/40" onClick={onClose} onContextMenu={(e) => e.preventDefault()}>
-        <div className="slide-up w-full rounded-t-3xl bg-white pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-2xl dark:bg-zinc-800" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="slide-up w-full rounded-t-3xl bg-white pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-2xl dark:bg-zinc-800"
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="mx-auto h-1 w-10 rounded-full bg-zinc-300 dark:bg-zinc-600" aria-hidden="true" />
           {title && <p className="truncate px-4 pt-3 pb-1 text-sm font-semibold text-zinc-500 dark:text-zinc-400">{title}</p>}
           {list}
@@ -174,17 +173,7 @@ function SearchBox({ value, onChange, placeholder }: { value: string; onChange: 
 }
 
 /** Pick several people (with search and removable chips). */
-export function PeoplePicker({
-  people,
-  selected,
-  onToggle,
-  empty,
-}: {
-  people: User[];
-  selected: Set<string>;
-  onToggle: (u: User) => void;
-  empty: string;
-}) {
+export function PeoplePicker({ people, selected, onToggle, empty }: { people: User[]; selected: Set<string>; onToggle: (u: User) => void; empty: string }) {
   const [q, setQ] = useState("");
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -464,7 +453,10 @@ export function ConfirmDialog({
       onClose={onClose}
       footer={
         <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold ring-1 ring-zinc-200 transition hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold ring-1 ring-zinc-200 transition hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800"
+          >
             Cancel
           </button>
           <button

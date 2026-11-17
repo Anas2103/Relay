@@ -28,6 +28,10 @@ export interface Me extends User {
   statusText: string;
   /** Two-step verification is on. */
   twoFactor: boolean;
+  /** Hasn't accepted the current Terms and Privacy Policy yet (they changed, or the account is older). */
+  needsConsent: boolean;
+  /** Account made before the age check: we still need a birth date. */
+  needsBirthDate: boolean;
 }
 
 /** A signed-in device (Settings → Privacy & security → Devices). */
@@ -134,7 +138,16 @@ function rgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 function toHex([r, g, b]: [number, number, number]): string {
-  return "#" + [r, g, b].map((v) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, "0")).join("");
+  return (
+    "#" +
+    [r, g, b]
+      .map((v) =>
+        Math.round(Math.min(255, Math.max(0, v)))
+          .toString(16)
+          .padStart(2, "0"),
+      )
+      .join("")
+  );
 }
 export function luminance(hex: string): number {
   const [r, g, b] = rgb(hex);
@@ -214,8 +227,32 @@ export function bubbleLook(style: BubbleStyle): { background: string; ink: strin
 export type Theme = "system" | "light" | "dark";
 
 /** Styles for each mode. "System" uses your light style by day and dark style by night. */
-export const LIGHT_THEMES = { classic: "Classic", cream: "Cream", cool: "Cool", rose: "Rose", mint: "Mint", lilac: "Lilac", sky: "Sky", sand: "Sand", peach: "Peach", fog: "Fog" } as const;
-export const DARK_THEMES = { classic: "Classic", dim: "Dim", amoled: "AMOLED black", midnight: "Midnight", forest: "Forest", wine: "Wine", ocean: "Ocean", mocha: "Mocha", grape: "Grape", nordic: "Nordic", slate: "Slate", plum: "Plum" } as const;
+export const LIGHT_THEMES = {
+  classic: "Classic",
+  cream: "Cream",
+  cool: "Cool",
+  rose: "Rose",
+  mint: "Mint",
+  lilac: "Lilac",
+  sky: "Sky",
+  sand: "Sand",
+  peach: "Peach",
+  fog: "Fog",
+} as const;
+export const DARK_THEMES = {
+  classic: "Classic",
+  dim: "Dim",
+  amoled: "AMOLED black",
+  midnight: "Midnight",
+  forest: "Forest",
+  wine: "Wine",
+  ocean: "Ocean",
+  mocha: "Mocha",
+  grape: "Grape",
+  nordic: "Nordic",
+  slate: "Slate",
+  plum: "Plum",
+} as const;
 export type LightTheme = keyof typeof LIGHT_THEMES;
 export type DarkTheme = keyof typeof DARK_THEMES;
 
@@ -983,7 +1020,9 @@ export type ClientEvent =
       body: string;
       mediaId?: string;
       /** Client-measured details; size and type are always taken from the stored file. */
-      meta?: Pick<MediaMeta, "width" | "height" | "duration" | "waveform" | "viewOnce" | "call" | "forwarded" | "poll" | "location" | "sticker"> & { newGame?: { type: ChatGameType; video?: string; word?: string } };
+      meta?: Pick<MediaMeta, "width" | "height" | "duration" | "waveform" | "viewOnce" | "call" | "forwarded" | "poll" | "location" | "sticker"> & {
+        newGame?: { type: ChatGameType; video?: string; word?: string };
+      };
       replyToId?: string;
       /** No alerts or sounds for the people receiving it. */
       silent?: boolean;
@@ -1104,8 +1143,29 @@ export const VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"] as con
 
 /** File types that can run code on someone's computer are refused. */
 export const BLOCKED_EXTENSIONS = [
-  "exe", "msi", "bat", "cmd", "com", "scr", "pif", "ps1", "vbs", "vbe", "js", "jse",
-  "wsf", "wsh", "hta", "cpl", "reg", "lnk", "jar", "dll", "sys", "msc", "application",
+  "exe",
+  "msi",
+  "bat",
+  "cmd",
+  "com",
+  "scr",
+  "pif",
+  "ps1",
+  "vbs",
+  "vbe",
+  "js",
+  "jse",
+  "wsf",
+  "wsh",
+  "hta",
+  "cpl",
+  "reg",
+  "lnk",
+  "jar",
+  "dll",
+  "sys",
+  "msc",
+  "application",
 ];
 
 export function fileExtension(name: string): string {

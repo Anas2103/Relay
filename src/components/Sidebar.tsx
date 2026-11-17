@@ -291,7 +291,11 @@ export function Sidebar({
             <span className="hidden md:inline">Chats</span>
           </span>
           {offline ? (
-            <span className="flex items-center gap-1 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200" role="status" title="Showing chats saved on this device. Messages you write are sent when you're back online.">
+            <span
+              className="flex items-center gap-1 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200"
+              role="status"
+              title="Showing chats saved on this device. Messages you write are sent when you're back online."
+            >
               <span className="size-1.5 rounded-full bg-zinc-500" /> Offline
             </span>
           ) : (
@@ -488,7 +492,10 @@ export function Sidebar({
             </span>
             <p className="mt-4 font-medium">No conversations yet</p>
             <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Search for a friend's username above to send a friend request.</p>
-            <button onClick={onOpenSaved} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-accent/10 px-4 py-2 text-sm font-medium text-accent-fg hover:bg-accent/15">
+            <button
+              onClick={onOpenSaved}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-accent/10 px-4 py-2 text-sm font-medium text-accent-fg hover:bg-accent/15"
+            >
               <BookmarkIcon className="size-4" /> Open Saved Messages
             </button>
           </div>
@@ -566,13 +573,7 @@ export function Sidebar({
               presence={presence}
               onSelect={onSelect}
               onMenu={openChatMenu}
-              empty={
-                folder === "unread"
-                  ? "You're all caught up ✨"
-                  : folder === "groups"
-                    ? "No groups yet. Tap the pencil to make one."
-                    : "Nothing here yet."
-              }
+              empty={folder === "unread" ? "You're all caught up ✨" : folder === "groups" ? "No groups yet. Tap the pencil to make one." : "Nothing here yet."}
             />
           </>
         )}
@@ -596,13 +597,20 @@ export function Sidebar({
             <p className="truncate text-sm font-medium">{me.displayName}</p>
             <p className="flex items-center gap-1 truncate text-xs text-zinc-500 dark:text-zinc-400">
               {s.presence !== "online" && (
-                <span className={`size-2 shrink-0 rounded-full ${s.presence === "dnd" ? "bg-red-500" : "bg-zinc-400 ring-2 ring-inset ring-zinc-200 dark:ring-zinc-700"}`} aria-hidden="true" />
+                <span
+                  className={`size-2 shrink-0 rounded-full ${s.presence === "dnd" ? "bg-red-500" : "bg-zinc-400 ring-2 ring-inset ring-zinc-200 dark:ring-zinc-700"}`}
+                  aria-hidden="true"
+                />
               )}
-              <span className="truncate">{me.statusText || (s.presence === "dnd" ? "Do not disturb" : s.presence === "invisible" ? "Invisible" : `@${me.username}`)}</span>
+              <span className="truncate">
+                {me.statusText || (s.presence === "dnd" ? "Do not disturb" : s.presence === "invisible" ? "Invisible" : `@${me.username}`)}
+              </span>
             </p>
           </div>
           {me.superAdmin ? (
-            <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 uppercase dark:bg-amber-900/50 dark:text-amber-300">Owner</span>
+            <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 uppercase dark:bg-amber-900/50 dark:text-amber-300">
+              Owner
+            </span>
           ) : me.role === "admin" ? (
             <span className="rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent-fg uppercase">Admin</span>
           ) : null}
@@ -753,7 +761,7 @@ const RoomItem = memo(function RoomItem({
             {muted && <BellOffIcon className="size-3.5 shrink-0 text-zinc-400" aria-label="Muted" />}
           </p>
           {last && (
-            <span className={`shrink-0 text-xs tabular-nums ${unread && !muted ? "font-semibold text-accent-fg" : "text-zinc-400"}`}>
+            <span className={`shrink-0 text-xs tabular-nums ${unread && !muted ? "font-semibold text-accent-fg" : "text-zinc-600 dark:text-zinc-400"}`}>
               {formatListTime(last.createdAt)}
             </span>
           )}
@@ -762,7 +770,7 @@ const RoomItem = memo(function RoomItem({
           <div className="flex items-center gap-2">
             <p
               className={`min-w-0 flex-1 truncate text-sm ${
-                unread ? "font-medium text-zinc-800 dark:text-zinc-200" : last ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-400 italic"
+                unread ? "font-medium text-zinc-800 dark:text-zinc-200" : last ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-500 italic dark:text-zinc-400"
               }`}
             >
               {draft && !active && room.status === "accepted" ? (
@@ -775,7 +783,11 @@ const RoomItem = memo(function RoomItem({
               )}
             </p>
             {room.mentions > 0 && !active && (
-              <span className="pop-in flex size-5 shrink-0 items-center justify-center rounded-full bg-accent text-[12px] font-bold text-accent-ink" aria-label={`${room.mentions} mentions`} title="You were mentioned">
+              <span
+                className="pop-in flex size-5 shrink-0 items-center justify-center rounded-full bg-accent text-[12px] font-bold text-accent-ink"
+                aria-label={`${room.mentions} mentions`}
+                title="You were mentioned"
+              >
                 @
               </span>
             )}
@@ -795,7 +807,9 @@ const RoomItem = memo(function RoomItem({
         )}
       </div>
       {!previews && unread && (
-        <span className={`flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${muted ? "bg-zinc-300 dark:bg-zinc-700" : "bg-accent text-accent-ink"}`}>
+        <span
+          className={`flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${muted ? "bg-zinc-300 dark:bg-zinc-700" : "bg-accent text-accent-ink"}`}
+        >
           {room.unreadCount > 99 ? "99+" : room.unreadCount}
         </span>
       )}
@@ -818,17 +832,7 @@ function Highlight({ text, q }: { text: string; q: string }) {
   );
 }
 
-function SearchResults({
-  results,
-  searching,
-  opening,
-  onPick,
-}: {
-  results: User[];
-  searching: boolean;
-  opening: string | null;
-  onPick: (u: User) => void;
-}) {
+function SearchResults({ results, searching, opening, onPick }: { results: User[]; searching: boolean; opening: string | null; onPick: (u: User) => void }) {
   return (
     <>
       <p className="px-3 pt-1 pb-2 text-xs font-medium tracking-wide text-zinc-400 uppercase">People</p>

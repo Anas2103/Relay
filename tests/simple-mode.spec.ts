@@ -15,7 +15,10 @@ test("simple mode makes everything bigger, hides the extras and is remembered", 
   await expect(page.getByRole("tablist", { name: "Chat folders" })).toBeVisible();
 
   await page.getByRole("button", { name: "Settings" }).first().click();
-  await page.getByRole("button", { name: /Appearance/ }).first().click();
+  await page
+    .getByRole("button", { name: /Appearance/ })
+    .first()
+    .click();
   await page.getByRole("switch", { name: /Simple mode/ }).click();
   await expect(page.locator("html")).toHaveAttribute("data-simple", "on");
   expect(await fontSize()).toBe("19px");

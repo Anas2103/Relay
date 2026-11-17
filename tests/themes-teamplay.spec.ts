@@ -24,7 +24,10 @@ test.beforeAll(async ({ browser }) => {
 async function start(p: Page, game: string) {
   await p.getByRole("button", { name: "Attach" }).click();
   await p.getByRole("menuitem", { name: "Game / Watch" }).click();
-  await p.getByRole("dialog", { name: "Play together" }).getByRole("button", { name: new RegExp(game) }).click();
+  await p
+    .getByRole("dialog", { name: "Play together" })
+    .getByRole("button", { name: new RegExp(game) })
+    .click();
 }
 
 /** The game messages as the server sends them to this browser. */
@@ -43,7 +46,9 @@ test("a chat theme is shared: both people see it live, and it survives a reload"
 
   // The server only accepts themes it knows.
   const res = await ann.evaluate(
-    async (roomId) => (await fetch(`/api/rooms/${roomId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ theme: "nope" }) })).status,
+    async (roomId) =>
+      (await fetch(`/api/rooms/${roomId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ theme: "nope" }) }))
+        .status,
     roomId,
   );
   expect(res).toBe(400);
@@ -51,7 +56,8 @@ test("a chat theme is shared: both people see it live, and it survives a reload"
   // Anyone can turn it off again, and each person can choose not to see themes at all.
   await ann.keyboard.press("Escape");
   const off = await ben.evaluate(
-    async (roomId) => (await fetch(`/api/rooms/${roomId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ theme: null }) })).status,
+    async (roomId) =>
+      (await fetch(`/api/rooms/${roomId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ theme: null }) })).status,
     roomId,
   );
   expect(off).toBe(200);
@@ -79,7 +85,11 @@ test("Crack the Code: colors are scored and the code is hidden until the end", a
   await start(ben, "Crack the Code");
   await expect(ann.getByText("Find the 4 hidden colors").last()).toBeVisible();
   expect(await rawMessages(ann)).toMatch(/"type":"code","players":\["[^"]+"\],"winner":null,"code":\[\]/);
-  for (const c of ["red", "blue", "green", "yellow"]) await ann.getByRole("button", { name: `Add ${c}` }).last().click();
+  for (const c of ["red", "blue", "green", "yellow"])
+    await ann
+      .getByRole("button", { name: `Add ${c}` })
+      .last()
+      .click();
   await ann.getByRole("button", { name: "Try this code" }).last().click();
   await expect(ben.getByText("9 tries left").last()).toBeVisible();
   await expect(ben.getByLabel(/right place, \d wrong place/).last()).toBeVisible();
@@ -90,7 +100,10 @@ test("Pair Up: only face-up cards reach the app, and a full board is a team win"
   await expect(ben.getByText("Find all 8 pairs").last()).toBeVisible();
   const deckOf = async (p: Page) => {
     const data = JSON.parse(await rawMessages(p)) as { messages: { meta?: { game?: { type: string; deck: number[] } } }[] };
-    return data.messages.map((m) => m.meta?.game).filter((g) => g?.type === "pairs").at(-1)!.deck;
+    return data.messages
+      .map((m) => m.meta?.game)
+      .filter((g) => g?.type === "pairs")
+      .at(-1)!.deck;
   };
   expect((await deckOf(ben)).every((f) => f === -1)).toBe(true);
 

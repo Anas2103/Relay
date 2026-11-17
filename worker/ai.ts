@@ -54,7 +54,9 @@ export async function transcribe(request: Request, env: Env, roomId: string, mes
   const msg = await loadMessage(env, roomId, messageId);
   if (msg.kind !== "voice" || !msg.media_id) throw new HttpError(400, "Only voice messages can be transcribed.");
 
-  const saved = await env.DB.prepare("SELECT text, language FROM transcripts WHERE message_id = ?1").bind(messageId).first<{ text: string; language: string | null }>();
+  const saved = await env.DB.prepare("SELECT text, language FROM transcripts WHERE message_id = ?1")
+    .bind(messageId)
+    .first<{ text: string; language: string | null }>();
   if (saved) return json({ text: saved.text, language: saved.language });
 
   const ai = needAi(env);

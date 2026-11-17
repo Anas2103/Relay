@@ -121,8 +121,19 @@ export function SkyHop({ onExit }: { onExit: () => void }) {
   }, [state]);
 
   return (
-    <GameShell title="Sky Hop" onExit={onExit} stats={[["Score", score], ["Best", Math.max(best, score)]]} hint="Tap, click or press Space to hop.">
-      <div className="relative mx-auto aspect-[2/3] w-full max-w-[min(100%,calc((100dvh-15rem)*0.667))] touch-none overflow-hidden rounded-2xl select-none" onPointerDown={() => state === "playing" && hop()}>
+    <GameShell
+      title="Sky Hop"
+      onExit={onExit}
+      stats={[
+        ["Score", score],
+        ["Best", Math.max(best, score)],
+      ]}
+      hint="Tap, click or press Space to hop."
+    >
+      <div
+        className="relative mx-auto aspect-[2/3] w-full max-w-[min(100%,calc((100dvh-15rem)*0.667))] touch-none overflow-hidden rounded-2xl select-none"
+        onPointerDown={() => state === "playing" && hop()}
+      >
         <canvas ref={canvas} width={CW} height={CH} className="size-full" aria-label="Sky Hop" />
         {state !== "playing" && (
           <Overlay

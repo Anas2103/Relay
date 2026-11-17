@@ -18,9 +18,7 @@ export async function routeStickers(request: Request, env: Env, path: string): P
   const m = request.method;
 
   if (path === "/api/stickers" && m === "GET") {
-    const { results } = await env.DB.prepare(
-      "SELECT id, width, height, created_at FROM stickers WHERE user_id = ?1 ORDER BY created_at DESC",
-    )
+    const { results } = await env.DB.prepare("SELECT id, width, height, created_at FROM stickers WHERE user_id = ?1 ORDER BY created_at DESC")
       .bind(me.id)
       .all<{ id: string; width: number; height: number; created_at: number }>();
     return json({ stickers: results.map((r): Sticker => ({ id: r.id, width: r.width, height: r.height, createdAt: r.created_at })) });

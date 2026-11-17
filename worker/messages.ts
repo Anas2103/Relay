@@ -68,12 +68,7 @@ function replyPreview(r: MessageRow): ReplyPreview | null {
   };
 }
 
-export function rowToMessage(
-  r: MessageRow,
-  reactions: Record<string, string> = {},
-  viewedBy: string[] = [],
-  votes?: Record<string, number[]>,
-): Message {
+export function rowToMessage(r: MessageRow, reactions: Record<string, string> = {}, viewedBy: string[] = [], votes?: Record<string, number[]>): Message {
   return {
     ...(r.kind === "poll" ? { votes: votes ?? {} } : {}),
     id: r.id,
@@ -111,7 +106,9 @@ export async function hydrateMessages(db: D1Database, rows: MessageRow[]): Promi
     db.prepare(`SELECT message_id, user_id, emoji FROM message_reactions WHERE message_id IN (${placeholders})`).bind(...ids),
     db.prepare(`SELECT message_id, user_id FROM media_views WHERE message_id IN (${placeholders})`).bind(...ids),
     pollIds.length
-      ? db.prepare(`SELECT message_id, user_id, option_idx FROM poll_votes WHERE message_id IN (${pollIds.map((_, i) => `?${i + 1}`).join(",")})`).bind(...pollIds)
+      ? db
+          .prepare(`SELECT message_id, user_id, option_idx FROM poll_votes WHERE message_id IN (${pollIds.map((_, i) => `?${i + 1}`).join(",")})`)
+          .bind(...pollIds)
       : db.prepare("SELECT NULL AS message_id WHERE 0"),
     voiceIds.length
       ? db.prepare(`SELECT message_id, text FROM transcripts WHERE message_id IN (${voiceIds.map((_, i) => `?${i + 1}`).join(",")})`).bind(...voiceIds)
@@ -151,9 +148,6 @@ export async function loadMessage(db: D1Database, id: string): Promise<Message |
 }
 
 export async function roomMemberIds(db: D1Database, roomId: string): Promise<string[]> {
-  const { results } = await db
-    .prepare("SELECT user_id FROM room_members WHERE room_id = ?1")
-    .bind(roomId)
-    .all<{ user_id: string }>();
+  const { results } = await db.prepare("SELECT user_id FROM room_members WHERE room_id = ?1").bind(roomId).all<{ user_id: string }>();
   return results.map((r) => r.user_id);
 }

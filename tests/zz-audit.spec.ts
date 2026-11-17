@@ -32,7 +32,11 @@ test("solo games", async () => {
       if (g === "2048") for (const k of ["ArrowLeft", "ArrowUp", "ArrowRight", "ArrowDown"]) await p.keyboard.press(k);
       if (g === "Minesweeper") await p.getByLabel("Minefield").getByRole("button").nth(40).click();
       if (g === "Memory") await p.getByRole("button", { name: "Hidden card" }).first().click();
-      if (g === "Snake") await p.getByRole("button", { name: "Start" }).click().catch(() => {});
+      if (g === "Snake")
+        await p
+          .getByRole("button", { name: "Start" })
+          .click()
+          .catch(() => {});
       if (g === "Trivia") {
         await shot(p, `${tag}-trivia-menu`);
         await p.getByRole("button", { name: /Anything/ }).click();
@@ -40,10 +44,17 @@ test("solo games", async () => {
       }
       await p.waitForTimeout(400);
       await shot(p, `${tag}-${g.replace(/\s/g, "-").toLowerCase()}`);
-      await p.getByRole("button", { name: "Back to games" }).click().catch(async () => {
-        await p.getByRole("button", { name: "Back to games" }).first().click();
-      });
-      if (g === "Trivia") await p.getByRole("button", { name: "Back to games" }).click().catch(() => {});
+      await p
+        .getByRole("button", { name: "Back to games" })
+        .click()
+        .catch(async () => {
+          await p.getByRole("button", { name: "Back to games" }).first().click();
+        });
+      if (g === "Trivia")
+        await p
+          .getByRole("button", { name: "Back to games" })
+          .click()
+          .catch(() => {});
     }
     await p.getByRole("button", { name: "Back to chats" }).click();
   }
@@ -55,10 +66,16 @@ test("chat games", async () => {
     await desk.getByRole("button", { name: "Attach" }).click();
     await desk.getByRole("menuitem", { name: "Game / Watch" }).click();
     if (g === "Tic-tac-toe") await shot(desk, "desk-game-dialog");
-    await desk.getByRole("dialog", { name: "Play together" }).getByRole("button", { name: new RegExp(g) }).click();
+    await desk
+      .getByRole("dialog", { name: "Play together" })
+      .getByRole("button", { name: new RegExp(g) })
+      .click();
     await desk.waitForTimeout(800);
   }
-  await desk.getByRole("button", { name: /^Square 5,/ }).last().click();
+  await desk
+    .getByRole("button", { name: /^Square 5,/ })
+    .last()
+    .click();
   await desk.waitForTimeout(800);
   await shot(desk, "desk-chat-games");
   await shot(phone, "phone-chat-games");

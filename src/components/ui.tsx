@@ -14,16 +14,17 @@ export function Logo({ size = 32 }: { size?: number }) {
   );
 }
 
+/** Initials are white, so each shade keeps at least 4.5:1 contrast with white (WCAG AA). */
 const AVATAR_COLORS = [
-  "bg-rose-500",
-  "bg-orange-500",
-  "bg-amber-500",
-  "bg-emerald-500",
-  "bg-teal-500",
-  "bg-sky-500",
-  "bg-indigo-500",
-  "bg-violet-500",
-  "bg-fuchsia-500",
+  "bg-rose-600",
+  "bg-orange-700",
+  "bg-amber-700",
+  "bg-emerald-700",
+  "bg-teal-700",
+  "bg-sky-700",
+  "bg-indigo-600",
+  "bg-violet-600",
+  "bg-fuchsia-700",
 ];
 
 function colorFor(seed: string): string {
@@ -93,12 +94,7 @@ export function Avatar({
           {initials(name)}
         </span>
       )}
-      {online && (
-        <span
-          className={`absolute right-0 bottom-0 ${dot} rounded-full bg-emerald-500 ring-2 ring-white dark:ring-zinc-900`}
-          aria-label="Online"
-        />
-      )}
+      {online && <span className={`absolute right-0 bottom-0 ${dot} rounded-full bg-emerald-500 ring-2 ring-white dark:ring-zinc-900`} aria-label="Online" />}
     </span>
   );
 }
@@ -428,9 +424,7 @@ export function Ticks({ read, className = "" }: { read: boolean; className?: str
   return (
     <svg viewBox="0 0 20 12" className={`h-3 w-4 ${className}`} fill="none" aria-label={read ? "Read" : "Sent"}>
       <path d="M1 6.5 4.5 10 11 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      {read && (
-        <path d="M8.5 9.2 9.3 10 15.8 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      )}
+      {read && <path d="M8.5 9.2 9.3 10 15.8 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />}
     </svg>
   );
 }

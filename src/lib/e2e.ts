@@ -307,10 +307,70 @@ export function parsePhotoBody(text: string): SecretPhoto | null {
 // ---------- Verification ----------
 
 const EMOJI = [
-  "🐶", "🐱", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🦉",
-  "🦄", "🐝", "🦋", "🐢", "🐙", "🦀", "🐬", "🐳", "🌵", "🌲", "🌻", "🍄", "🌙", "⭐", "⚡", "🔥",
-  "🌈", "❄️", "🍎", "🍋", "🍉", "🍇", "🍓", "🍒", "🥑", "🌽", "🍩", "🍪", "🎂", "🍿", "⚽", "🏀",
-  "🎸", "🎧", "🎨", "🚀", "✈️", "🚲", "⛵", "🏠", "⏰", "💡", "🔑", "🎁", "📚", "🧩", "🎈", "💎",
+  "🐶",
+  "🐱",
+  "🦊",
+  "🐻",
+  "🐼",
+  "🐨",
+  "🐯",
+  "🦁",
+  "🐮",
+  "🐷",
+  "🐸",
+  "🐵",
+  "🐔",
+  "🐧",
+  "🐦",
+  "🦉",
+  "🦄",
+  "🐝",
+  "🦋",
+  "🐢",
+  "🐙",
+  "🦀",
+  "🐬",
+  "🐳",
+  "🌵",
+  "🌲",
+  "🌻",
+  "🍄",
+  "🌙",
+  "⭐",
+  "⚡",
+  "🔥",
+  "🌈",
+  "❄️",
+  "🍎",
+  "🍋",
+  "🍉",
+  "🍇",
+  "🍓",
+  "🍒",
+  "🥑",
+  "🌽",
+  "🍩",
+  "🍪",
+  "🎂",
+  "🍿",
+  "⚽",
+  "🏀",
+  "🎸",
+  "🎧",
+  "🎨",
+  "🚀",
+  "✈️",
+  "🚲",
+  "⛵",
+  "🏠",
+  "⏰",
+  "💡",
+  "🔑",
+  "🎁",
+  "📚",
+  "🧩",
+  "🎈",
+  "💎",
 ];
 
 /**
@@ -318,7 +378,13 @@ const EMOJI = [
  * if it matches, nobody swapped keys in the middle.
  */
 async function fingerprint(info: SecretInfo): Promise<string[]> {
-  const material = [...info.keys.map((k) => k.publicKey)].sort().join("|") + "|" + info.roomId;
+  const material =
+    info.keys
+      .map((k) => k.publicKey)
+      .sort()
+      .join("|") +
+    "|" +
+    info.roomId;
   const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(material)));
   return Array.from(hash.subarray(0, 8), (b) => EMOJI[b % 64]);
 }

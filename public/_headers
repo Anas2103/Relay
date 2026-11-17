@@ -5,5 +5,5 @@
   Referrer-Policy: no-referrer
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
-  Permissions-Policy: autoplay=(self "https://www.youtube-nocookie.com"), fullscreen=(self "https://www.youtube-nocookie.com"), camera=(self), microphone=(self), geolocation=(), display-capture=(self), payment=(), usb=(), serial=(), bluetooth=(), interest-cohort=()
+  Permissions-Policy: autoplay=(self "https://www.youtube-nocookie.com"), fullscreen=(self "https://www.youtube-nocookie.com"), camera=(self), microphone=(self), geolocation=(self), display-capture=(self), payment=(), usb=(), serial=(), bluetooth=()
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload

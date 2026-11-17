@@ -1,0 +1,32 @@
+# Security measures
+
+What protects Relay, and where it lives in the code. Report problems privately: see [SECURITY.md](../SECURITY.md).
+
+| Area            | Measure                                                                                                                                                                                    | Where                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| Passwords       | PBKDF2-SHA256, 100,000 iterations, 16-byte random salt; length rules, common and username-containing passwords refused (shared client/server rules)                                        | `worker/auth.ts`, `shared/password.ts`                                      |
+| Sign-in timing  | A dummy hash is checked for unknown usernames, so response time doesn't reveal which usernames exist                                                                                       | `login` in `worker/index.ts`                                                |
+| Brute force     | Rate limits per IP and per username on sign-in, sign-up, 2FA; five wrong 2FA codes end the attempt                                                                                         | `rateLimit`, `worker/security.ts`                                           |
+| 2FA             | TOTP with replay protection, 8 hashed single-use recovery codes                                                                                                                            | `worker/security.ts`                                                        |
+| Sessions        | Random token in an `HttpOnly; Secure; SameSite=Lax` cookie; only its SHA-256 stored; idle expiry chosen by the user (1 week to 1 year); devices list; sign out one or all; live disconnect | `worker/auth.ts`, `worker/security.ts`                                      |
+| CSRF            | Every non-GET request must come from Relay's own origin (`Origin` check), plus SameSite cookies                                                                                            | `assertSameOrigin` in `worker/http.ts`                                      |
+| Authorization   | Session + room membership checked on every API call and WebSocket before reaching a Durable Object; roles enforced on the server (admins can't read messages; only the owner can, audited) | `worker/rooms.ts`, `worker/admin.ts`, `worker/owner.ts`, `worker/policy.ts` |
+| Headers (pages) | Strict CSP (no inline scripts), HSTS preload, `X-Frame-Options: DENY`, `frame-ancestors 'none'`, COOP/CORP, `Referrer-Policy: no-referrer`, Permissions-Policy                             | `public/_headers`                                                           |
+| Headers (API)   | `default-src 'none'; sandbox` CSP, nosniff, no-store                                                                                                                                       | `API_HEADERS` in `worker/index.ts`                                          |
+| XSS             | React escapes everything; message formatting is parsed into React elements, never HTML                                                                                                     | `src/lib/richText.tsx`                                                      |
+| SQL injection   | Only parameterised D1 queries (`?1`, `.bind`)                                                                                                                                              | all of `worker/`                                                            |
+| Uploads         | Type checked by content, size limits, random IDs, served with `nosniff` and a sandboxing CSP, file names cleaned; images re-encoded in the browser before upload (drops EXIF/GPS)          | `worker/media.ts`, `src/lib/media.ts`                                       |
+| SSRF            | Link previews and Chill fetch only allow-listed hosts or public http(s) URLs with timeouts and size caps                                                                                   | `worker/features.ts`, `worker/chill.ts`, `worker/fun.ts`                    |
+| E2EE            | Secret chats: ECDH P-256 → HKDF-SHA256 → AES-256-GCM, non-extractable keys, sender bound in the AAD, server refuses plaintext                                                              | `src/lib/e2e.ts`, `worker/secret.ts`                                        |
+| Abuse           | Token-bucket limits on messages and game moves per socket; limits on uploads, reports, stories, exports                                                                                    | `worker/room.ts`, `worker/*`                                                |
+| Age             | 16+ checked on the server; under-age attempts store nothing                                                                                                                                | `worker/index.ts`, `worker/consent.ts`                                      |
+| Audit           | Admin and owner actions logged with actor, target and time                                                                                                                                 | `admin_audit`                                                               |
+| Dependencies    | `npm audit` in CI; Dependabot weekly                                                                                                                                                       | `.github/`                                                                  |
+| Secrets         | Only in Wrangler secrets / `.dev.vars` (git-ignored); history scanned 2026-11-17: clean                                                                                                    | `.dev.vars.example`                                                         |
+
+## Known gaps
+
+- PBKDF2 instead of argon2id (Workers' WebCrypto has no argon2; 100k iterations is its maximum).
+- No CAPTCHA on sign-up (Cloudflare Turnstile would be the natural choice; rate limiting is used instead).
+- No email-based account recovery (no emails are collected).
+- `style-src 'unsafe-inline'` is needed by React inline styles and the YouTube embed.

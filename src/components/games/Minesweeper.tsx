@@ -15,7 +15,17 @@ const LEVELS = {
 } as const;
 type Level = keyof typeof LEVELS;
 
-const NUM_COLORS = ["", "text-blue-600", "text-emerald-600", "text-red-600", "text-indigo-700", "text-amber-700", "text-cyan-600", "text-zinc-900 dark:text-white", "text-zinc-500"];
+const NUM_COLORS = [
+  "",
+  "text-blue-600",
+  "text-emerald-600",
+  "text-red-600",
+  "text-indigo-700",
+  "text-amber-700",
+  "text-cyan-600",
+  "text-zinc-900 dark:text-white",
+  "text-zinc-500",
+];
 
 function neighbours(i: number, w: number, h: number): number[] {
   const x = i % w;
@@ -120,24 +130,40 @@ export function Minesweeper({ onExit }: { onExit: () => void }) {
     <GameShell
       title="Minesweeper"
       onExit={onExit}
-      stats={[["Mines", mines - flags], ["Time", secs], ["Best", best !== undefined ? `${best}s` : "—"]]}
+      stats={[
+        ["Mines", mines - flags],
+        ["Time", secs],
+        ["Best", best !== undefined ? `${best}s` : "—"],
+      ]}
       onRestart={() => reset()}
       hint="Tap to open. Long-press, right-click or use 🚩 mode to flag. The first tap is always safe."
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex rounded-xl bg-black/5 p-1 dark:bg-zinc-800">
           {(Object.keys(LEVELS) as Level[]).map((l) => (
-            <button key={l} onClick={() => reset(l)} className={`rounded-lg px-3 py-1 text-sm font-medium capitalize ${level === l ? "bg-white shadow-sm dark:bg-zinc-600" : "text-zinc-500"}`}>
+            <button
+              key={l}
+              onClick={() => reset(l)}
+              className={`rounded-lg px-3 py-1 text-sm font-medium capitalize ${level === l ? "bg-white shadow-sm dark:bg-zinc-600" : "text-zinc-500"}`}
+            >
               {l}
             </button>
           ))}
         </div>
-        <button onClick={() => setFlagMode((f) => !f)} aria-pressed={flagMode} className={`rounded-xl px-3 py-1.5 text-sm font-medium ${flagMode ? "bg-accent text-accent-ink" : "bg-black/5 dark:bg-zinc-800"}`}>
+        <button
+          onClick={() => setFlagMode((f) => !f)}
+          aria-pressed={flagMode}
+          className={`rounded-xl px-3 py-1.5 text-sm font-medium ${flagMode ? "bg-accent text-accent-ink" : "bg-black/5 dark:bg-zinc-800"}`}
+        >
           🚩 {flagMode ? "Flagging" : "Flag mode"}
         </button>
       </div>
       <div className="relative mx-auto" style={{ maxWidth: `min(100%, calc((100dvh - 17rem) * ${w / h}))` }}>
-        <div className="grid gap-0.5 rounded-xl bg-zinc-300 p-0.5 select-none dark:bg-zinc-700" style={{ gridTemplateColumns: `repeat(${w}, minmax(0, 1fr))` }} aria-label="Minefield">
+        <div
+          className="grid gap-0.5 rounded-xl bg-zinc-300 p-0.5 select-none dark:bg-zinc-700"
+          style={{ gridTemplateColumns: `repeat(${w}, minmax(0, 1fr))` }}
+          aria-label="Minefield"
+        >
           {Array.from({ length: w * h }, (_, i) => {
             const c = cells?.[i];
             return (
@@ -163,7 +189,11 @@ export function Minesweeper({ onExit }: { onExit: () => void }) {
                 }}
                 aria-label={c?.open ? (c.mine ? "Mine" : `${c.around} mines around`) : c?.flag ? "Flagged" : "Hidden"}
                 className={`flex aspect-square items-center justify-center rounded-[3px] text-xs font-bold sm:text-sm ${
-                  c?.open ? (c.mine ? "bg-red-500" : "bg-zinc-50 dark:bg-zinc-900") : "bg-zinc-200 hover:bg-black/5 active:bg-zinc-50 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+                  c?.open
+                    ? c.mine
+                      ? "bg-red-500"
+                      : "bg-zinc-50 dark:bg-zinc-900"
+                    : "bg-zinc-200 hover:bg-black/5 active:bg-zinc-50 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                 } ${c?.open ? NUM_COLORS[c.around] : ""}`}
               >
                 {c?.open ? (c.mine ? "💣" : c.around || "") : c?.flag ? "🚩" : ""}

@@ -95,14 +95,26 @@ export function MathSprint({ onExit }: { onExit: () => void }) {
     const onKey = (e: KeyboardEvent) => {
       if (/^\d$/.test(e.key)) type(e.key);
       else if (e.key === "Backspace") setTyped((t) => t.slice(0, -1));
-      else if (e.key === "Enter") state === "playing" ? submit(typed) : start();
+      else if (e.key === "Enter") {
+        if (state === "playing") submit(typed);
+        else start();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
 
   return (
-    <GameShell title="Math Sprint" onExit={onExit} stats={[["Time", left], ["Score", score], ["Best", Math.max(best, score)]]} hint="Type the answer — it counts as soon as it's right. Wrong + Enter = −3 s.">
+    <GameShell
+      title="Math Sprint"
+      onExit={onExit}
+      stats={[
+        ["Time", left],
+        ["Score", score],
+        ["Best", Math.max(best, score)],
+      ]}
+      hint="Type the answer — it counts as soon as it's right. Wrong + Enter = −3 s."
+    >
       {state === "playing" ? (
         <>
           <div

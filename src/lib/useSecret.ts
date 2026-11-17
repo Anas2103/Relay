@@ -143,13 +143,15 @@ export function useSecret(room: Room, meId: string) {
         if (m.kind !== "image" || !m.mediaId || m.deletedAt || m.meta?.viewOnce || !sent) continue;
         if (photos.current.has(m.id) || fetching.current.has(m.id)) continue;
         fetching.current.add(m.id);
-        openPhoto(m).then(
-          (url) => photos.current.set(m.id, url),
-          () => photos.current.set(m.id, null),
-        ).finally(() => {
-          fetching.current.delete(m.id);
-          setVersion((v) => v + 1);
-        });
+        openPhoto(m)
+          .then(
+            (url) => photos.current.set(m.id, url),
+            () => photos.current.set(m.id, null),
+          )
+          .finally(() => {
+            fetching.current.delete(m.id);
+            setVersion((v) => v + 1);
+          });
       }
     },
     [room.id, openPhoto],

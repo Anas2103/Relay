@@ -1,0 +1,8 @@
+dist
+node_modules
+presentation
+test-results
+playwright-report
+.wrangler
+package-lock.json
+public/legal/*.html

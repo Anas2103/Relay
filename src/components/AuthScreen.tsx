@@ -1,14 +1,16 @@
 import { useState, type FormEvent } from "react";
 import { passwordProblem } from "../../shared/password";
 import { LIMITS, type Me } from "../../shared/types";
+import { MIN_AGE } from "../../shared/legal";
 import { api, ApiError } from "../lib/api";
 import { PasswordStrength } from "./PasswordStrength";
 import { AlertIcon, BackIcon, KeyIcon, Logo, Spinner } from "./ui";
 
 type Mode = "login" | "register";
 
-const inputClass =
-  "w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm outline-none transition " +
+// 16px text on phones: smaller inputs make iOS zoom the page when they're focused.
+export const inputClass =
+  "w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-base outline-none transition sm:text-sm " +
   "placeholder:text-zinc-400 focus:border-accent focus:ring-4 focus:ring-accent/15 " +
   "dark:border-zinc-800 dark:bg-zinc-900";
 
@@ -20,6 +22,9 @@ export function AuthScreen({ onAuthed }: { onAuthed: (user: Me) => void }) {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [birthDate, setBirthDate] = useState("");
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   /** Password was right; waiting for the authenticator code. */
@@ -41,7 +46,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: (user: Me) => void }) {
         }
         onAuthed(result.user);
       } else {
-        onAuthed((await api.register(username, password, displayName)).user);
+        onAuthed((await api.register({ username, password, displayName, birthDate, acceptTerms })).user);
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong.");
@@ -73,7 +78,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: (user: Me) => void }) {
         <div className="mb-8 flex flex-col items-center text-center">
           <Logo size={52} />
           <h1 className="mt-5 text-2xl font-semibold tracking-tight">{mode === "login" ? "Welcome back" : "Create your account"}</h1>
-          <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-400">
             {mode === "login" ? "Sign in to keep chatting." : "Real-time, private chat with your friends."}
           </p>
         </div>
@@ -125,28 +130,108 @@ export function AuthScreen({ onAuthed }: { onAuthed: (user: Me) => void }) {
           )}
 
           <Field label="Password" htmlFor="password">
-            <input
-              id="password"
-              type="password"
-              className={inputClass}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-              maxLength={LIMITS.passwordMax}
-              required
-            />
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                className={`${inputClass} pr-16`}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                maxLength={LIMITS.passwordMax}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute inset-y-1 right-1 rounded-lg px-3 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                aria-pressed={showPassword}
+                aria-controls="password"
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
             {mode === "register" && <PasswordStrength password={password} username={username} />}
           </Field>
 
+          {mode === "register" && (
+            <>
+              <Field label="Date of birth" htmlFor="birthDate" hint={`You need to be ${MIN_AGE} or older to use Relay. It's never shown to anyone.`}>
+                <input
+                  id="birthDate"
+                  type="date"
+                  className={inputClass}
+                  value={birthDate}
+                  onChange={(e) => setBirthDate(e.target.value)}
+                  autoComplete="bday"
+                  required
+                />
+              </Field>
+              <TermsCheckbox checked={acceptTerms} onChange={setAcceptTerms} />
+            </>
+          )}
+
           {error && <ErrorBox text={error} />}
 
-          <button type="submit" disabled={busy || !username || !password || !!weak} className={primaryButton}>
+          <button
+            type="submit"
+            disabled={busy || !username || !password || !!weak || (mode === "register" && (!birthDate || !acceptTerms))}
+            className={primaryButton}
+          >
             {busy && <Spinner />}
             {mode === "login" ? "Sign in" : "Create account"}
           </button>
         </form>
+        <LegalLinks />
       </div>
     </main>
+  );
+}
+
+/** Unchecked by default: agreeing has to be the person's own choice. */
+export function TermsCheckbox({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-start gap-2.5 text-sm text-zinc-600 dark:text-zinc-400">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 size-4 shrink-0 accent-[var(--accent)]"
+        required
+      />
+      <span>
+        I agree to the{" "}
+        <a href="/legal/terms.html" target="_blank" rel="noopener" className="font-medium text-accent-fg underline-offset-2 hover:underline">
+          Terms of Service
+        </a>{" "}
+        and{" "}
+        <a href="/legal/privacy.html" target="_blank" rel="noopener" className="font-medium text-accent-fg underline-offset-2 hover:underline">
+          Privacy Policy
+        </a>
+        .
+      </span>
+    </label>
+  );
+}
+
+/** Links to the legal and help pages (static pages served next to the app). */
+export function LegalLinks() {
+  const links: [string, string][] = [
+    ["Terms", "/legal/terms.html"],
+    ["Privacy", "/legal/privacy.html"],
+    ["Cookies", "/legal/cookies.html"],
+    ["Guidelines", "/legal/guidelines.html"],
+    ["Accessibility", "/legal/accessibility.html"],
+    ["Help", "/legal/help.html"],
+  ];
+  return (
+    <nav aria-label="Legal" className="mt-8 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+      {links.map(([label, href]) => (
+        <a key={href} href={href} className="hover:text-zinc-800 hover:underline dark:hover:text-zinc-200">
+          {label}
+        </a>
+      ))}
+    </nav>
   );
 }
 
@@ -174,7 +259,11 @@ function TwoFactorStep({ challenge, onAuthed, onBack }: { challenge: string; onA
   return (
     <main className="flex min-h-full items-center justify-center px-4 py-12">
       <form onSubmit={submit} className="w-full max-w-sm space-y-5">
-        <button type="button" onClick={onBack} className="-ml-2 flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-zinc-500 hover:bg-zinc-200/60 dark:hover:bg-zinc-900">
+        <button
+          type="button"
+          onClick={onBack}
+          className="-ml-2 flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-zinc-500 hover:bg-zinc-200/60 dark:hover:bg-zinc-900"
+        >
           <BackIcon className="size-4" /> Back
         </button>
         <div className="flex flex-col items-center text-center">
@@ -182,7 +271,7 @@ function TwoFactorStep({ challenge, onAuthed, onBack }: { challenge: string; onA
             <KeyIcon className="size-7" />
           </span>
           <h1 className="mt-4 text-2xl font-semibold tracking-tight">Two-step verification</h1>
-          <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-400">
             {recovery ? "Enter one of the recovery codes you saved. Each code works once." : "Enter the 6-digit code from your authenticator app."}
           </p>
         </div>
@@ -251,7 +340,7 @@ function Field({ label, htmlFor, hint, children }: { label: string; htmlFor: str
         {label}
       </label>
       {children}
-      {hint && <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">{hint}</p>}
+      {hint && <p className="mt-1.5 text-xs text-zinc-600 dark:text-zinc-400">{hint}</p>}
     </div>
   );
 }

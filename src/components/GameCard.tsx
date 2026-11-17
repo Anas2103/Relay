@@ -77,11 +77,17 @@ export function GameCard({
       ) : (
         <Rps game={game} meId={meId} onMove={onMove} />
       )}
-      {game.winner && (game.type === "hangman" ? <WordRematch onStart={(w) => onRematch("hangman", w)} /> : (
-        <button onClick={() => onRematch(game.type)} className="mt-2 w-full rounded-xl bg-black/10 py-2 text-sm font-semibold hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/15">
-          🔁 {isTeamGame(game) ? "Play again" : "Rematch"}
-        </button>
-      ))}
+      {game.winner &&
+        (game.type === "hangman" ? (
+          <WordRematch onStart={(w) => onRematch("hangman", w)} />
+        ) : (
+          <button
+            onClick={() => onRematch(game.type)}
+            className="mt-2 w-full rounded-xl bg-black/10 py-2 text-sm font-semibold hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/15"
+          >
+            🔁 {isTeamGame(game) ? "Play again" : "Rematch"}
+          </button>
+        ))}
     </div>
   );
 }
@@ -101,7 +107,13 @@ function Status({ game, meId, marks }: { game: TurnGame; meId: string; marks: [s
   let text: string;
   if (game.winner === "draw") text = "It's a draw 🤝";
   else if (game.winner) text = game.winner === meId ? "You won! 🎉" : `${name(game.winner)} won 🏆`;
-  else if (game.players.length < 2) text = game.players[0] === meId ? (game.turn === 0 ? `Your move (${marks[0]})` : `Waiting for someone to play ${marks[1]}…`) : `Make a move to play as ${marks[1]}`;
+  else if (game.players.length < 2)
+    text =
+      game.players[0] === meId
+        ? game.turn === 0
+          ? `Your move (${marks[0]})`
+          : `Waiting for someone to play ${marks[1]}…`
+        : `Make a move to play as ${marks[1]}`;
   else text = turn === meId ? `Your turn (${marks[game.players.indexOf(meId)]})` : `${name(turn)}'s turn`;
   return (
     <div className="mb-2 flex items-center justify-between gap-2 text-sm">
@@ -176,7 +188,8 @@ function Rps({ game, meId, onMove }: { game: RpsGame; meId: string; onMove: (m: 
       </div>
       {last && (
         <p className="mb-2 rounded-xl bg-black/10 px-3 py-1.5 text-center text-sm dark:bg-white/10">
-          {game.players.map((p) => `${name(p)} ${RPS_EMOJI[last.picks[p]]}`).join("  vs  ")} → {last.winner ? (last.winner === meId ? "You take it" : `${name(last.winner)} takes it`) : "tie"}
+          {game.players.map((p) => `${name(p)} ${RPS_EMOJI[last.picks[p]]}`).join("  vs  ")} →{" "}
+          {last.winner ? (last.winner === meId ? "You take it" : `${name(last.winner)} takes it`) : "tie"}
         </p>
       )}
       {!game.winner &&
@@ -186,7 +199,12 @@ function Rps({ game, meId, onMove }: { game: RpsGame; meId: string; onMove: (m: 
           ) : (
             <div className="grid grid-cols-3 gap-2">
               {RPS.map((p) => (
-                <button key={p} onClick={() => onMove({ pick: p })} aria-label={p} className="flex aspect-square items-center justify-center rounded-2xl bg-black/10 text-4xl transition hover:scale-105 hover:bg-black/15 dark:bg-white/10">
+                <button
+                  key={p}
+                  onClick={() => onMove({ pick: p })}
+                  aria-label={p}
+                  className="flex aspect-square items-center justify-center rounded-2xl bg-black/10 text-4xl transition hover:scale-105 hover:bg-black/15 dark:bg-white/10"
+                >
                   {RPS_EMOJI[p]}
                 </button>
               ))}
@@ -204,7 +222,11 @@ function Gomoku({ game, meId, onMove }: { game: GomokuGame; meId: string; onMove
   return (
     <>
       <Status game={game} meId={meId} marks={["⚫", "⚪"]} />
-      <div className="grid gap-px overflow-hidden rounded-lg bg-amber-800/60 p-px" style={{ gridTemplateColumns: `repeat(${GOMOKU}, minmax(0, 1fr))` }} aria-label="Five in a Row board">
+      <div
+        className="grid gap-px overflow-hidden rounded-lg bg-amber-800/60 p-px"
+        style={{ gridTemplateColumns: `repeat(${GOMOKU}, minmax(0, 1fr))` }}
+        aria-label="Five in a Row board"
+      >
         {game.board.map((v, i) => (
           <button
             key={i}
@@ -252,7 +274,9 @@ function Checkers({ game, meId, onMove }: { game: CheckersGame; meId: string; on
   return (
     <>
       <Status game={game} meId={meId} marks={["⚫", "⚪"]} />
-      {can && moves.some((m) => m.jump !== null) && <p className="-mt-1 mb-1 text-xs font-semibold">You must take a piece{game.chain !== null ? " — keep jumping" : ""}!</p>}
+      {can && moves.some((m) => m.jump !== null) && (
+        <p className="-mt-1 mb-1 text-xs font-semibold">You must take a piece{game.chain !== null ? " — keep jumping" : ""}!</p>
+      )}
       <div className="grid grid-cols-8 overflow-hidden rounded-lg ring-2 ring-amber-900/70" aria-label="Checkers board">
         {order.map((i) => {
           const dark = (Math.floor(i / 8) + (i % 8)) % 2 === 1;
@@ -304,7 +328,13 @@ function Dots({ game, meId, onMove }: { game: DotsGame; meId: string; onMove: (m
         const idx = (r / 2) * DOTS + (c - 1) / 2;
         const who = game.h[idx];
         cells.push(
-          <button key={key} onClick={() => onMove({ line: "h", index: idx })} disabled={who !== -1 || !can} aria-label={`Line ${key}`} className="group flex items-center">
+          <button
+            key={key}
+            onClick={() => onMove({ line: "h", index: idx })}
+            disabled={who !== -1 || !can}
+            aria-label={`Line ${key}`}
+            className="group flex items-center"
+          >
             <span className={`h-1.5 w-full rounded-full ${who !== -1 ? colors[who] : can ? "bg-current/10 group-hover:bg-current/40" : "bg-current/10"}`} />
           </button>,
         );
@@ -312,7 +342,13 @@ function Dots({ game, meId, onMove }: { game: DotsGame; meId: string; onMove: (m
         const idx = ((r - 1) / 2) * (DOTS + 1) + c / 2;
         const who = game.v[idx];
         cells.push(
-          <button key={key} onClick={() => onMove({ line: "v", index: idx })} disabled={who !== -1 || !can} aria-label={`Line ${key}`} className="group flex justify-center">
+          <button
+            key={key}
+            onClick={() => onMove({ line: "v", index: idx })}
+            disabled={who !== -1 || !can}
+            aria-label={`Line ${key}`}
+            className="group flex justify-center"
+          >
             <span className={`h-full w-1.5 rounded-full ${who !== -1 ? colors[who] : can ? "bg-current/10 group-hover:bg-current/40" : "bg-current/10"}`} />
           </button>,
         );
@@ -347,7 +383,13 @@ function HangmanDuel({ game, meId, onMove }: { game: HangmanGame; meId: string; 
     <>
       <div className="mb-1 flex items-center justify-between text-sm">
         <span className="font-semibold">
-          {game.winner ? (game.winner === meId ? "You won! 🎉" : `${name(game.winner)} won 🏆`) : iSet ? "They're guessing your word…" : `Guess ${name(setter)}'s word`}
+          {game.winner
+            ? game.winner === meId
+              ? "You won! 🎉"
+              : `${name(game.winner)} won 🏆`
+            : iSet
+              ? "They're guessing your word…"
+              : `Guess ${name(setter)}'s word`}
         </span>
         <span className="text-xs opacity-70">{HANGMAN_LIVES - game.wrong} tries left</span>
       </div>
@@ -363,7 +405,10 @@ function HangmanDuel({ game, meId, onMove }: { game: HangmanGame; meId: string; 
           c === " " ? (
             <span key={i} className="w-3" />
           ) : (
-            <span key={i} className={`flex h-9 w-6 items-end justify-center border-b-[3px] border-current pb-0.5 text-xl font-bold uppercase ${shown && !c ? "text-red-400" : ""}`}>
+            <span
+              key={i}
+              className={`flex h-9 w-6 items-end justify-center border-b-[3px] border-current pb-0.5 text-xl font-bold uppercase ${shown && !c ? "text-red-400" : ""}`}
+            >
               {c || (shown ? shown[i] : "")}
             </span>
           ),
@@ -487,9 +532,14 @@ function WatchCard({ game, meId, onMove }: { game: WatchGame; meId: string; onMo
           referrerPolicy="strict-origin-when-cross-origin"
           className="pointer-events-none size-full border-0"
         />
-        {yt.error !== null && <p className="absolute inset-0 flex items-center justify-center p-4 text-center text-sm text-white">This video can't play here. Change it below.</p>}
+        {yt.error !== null && (
+          <p className="absolute inset-0 flex items-center justify-center p-4 text-center text-sm text-white">This video can't play here. Change it below.</p>
+        )}
         {autoMuted && (
-          <button onClick={toggleMute} className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-ink">
+          <button
+            onClick={toggleMute}
+            className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-ink"
+          >
             <VolumeOffIcon className="size-4" /> Tap for sound
           </button>
         )}
@@ -516,10 +566,18 @@ function WatchCard({ game, meId, onMove }: { game: WatchGame; meId: string; onMo
         <span className="shrink-0 text-xs tabular-nums opacity-80">
           {fmt(now)}/{fmt(duration)}
         </span>
-        <button onClick={toggleMute} aria-label={muted ? "Unmute (just you)" : "Mute (just you)"} className="rounded-full p-1.5 hover:bg-black/10 dark:hover:bg-white/10">
+        <button
+          onClick={toggleMute}
+          aria-label={muted ? "Unmute (just you)" : "Mute (just you)"}
+          className="rounded-full p-1.5 hover:bg-black/10 dark:hover:bg-white/10"
+        >
           {muted ? <VolumeOffIcon className="size-4" /> : <VolumeIcon className="size-4" />}
         </button>
-        <button onClick={() => void box.current?.requestFullscreen?.().catch(() => {})} aria-label="Full screen" className="rounded-full p-1.5 hover:bg-black/10 dark:hover:bg-white/10">
+        <button
+          onClick={() => void box.current?.requestFullscreen?.().catch(() => {})}
+          aria-label="Full screen"
+          className="rounded-full p-1.5 hover:bg-black/10 dark:hover:bg-white/10"
+        >
           <MaximizeIcon className="size-4" />
         </button>
       </div>
@@ -538,7 +596,13 @@ function WatchCard({ game, meId, onMove }: { game: WatchGame; meId: string; onMo
             setChanging(false);
           }}
         >
-          <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Paste a YouTube link" aria-label="YouTube link" className="h-9 min-w-0 flex-1 rounded-lg bg-black/10 px-2.5 text-sm outline-none dark:bg-white/10" />
+          <input
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            placeholder="Paste a YouTube link"
+            aria-label="YouTube link"
+            className="h-9 min-w-0 flex-1 rounded-lg bg-black/10 px-2.5 text-sm outline-none dark:bg-white/10"
+          />
           <button disabled={!youtubeId(link)} className="rounded-lg bg-black/20 px-3 text-sm font-semibold disabled:opacity-50 dark:bg-white/20">
             Play
           </button>

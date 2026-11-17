@@ -30,9 +30,7 @@ export function ChatThemePicker({ room, onSaved, onClose }: { room: Room; onSave
 
   return (
     <Sheet title="Chat theme" onClose={onClose} wide>
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        {room.type === "group" ? "Everyone in this group" : "You both"} will see the theme you pick.
-      </p>
+      <p className="text-sm text-zinc-500 dark:text-zinc-400">{room.type === "group" ? "Everyone in this group" : "You both"} will see the theme you pick.</p>
       {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
       <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4" role="radiogroup" aria-label="Chat theme">
         <ThemeTile
@@ -67,7 +65,13 @@ export function ChatThemePicker({ room, onSaved, onClose }: { room: Room; onSave
 
 function ThemeTile(props: { label: string; hint?: string; selected: boolean; busy: boolean; wall: string; bubble: string; ink: string; onClick: () => void }) {
   return (
-    <button role="radio" aria-checked={props.selected} aria-label={props.label} onClick={props.onClick} className="group flex flex-col items-center gap-1.5 text-center">
+    <button
+      role="radio"
+      aria-checked={props.selected}
+      aria-label={props.label}
+      onClick={props.onClick}
+      className="group flex flex-col items-center gap-1.5 text-center"
+    >
       <span
         className={`relative flex aspect-[3/4] w-full flex-col justify-end gap-1 overflow-hidden rounded-2xl p-2 ring-2 transition ${
           props.selected ? "ring-accent" : "ring-zinc-200 group-hover:ring-zinc-300 dark:ring-zinc-800 dark:group-hover:ring-zinc-700"

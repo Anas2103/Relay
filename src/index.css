@@ -16,7 +16,6 @@
   --color-bubble-ink: var(--bubble-ink, #ffffff);
 }
 
-
 /* ---------- Your bubble: solid color or gradient ---------- */
 .bubble-fill {
   background: var(--bubble-bg, var(--bubble, #4f46e5));
@@ -214,35 +213,64 @@
     radial-gradient(60% 50% at 0% 0%, color-mix(in oklab, var(--accent) 24%, transparent), transparent),
     radial-gradient(50% 50% at 100% 100%, color-mix(in oklab, var(--bubble) 24%, transparent), transparent);
 }
-.wall-sunset { background-image: linear-gradient(160deg, #fff1e6 0%, #ffe4ec 55%, #f3e8ff 100%); }
-.dark .wall-sunset { background-image: linear-gradient(160deg, #2a1215 0%, #2b1023 55%, #1c1230 100%); }
-.wall-ocean { background-image: linear-gradient(170deg, #e0f2fe 0%, #e6fffa 100%); }
-.dark .wall-ocean { background-image: linear-gradient(170deg, #071a2e 0%, #052523 100%); }
-.wall-forest { background-image: linear-gradient(170deg, #ecfdf5 0%, #f7fee7 100%); }
-.dark .wall-forest { background-image: linear-gradient(170deg, #06201a 0%, #10200a 100%); }
-.wall-lavender { background-image: linear-gradient(170deg, #f5f3ff 0%, #fdf2f8 100%); }
-.dark .wall-lavender { background-image: linear-gradient(170deg, #17122b 0%, #24101f 100%); }
-.wall-rose { background-image: linear-gradient(165deg, #fff1f2 0%, #ffe4e6 50%, #fce7f3 100%); }
-.dark .wall-rose { background-image: linear-gradient(165deg, #2a0f16 0%, #2f0d1c 50%, #2a0b24 100%); }
-.wall-peach { background-image: linear-gradient(165deg, #fff7ed 0%, #ffedd5 50%, #fef9c3 100%); }
-.dark .wall-peach { background-image: linear-gradient(165deg, #2a1608 0%, #2b1a06 50%, #262007 100%); }
-.wall-mint { background-image: linear-gradient(165deg, #f0fdfa 0%, #dcfce7 50%, #ecfeff 100%); }
-.dark .wall-mint { background-image: linear-gradient(165deg, #04211d 0%, #052614 50%, #041f24 100%); }
+.wall-sunset {
+  background-image: linear-gradient(160deg, #fff1e6 0%, #ffe4ec 55%, #f3e8ff 100%);
+}
+.dark .wall-sunset {
+  background-image: linear-gradient(160deg, #2a1215 0%, #2b1023 55%, #1c1230 100%);
+}
+.wall-ocean {
+  background-image: linear-gradient(170deg, #e0f2fe 0%, #e6fffa 100%);
+}
+.dark .wall-ocean {
+  background-image: linear-gradient(170deg, #071a2e 0%, #052523 100%);
+}
+.wall-forest {
+  background-image: linear-gradient(170deg, #ecfdf5 0%, #f7fee7 100%);
+}
+.dark .wall-forest {
+  background-image: linear-gradient(170deg, #06201a 0%, #10200a 100%);
+}
+.wall-lavender {
+  background-image: linear-gradient(170deg, #f5f3ff 0%, #fdf2f8 100%);
+}
+.dark .wall-lavender {
+  background-image: linear-gradient(170deg, #17122b 0%, #24101f 100%);
+}
+.wall-rose {
+  background-image: linear-gradient(165deg, #fff1f2 0%, #ffe4e6 50%, #fce7f3 100%);
+}
+.dark .wall-rose {
+  background-image: linear-gradient(165deg, #2a0f16 0%, #2f0d1c 50%, #2a0b24 100%);
+}
+.wall-peach {
+  background-image: linear-gradient(165deg, #fff7ed 0%, #ffedd5 50%, #fef9c3 100%);
+}
+.dark .wall-peach {
+  background-image: linear-gradient(165deg, #2a1608 0%, #2b1a06 50%, #262007 100%);
+}
+.wall-mint {
+  background-image: linear-gradient(165deg, #f0fdfa 0%, #dcfce7 50%, #ecfeff 100%);
+}
+.dark .wall-mint {
+  background-image: linear-gradient(165deg, #04211d 0%, #052614 50%, #041f24 100%);
+}
 .wall-galaxy {
   background-image:
-    radial-gradient(1px 1px at 20px 30px, #a78bfa 50%, transparent 51%),
-    radial-gradient(1px 1px at 70px 90px, #93c5fd 50%, transparent 51%),
-    radial-gradient(1.5px 1.5px at 110px 40px, #f0abfc 50%, transparent 51%),
-    radial-gradient(70% 60% at 20% 10%, #ede9fe, transparent),
+    radial-gradient(1px 1px at 20px 30px, #a78bfa 50%, transparent 51%), radial-gradient(1px 1px at 70px 90px, #93c5fd 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 110px 40px, #f0abfc 50%, transparent 51%), radial-gradient(70% 60% at 20% 10%, #ede9fe, transparent),
     radial-gradient(60% 60% at 90% 90%, #e0e7ff, transparent);
-  background-size: 140px 120px, 140px 120px, 140px 120px, 100% 100%, 100% 100%;
+  background-size:
+    140px 120px,
+    140px 120px,
+    140px 120px,
+    100% 100%,
+    100% 100%;
 }
 .dark .wall-galaxy {
   background-image:
-    radial-gradient(1px 1px at 20px 30px, #ffffff 50%, transparent 51%),
-    radial-gradient(1px 1px at 70px 90px, #c7d2fe 50%, transparent 51%),
-    radial-gradient(1.5px 1.5px at 110px 40px, #f5d0fe 50%, transparent 51%),
-    radial-gradient(70% 60% at 20% 10%, #2e1065, transparent),
+    radial-gradient(1px 1px at 20px 30px, #ffffff 50%, transparent 51%), radial-gradient(1px 1px at 70px 90px, #c7d2fe 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 110px 40px, #f5d0fe 50%, transparent 51%), radial-gradient(70% 60% at 20% 10%, #2e1065, transparent),
     radial-gradient(60% 60% at 90% 90%, #1e1b4b, transparent);
 }
 
@@ -268,10 +296,18 @@ html {
   padding: var(--bubble-py, 0.5rem) var(--bubble-px, 0.875rem);
 }
 /* Joined corners for consecutive bubbles from the same person */
-.join-tr { border-top-right-radius: max(4px, calc(var(--bubble-radius, 18px) / 3.5)); }
-.join-br { border-bottom-right-radius: max(4px, calc(var(--bubble-radius, 18px) / 3.5)); }
-.join-tl { border-top-left-radius: max(4px, calc(var(--bubble-radius, 18px) / 3.5)); }
-.join-bl { border-bottom-left-radius: max(4px, calc(var(--bubble-radius, 18px) / 3.5)); }
+.join-tr {
+  border-top-right-radius: max(4px, calc(var(--bubble-radius, 18px) / 3.5));
+}
+.join-br {
+  border-bottom-right-radius: max(4px, calc(var(--bubble-radius, 18px) / 3.5));
+}
+.join-tl {
+  border-top-left-radius: max(4px, calc(var(--bubble-radius, 18px) / 3.5));
+}
+.join-bl {
+  border-bottom-left-radius: max(4px, calc(var(--bubble-radius, 18px) / 3.5));
+}
 .group-gap {
   margin-top: var(--group-gap, 0.75rem);
 }
@@ -301,9 +337,18 @@ html {
 }
 
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  20%, 60% { transform: translateX(-8px); }
-  40%, 80% { transform: translateX(8px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-8px);
+  }
+  40%,
+  80% {
+    transform: translateX(8px);
+  }
 }
 
 /* Phones: respect the notch / home indicator */
@@ -399,49 +444,86 @@ body {
 }
 
 @keyframes bounce-dot {
-  0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
-  40% { transform: translateY(-3px); opacity: 1; }
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
 }
 .typing-dot {
   animation: bounce-dot 1.2s infinite ease-in-out;
 }
-.typing-dot:nth-child(2) { animation-delay: 0.15s; }
-.typing-dot:nth-child(3) { animation-delay: 0.3s; }
+.typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
 
 @keyframes message-in {
-  from { opacity: 0; transform: translateY(6px) scale(0.98); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .message-in {
   animation: message-in 180ms ease-out;
 }
 
 @keyframes pop-in {
-  from { opacity: 0; transform: scale(0.92); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .pop-in {
   animation: pop-in 140ms ease-out;
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 .fade-in {
   animation: fade-in 150ms ease-out;
 }
 
 @keyframes record-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
 }
 .record-pulse {
   animation: record-pulse 1s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .message-in, .pop-in, .fade-in, .typing-dot, .record-pulse {
+  .message-in,
+  .pop-in,
+  .fade-in,
+  .typing-dot,
+  .record-pulse {
     animation: none;
   }
 }
@@ -454,8 +536,14 @@ body {
 
 /* ---------- Call screen ---------- */
 @keyframes call-ring {
-  0% { transform: scale(1); opacity: 0.55; }
-  100% { transform: scale(1.9); opacity: 0; }
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
 }
 .call-ring {
   animation: call-ring 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
@@ -464,39 +552,69 @@ body {
   animation-delay: 1.2s;
 }
 @keyframes call-glow {
-  0%, 100% { transform: translate(-10%, -6%) scale(1); }
-  50% { transform: translate(8%, 6%) scale(1.15); }
+  0%,
+  100% {
+    transform: translate(-10%, -6%) scale(1);
+  }
+  50% {
+    transform: translate(8%, 6%) scale(1.15);
+  }
 }
 .call-glow {
   animation: call-glow 14s ease-in-out infinite;
 }
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .slide-up {
   animation: slide-up 220ms cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 @keyframes accept-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgb(16 185 129 / 0.55); }
-  60% { box-shadow: 0 0 0 18px rgb(16 185 129 / 0); }
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(16 185 129 / 0.55);
+  }
+  60% {
+    box-shadow: 0 0 0 18px rgb(16 185 129 / 0);
+  }
 }
 .accept-pulse {
   animation: accept-pulse 1.6s ease-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .call-ring, .call-glow, .slide-up, .accept-pulse {
+  .call-ring,
+  .call-glow,
+  .slide-up,
+  .accept-pulse {
     animation: none;
   }
 }
 
-
-.wall-sky { background-image: linear-gradient(175deg, #e0f2fe 0%, #f0f9ff 60%, #fdf4ff 100%); }
-.dark .wall-sky { background-image: linear-gradient(175deg, #0a1a2b 0%, #0c1626 60%, #1a1028 100%); }
-.wall-cherry { background-image: linear-gradient(160deg, #fff1f2 0%, #fde2e4 45%, #fae8ff 100%); }
-.dark .wall-cherry { background-image: linear-gradient(160deg, #2b0a12 0%, #300b18 45%, #250a2a 100%); }
-.wall-sand { background-image: linear-gradient(165deg, #fefce8 0%, #fef3c7 50%, #ffedd5 100%); }
-.dark .wall-sand { background-image: linear-gradient(165deg, #211b08 0%, #261d07 50%, #2a1808 100%); }
+.wall-sky {
+  background-image: linear-gradient(175deg, #e0f2fe 0%, #f0f9ff 60%, #fdf4ff 100%);
+}
+.dark .wall-sky {
+  background-image: linear-gradient(175deg, #0a1a2b 0%, #0c1626 60%, #1a1028 100%);
+}
+.wall-cherry {
+  background-image: linear-gradient(160deg, #fff1f2 0%, #fde2e4 45%, #fae8ff 100%);
+}
+.dark .wall-cherry {
+  background-image: linear-gradient(160deg, #2b0a12 0%, #300b18 45%, #250a2a 100%);
+}
+.wall-sand {
+  background-image: linear-gradient(165deg, #fefce8 0%, #fef3c7 50%, #ffedd5 100%);
+}
+.dark .wall-sand {
+  background-image: linear-gradient(165deg, #211b08 0%, #261d07 50%, #2a1808 100%);
+}
 .wall-bubbles {
   background-image:
     radial-gradient(circle at 25% 30%, color-mix(in oklab, var(--accent) 12%, transparent) 0 9px, transparent 10px),
@@ -555,10 +673,21 @@ body {
 
 /* Floating call reactions */
 @keyframes reaction-float {
-  0% { transform: translateY(0) scale(0.6); opacity: 0; }
-  12% { transform: translateY(-4vh) scale(1.15); opacity: 1; }
-  80% { opacity: 1; }
-  100% { transform: translateY(-55vh) scale(1); opacity: 0; }
+  0% {
+    transform: translateY(0) scale(0.6);
+    opacity: 0;
+  }
+  12% {
+    transform: translateY(-4vh) scale(1.15);
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-55vh) scale(1);
+    opacity: 0;
+  }
 }
 .reaction-float {
   animation: reaction-float 3s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
@@ -569,8 +698,13 @@ body {
   }
 }
 @keyframes fade-out {
-  0%, 70% { opacity: 1; }
-  100% { opacity: 0; }
+  0%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 /* Simple mode: hide the extras, keep the essentials big and clear */
@@ -580,15 +714,22 @@ body {
 
 /* Chill: the little "now playing" equalizer bars on a song's cover. */
 @keyframes eq-bar {
-  0%, 100% { height: 20%; }
-  50% { height: 60%; }
+  0%,
+  100% {
+    height: 20%;
+  }
+  50% {
+    height: 60%;
+  }
 }
 .eq-bar {
   height: 30%;
   animation: eq-bar 0.9s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .eq-bar { animation: none; }
+  .eq-bar {
+    animation: none;
+  }
 }
 
 /* ---------- Chat themes (shared per chat, see shared/chatThemes.ts) ---------- */
@@ -601,7 +742,9 @@ body {
   --color-accent-fg: var(--accent-fg);
   background-color: var(--ct-light-2);
   background-image: var(--ct-pattern, linear-gradient(transparent, transparent)), linear-gradient(180deg, var(--ct-light-1), var(--ct-light-2));
-  background-size: var(--ct-pattern-size, auto), 100% 100%;
+  background-size:
+    var(--ct-pattern-size, auto),
+    100% 100%;
 }
 .dark .ctheme {
   --accent-fg: color-mix(in oklab, var(--ct-accent) 70%, white);

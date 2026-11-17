@@ -4,16 +4,38 @@ import { api, ApiError } from "../../lib/api";
 import { CopyIcon, Spinner } from "../ui";
 
 const EIGHT_BALL = [
-  "It is certain.", "Without a doubt.", "Yes — definitely.", "You may rely on it.", "Most likely.", "Outlook good.", "Signs point to yes.",
-  "Reply hazy, try again.", "Ask again later.", "Better not tell you now.", "Cannot predict now.",
-  "Don't count on it.", "My reply is no.", "Outlook not so good.", "Very doubtful.",
+  "It is certain.",
+  "Without a doubt.",
+  "Yes — definitely.",
+  "You may rely on it.",
+  "Most likely.",
+  "Outlook good.",
+  "Signs point to yes.",
+  "Reply hazy, try again.",
+  "Ask again later.",
+  "Better not tell you now.",
+  "Cannot predict now.",
+  "Don't count on it.",
+  "My reply is no.",
+  "Outlook not so good.",
+  "Very doubtful.",
 ];
 const WOULD_YOU_RATHER = [
-  ["be able to fly", "be invisible"], ["never use social media again", "never watch another movie"], ["always be 10 minutes late", "always be 20 minutes early"],
-  ["speak every language", "play every instrument"], ["live by the beach", "live in the mountains"], ["have unlimited pizza", "have unlimited couscous"],
-  ["travel 100 years back", "travel 100 years forward"], ["never feel cold", "never feel hot"], ["be famous", "be rich and unknown"],
-  ["have a rewind button for your life", "have a pause button"], ["only whisper", "only shout"], ["read minds", "see the future"],
-  ["lose your phone for a week", "lose your wallet for a week"], ["be a famous singer", "be a famous athlete"], ["have no internet", "have no air conditioning"],
+  ["be able to fly", "be invisible"],
+  ["never use social media again", "never watch another movie"],
+  ["always be 10 minutes late", "always be 20 minutes early"],
+  ["speak every language", "play every instrument"],
+  ["live by the beach", "live in the mountains"],
+  ["have unlimited pizza", "have unlimited couscous"],
+  ["travel 100 years back", "travel 100 years forward"],
+  ["never feel cold", "never feel hot"],
+  ["be famous", "be rich and unknown"],
+  ["have a rewind button for your life", "have a pause button"],
+  ["only whisper", "only shout"],
+  ["read minds", "see the future"],
+  ["lose your phone for a week", "lose your wallet for a week"],
+  ["be a famous singer", "be a famous athlete"],
+  ["have no internet", "have no air conditioning"],
 ];
 
 /** Light fun: jokes, facts, a magic 8-ball, would-you-rather, dice and coin. */
@@ -125,11 +147,21 @@ function EightBall() {
         }}
         className="flex gap-2"
       >
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask a yes/no question" aria-label="Your question" className="h-10 min-w-0 flex-1 rounded-xl bg-black/5 px-3 text-sm outline-none dark:bg-zinc-900" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Ask a yes/no question"
+          aria-label="Your question"
+          className="h-10 min-w-0 flex-1 rounded-xl bg-black/5 px-3 text-sm outline-none dark:bg-zinc-900"
+        />
         <button className="rounded-xl bg-accent px-3 text-sm font-semibold text-accent-ink">Ask</button>
       </form>
-      <div className={`mx-auto mt-3 flex size-28 items-center justify-center rounded-full bg-zinc-900 shadow-inner ${shaking ? "animate-[shake_0.5s_ease-in-out]" : ""}`}>
-        <span className="flex size-16 items-center justify-center rounded-full bg-indigo-900 p-1 text-center text-[10px] leading-tight font-semibold text-indigo-100">{a ?? (shaking ? "…" : "8")}</span>
+      <div
+        className={`mx-auto mt-3 flex size-28 items-center justify-center rounded-full bg-zinc-900 shadow-inner ${shaking ? "animate-[shake_0.5s_ease-in-out]" : ""}`}
+      >
+        <span className="flex size-16 items-center justify-center rounded-full bg-indigo-900 p-1 text-center text-[10px] leading-tight font-semibold text-indigo-100">
+          {a ?? (shaking ? "…" : "8")}
+        </span>
       </div>
     </Card>
   );
@@ -143,7 +175,11 @@ function WouldYouRather() {
     <Card title="🤔 Would you rather…">
       <div className="grid gap-2">
         {[a, b].map((opt, n) => (
-          <button key={n} onClick={() => setPick(n)} className={`rounded-2xl px-4 py-3 text-left font-medium transition ${pick === n ? "bg-accent text-accent-ink" : "bg-black/5 hover:bg-black/10 dark:bg-zinc-900 dark:hover:bg-zinc-950"}`}>
+          <button
+            key={n}
+            onClick={() => setPick(n)}
+            className={`rounded-2xl px-4 py-3 text-left font-medium transition ${pick === n ? "bg-accent text-accent-ink" : "bg-black/5 hover:bg-black/10 dark:bg-zinc-900 dark:hover:bg-zinc-950"}`}
+          >
             …{opt}
           </button>
         ))}
@@ -171,7 +207,13 @@ function DiceAndCoin() {
   return (
     <Card title="🎲 Dice & coin">
       <div className="flex min-h-16 items-center justify-center gap-3 text-5xl">
-        {dice.length ? dice.map((d, i) => <span key={i}>{FACES[d - 1]}</span>) : coin ? <span className="text-2xl font-bold">{coin}</span> : <span className="text-sm text-zinc-500">Roll or flip</span>}
+        {dice.length ? (
+          dice.map((d, i) => <span key={i}>{FACES[d - 1]}</span>)
+        ) : coin ? (
+          <span className="text-2xl font-bold">{coin}</span>
+        ) : (
+          <span className="text-sm text-zinc-500">Roll or flip</span>
+        )}
       </div>
       {dice.length > 1 && <p className="text-center text-sm text-zinc-500">Total: {dice.reduce((x, y) => x + y)}</p>}
       <div className="mt-3 flex flex-wrap justify-center gap-2">

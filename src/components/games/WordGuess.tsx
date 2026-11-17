@@ -99,7 +99,16 @@ export function WordGuess({ onExit }: { onExit: () => void }) {
   };
 
   return (
-    <GameShell title="Word Guess" onExit={onExit} stats={[["Streak", streak], ["Best", best]]} onRestart={next} hint="🟩 right place · 🟨 in the word · ⬜ not in it">
+    <GameShell
+      title="Word Guess"
+      onExit={onExit}
+      stats={[
+        ["Streak", streak],
+        ["Best", best],
+      ]}
+      onRestart={next}
+      hint="🟩 right place · 🟨 in the word · ⬜ not in it"
+    >
       <div className="mx-auto grid w-full max-w-[18rem] gap-1.5" aria-label="Guesses">
         {Array.from({ length: ROWS }, (_, r) => {
           const word = r < guesses.length ? guesses[r] : r === guesses.length ? typed : "";

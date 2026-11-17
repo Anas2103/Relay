@@ -11,8 +11,7 @@ export interface PreparedImage {
 }
 
 async function encode(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
-  const toBlob = (type: string) =>
-    new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
+  const toBlob = (type: string) => new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
   // WebP is ~30% smaller; older Safari falls back to JPEG.
   const webp = await toBlob("image/webp");
   if (webp && webp.type === "image/webp") return webp;
@@ -102,15 +101,7 @@ export async function prepareAvatar(file: File): Promise<Blob> {
     throw new Error("Couldn't read this image.");
   });
   const side = Math.min(bitmap.width, bitmap.height);
-  const canvas = drawToCanvas(
-    bitmap,
-    256,
-    256,
-    (bitmap.width - side) / 2,
-    (bitmap.height - side) / 2,
-    side,
-    side,
-  );
+  const canvas = drawToCanvas(bitmap, 256, 256, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side);
   bitmap.close();
   const blob = await encode(canvas, 0.85);
   if (blob.size > LIMITS.avatarMaxBytes) throw new Error("This image is too large.");
@@ -163,9 +154,7 @@ export class VoiceRecorder {
     }
 
     // Opus in WebM (Chrome/Firefox/Android) or AAC in MP4 (Safari/iOS).
-    const mimeType = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4", "audio/aac"].find((t) =>
-      MediaRecorder.isTypeSupported?.(t),
-    );
+    const mimeType = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4", "audio/aac"].find((t) => MediaRecorder.isTypeSupported?.(t));
     try {
       this.recorder = new MediaRecorder(this.stream, mimeType ? { mimeType, audioBitsPerSecond: 32_000 } : undefined);
     } catch {

@@ -106,16 +106,32 @@ export function Sudoku({ onExit }: { onExit: () => void }) {
   const selVal = sel !== null ? grid[sel] : 0;
 
   return (
-    <GameShell title="Sudoku" onExit={onExit} stats={[["Time", time], ["Best", best !== undefined ? `${Math.floor(best / 60)}:${String(best % 60).padStart(2, "0")}` : "—"]]} onRestart={() => newGame()} hint="Tap a square, then a number. Red = clashes with another one. Best time counts on Medium.">
+    <GameShell
+      title="Sudoku"
+      onExit={onExit}
+      stats={[
+        ["Time", time],
+        ["Best", best !== undefined ? `${Math.floor(best / 60)}:${String(best % 60).padStart(2, "0")}` : "—"],
+      ]}
+      onRestart={() => newGame()}
+      hint="Tap a square, then a number. Red = clashes with another one. Best time counts on Medium."
+    >
       <div className="mb-2 flex justify-center rounded-xl bg-black/5 p-1 dark:bg-white/10">
         {(["easy", "medium", "hard"] as Level[]).map((l) => (
-          <button key={l} onClick={() => newGame(l)} className={`flex-1 rounded-lg py-1 text-sm font-medium capitalize ${level === l ? "bg-white shadow-sm dark:bg-zinc-600" : "text-zinc-500"}`}>
+          <button
+            key={l}
+            onClick={() => newGame(l)}
+            className={`flex-1 rounded-lg py-1 text-sm font-medium capitalize ${level === l ? "bg-white shadow-sm dark:bg-zinc-600" : "text-zinc-500"}`}
+          >
             {l}
           </button>
         ))}
       </div>
       <div className={`relative ${BOARD} max-w-[min(100%,calc(100dvh-21rem))]`}>
-        <div className="grid size-full grid-cols-9 overflow-hidden rounded-xl border-2 border-zinc-800 bg-white select-none dark:border-zinc-300 dark:bg-zinc-900" aria-label="Sudoku grid">
+        <div
+          className="grid size-full grid-cols-9 overflow-hidden rounded-xl border-2 border-zinc-800 bg-white select-none dark:border-zinc-300 dark:bg-zinc-900"
+          aria-label="Sudoku grid"
+        >
           {grid.map((v, i) => {
             const fixed = !!given[i];
             const isSel = sel === i;
@@ -127,7 +143,9 @@ export function Sudoku({ onExit }: { onExit: () => void }) {
                 onClick={() => setSel(i)}
                 aria-label={`Row ${rowOf(i) + 1} column ${colOf(i) + 1}${v ? `, ${v}` : ", empty"}`}
                 className={`flex items-center justify-center text-[clamp(0.9rem,3.6vw,1.4rem)] tabular-nums ${colOf(i) % 3 === 2 && colOf(i) < 8 ? "border-r-2 border-r-zinc-800 dark:border-r-zinc-300" : "border-r border-r-zinc-200 dark:border-r-zinc-700"} ${
-                  rowOf(i) % 3 === 2 && rowOf(i) < 8 ? "border-b-2 border-b-zinc-800 dark:border-b-zinc-300" : "border-b border-b-zinc-200 dark:border-b-zinc-700"
+                  rowOf(i) % 3 === 2 && rowOf(i) < 8
+                    ? "border-b-2 border-b-zinc-800 dark:border-b-zinc-300"
+                    : "border-b border-b-zinc-200 dark:border-b-zinc-700"
                 } ${isSel ? "bg-accent/30" : same ? "bg-accent/15" : related ? "bg-black/[0.04] dark:bg-white/[0.06]" : ""} ${
                   conflicts.has(i) && !fixed ? "text-red-500" : fixed ? "font-bold" : "font-medium text-accent-fg"
                 }`}
@@ -143,7 +161,12 @@ export function Sudoku({ onExit }: { onExit: () => void }) {
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => {
           const used = grid.filter((v) => v === n).length >= 9;
           return (
-            <button key={n} onClick={() => put(n)} disabled={used} className="h-11 rounded-xl bg-black/5 text-lg font-semibold hover:bg-black/10 disabled:opacity-30 dark:bg-white/10">
+            <button
+              key={n}
+              onClick={() => put(n)}
+              disabled={used}
+              className="h-11 rounded-xl bg-black/5 text-lg font-semibold hover:bg-black/10 disabled:opacity-30 dark:bg-white/10"
+            >
               {n}
             </button>
           );

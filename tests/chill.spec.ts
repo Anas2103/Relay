@@ -21,7 +21,11 @@ test.beforeAll(async ({ browser }) => {
 
 const musicState = (p: Page) =>
   p.evaluate(async () => {
-    const url = performance.getEntriesByType("resource").map((e) => e.name).find((n) => n.includes("/src/lib/music.ts")) ?? "/src/lib/music.ts";
+    const url =
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .find((n) => n.includes("/src/lib/music.ts")) ?? "/src/lib/music.ts";
     const { music } = await import(/* @vite-ignore */ url);
     const s = music.get();
     return { playing: s.playing, time: s.time, queue: s.queue.length, title: s.queue[s.index]?.title ?? null, video: s.video, preview: s.preview };
@@ -56,7 +60,11 @@ test("music: type an artist, pick the exact song, it plays and keeps playing whi
   // Cover art and previews come through Relay (the page only loads from itself).
   const media = await ann.evaluate(async () => {
     // The exact module instance the page loaded (after a hot reload its URL carries a ?t= stamp).
-    const url = performance.getEntriesByType("resource").map((e) => e.name).findLast((n) => n.includes("/src/lib/music.ts")) ?? "/src/lib/music.ts";
+    const url =
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .findLast((n) => n.includes("/src/lib/music.ts")) ?? "/src/lib/music.ts";
     const { music } = await import(/* @vite-ignore */ url);
     const id = music.get().queue[music.get().index].id.replace("it-", "");
     const art = await fetch(`/api/chill/songs/${id}/art`);
@@ -75,12 +83,22 @@ test("music: type an artist, pick the exact song, it plays and keeps playing whi
   if (process.env.MATCH_CHECK && youtube) {
     // Which video each well-known song gets (prints titles; uses YouTube quota).
     const out = await ann.evaluate(async () => {
-      const songs = ["Shape of You Ed Sheeran", "Bohemian Rhapsody Queen", "Despacito Luis Fonsi", "Calm Down Rema", "Lose Yourself Eminem", "Saiidi Saad Lamjarred"];
+      const songs = [
+        "Shape of You Ed Sheeran",
+        "Bohemian Rhapsody Queen",
+        "Despacito Luis Fonsi",
+        "Calm Down Rema",
+        "Lose Yourself Eminem",
+        "Saiidi Saad Lamjarred",
+      ];
       const lines: string[] = [];
       for (const q of songs) {
         const { tracks } = await (await fetch(`/api/chill/songs?q=${encodeURIComponent(q)}`)).json();
         const t = tracks[0];
-        if (!t) { lines.push(`${q} → (no songs found)`); continue; }
+        if (!t) {
+          lines.push(`${q} → (no songs found)`);
+          continue;
+        }
         const r = await fetch(`/api/chill/songs/${t.id.replace("it-", "")}/video`);
         const v = r.ok ? (await r.json()).videoId : `(${r.status})`;
         lines.push(`${t.title} — ${t.artist} → ${v}`);
@@ -101,7 +119,12 @@ test("shorts: without a key it explains; with one it's a swipeable feed", async 
   await ben.route("**/api/chill/shorts*", (r) =>
     r.fulfill({
       json: {
-        videos: ["aqz-KE-bpKQ", "jNQXAC9IVRw", "dQw4w9WgXcQ"].map((v, i) => ({ id: v, title: `Short ${i + 1}`, channel: "Test", thumb: "data:image/gif;base64,R0lGODlhAQABAAAAACw=" })),
+        videos: ["aqz-KE-bpKQ", "jNQXAC9IVRw", "dQw4w9WgXcQ"].map((v, i) => ({
+          id: v,
+          title: `Short ${i + 1}`,
+          channel: "Test",
+          thumb: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+        })),
         next: null,
       },
     }),
@@ -122,14 +145,25 @@ test("shorts: without a key it explains; with one it's a swipeable feed", async 
   await expect(feed.locator("iframe")).toHaveAttribute("src", /jNQXAC9IVRw/);
 
   // Sound button and topic chips.
-  await ben.getByRole("button", { name: /Sound (on|off)/ }).nth(1).click();
+  await ben
+    .getByRole("button", { name: /Sound (on|off)/ })
+    .nth(1)
+    .click();
   await ben.getByRole("tab", { name: "Funny" }).click();
   await expect(ben.getByRole("tab", { name: "Funny" })).toHaveAttribute("aria-selected", "true");
   // Music on a phone.
   await ben.getByRole("tablist", { name: "Chill" }).getByRole("tab", { name: "Music" }).click();
   await ben.getByRole("textbox", { name: "Search music" }).fill("ed sheeran");
-  await ben.getByRole("list", { name: "Songs" }).getByRole("button", { name: /^Play / }).first().click();
+  await ben
+    .getByRole("list", { name: "Songs" })
+    .getByRole("button", { name: /^Play / })
+    .first()
+    .click();
   await expect(ben.getByRole("complementary", { name: "Now playing" })).toBeVisible();
   await ben.screenshot({ path: "test-results/chill-music-phone.png" });
-  await ben.getByRole("complementary", { name: "Now playing" }).getByRole("button", { name: /Pause music|Play music/ }).first().click();
+  await ben
+    .getByRole("complementary", { name: "Now playing" })
+    .getByRole("button", { name: /Pause music|Play music/ })
+    .first()
+    .click();
 });

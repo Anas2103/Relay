@@ -1,5 +1,16 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { isMuted, type CallInfo, type ClientEvent, type LobbyEvent, type Me, type Message, type Room, type Settings, type SiteSettings, type User } from "../../shared/types";
+import {
+  isMuted,
+  type CallInfo,
+  type ClientEvent,
+  type LobbyEvent,
+  type Me,
+  type Message,
+  type Room,
+  type Settings,
+  type SiteSettings,
+  type User,
+} from "../../shared/types";
 import { messagePreview } from "../../shared/types";
 import { api, ApiError, UNAUTHORIZED_EVENT } from "../lib/api";
 import { calls } from "../lib/calls";
@@ -35,15 +46,7 @@ export interface Presence {
 }
 export type PresenceMap = Record<string, Presence>;
 
-export function ChatLayout({
-  me,
-  onLogout,
-  onMeUpdated,
-}: {
-  me: Me;
-  onLogout: () => void;
-  onMeUpdated: (me: Me) => void;
-}) {
+export function ChatLayout({ me, onLogout, onMeUpdated }: { me: Me; onLogout: () => void; onMeUpdated: (me: Me) => void }) {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [roomsLoaded, setRoomsLoaded] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -235,7 +238,12 @@ export function ChatLayout({
       if (!m.settings.notifications || !("Notification" in window) || Notification.permission !== "granted") return;
       if (document.visibilityState === "visible" && document.hasFocus()) return;
       try {
-        const n = new Notification(name, { body: `Incoming ${video ? "video" : "voice"} call`, icon: "/icon-192.png", tag: "relay:call", requireInteraction: true });
+        const n = new Notification(name, {
+          body: `Incoming ${video ? "video" : "voice"} call`,
+          icon: "/icon-192.png",
+          tag: "relay:call",
+          requireInteraction: true,
+        });
         n.onclick = () => {
           window.focus();
           n.close();
@@ -449,7 +457,13 @@ export function ChatLayout({
   if (adminOpen && me.role === "admin") {
     return (
       <>
-        <Suspense fallback={<div className="flex h-dvh items-center justify-center"><Logo size={40} /></div>}>
+        <Suspense
+          fallback={
+            <div className="flex h-dvh items-center justify-center">
+              <Logo size={40} />
+            </div>
+          }
+        >
           <AdminPanel me={me} onClose={() => setAdminOpen(false)} callPill={<CallPill peer={callPeer} />} />
         </Suspense>
         <YouTubeDock />
@@ -484,9 +498,7 @@ export function ChatLayout({
           onSettings={() => setSettingsOpen(true)}
         />
       </div>
-      <div
-        className={`panel pane w-full shrink-0 md:block md:w-80 lg:w-[22rem] ${active || chill ? "hidden" : "block"}`}
-      >
+      <div className={`panel pane w-full shrink-0 md:block md:w-80 lg:w-[22rem] ${active || chill ? "hidden" : "block"}`}>
         <Sidebar
           me={me}
           rooms={rooms}
@@ -550,9 +562,7 @@ export function ChatLayout({
               <ChatIcon className="size-8" />
             </div>
             <h2 className="mt-5 text-lg font-semibold">Your messages</h2>
-            <p className="mt-1 max-w-xs text-sm text-zinc-500 dark:text-zinc-400">
-              Pick a conversation, or search for a friend's username to start a new one.
-            </p>
+            <p className="mt-1 max-w-xs text-sm text-zinc-500 dark:text-zinc-400">Pick a conversation, or search for a friend's username to start a new one.</p>
             <p className="mt-6 flex items-center gap-1.5 text-xs text-zinc-400">
               <LockIcon className="size-3.5" /> Start a secret chat from any 1:1 chat for end-to-end encryption.
             </p>
@@ -588,7 +598,10 @@ export function ChatLayout({
       )}
       {inviteCode && <InviteDialog code={inviteCode} onJoined={upsertAndOpen} onOpen={selectRoom} onClose={() => setInviteCode(null)} />}
       {alert && (
-        <div role="alert" className="slide-up fixed top-[max(0.75rem,env(safe-area-inset-top))] left-1/2 z-50 flex w-[min(26rem,calc(100vw-1.5rem))] -translate-x-1/2 items-start gap-3 rounded-2xl bg-white p-3.5 shadow-xl ring-1 ring-zinc-900/10 dark:bg-zinc-800 dark:ring-white/10">
+        <div
+          role="alert"
+          className="slide-up fixed top-[max(0.75rem,env(safe-area-inset-top))] left-1/2 z-50 flex w-[min(26rem,calc(100vw-1.5rem))] -translate-x-1/2 items-start gap-3 rounded-2xl bg-white p-3.5 shadow-xl ring-1 ring-zinc-900/10 dark:bg-zinc-800 dark:ring-white/10"
+        >
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
             {alert.notice ? <MegaphoneIcon className="size-4.5" /> : <KeyIcon className="size-4.5" />}
           </span>
@@ -596,18 +609,18 @@ export function ChatLayout({
             <p className="text-sm font-semibold">{alert.title}</p>
             <p className={`mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 ${alert.notice ? "whitespace-pre-wrap break-words" : "truncate"}`}>{alert.text}</p>
             {!alert.notice && (
-            <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-              Not you?{" "}
-              <button
-                onClick={() => {
-                  setAlert(null);
-                  setSettingsOpen(true);
-                }}
-                className="font-semibold text-accent-fg hover:underline"
-              >
-                Review your devices
-              </button>
-            </p>
+              <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                Not you?{" "}
+                <button
+                  onClick={() => {
+                    setAlert(null);
+                    setSettingsOpen(true);
+                  }}
+                  className="font-semibold text-accent-fg hover:underline"
+                >
+                  Review your devices
+                </button>
+              </p>
             )}
           </div>
           <button onClick={() => setAlert(null)} className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700" aria-label="Dismiss">
@@ -626,7 +639,10 @@ export function ChatLayout({
         />
       )}
       {toast && (
-        <div role="status" className="fade-in fixed bottom-6 left-1/2 z-50 max-w-[90%] -translate-x-1/2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm text-white shadow-lg dark:bg-white dark:text-zinc-900">
+        <div
+          role="status"
+          className="fade-in fixed bottom-6 left-1/2 z-50 max-w-[90%] -translate-x-1/2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm text-white shadow-lg dark:bg-white dark:text-zinc-900"
+        >
           {toast}
         </div>
       )}
@@ -664,7 +680,9 @@ function MaintenanceScreen({ onLogout, onRetry }: { onLogout: () => void; onRetr
         <WrenchIcon className="size-8" />
       </span>
       <h1 className="text-xl font-semibold">Back soon</h1>
-      <p className="max-w-sm text-sm text-zinc-500 dark:text-zinc-400">Relay is getting some maintenance. Your chats are safe; this page will reload by itself when we're back.</p>
+      <p className="max-w-sm text-sm text-zinc-500 dark:text-zinc-400">
+        Relay is getting some maintenance. Your chats are safe; this page will reload by itself when we're back.
+      </p>
       <button onClick={onLogout} className="rounded-xl px-4 py-2 text-sm font-medium text-accent-fg hover:bg-accent/10">
         Sign out
       </button>

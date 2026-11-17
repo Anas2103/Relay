@@ -4,10 +4,14 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  test:
+  quality:
+    name: Format, lint, typecheck, build, audit
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,10 +19,34 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Format
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
       - name: Typecheck
-        run: npx tsc -b
+        run: npm run typecheck
       - name: Build
         run: npx vite build
+      - name: Bundle budget (main script under 400 kB)
+        run: |
+          size=$(find dist/client/assets -name 'index-*.js' -printf '%s\n' | sort -n | tail -1)
+          echo "Largest entry chunk: $size bytes"
+          test "$size" -lt 409600
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+
+  e2e:
+    name: End-to-end tests
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - name: Install the test browser
         run: npx playwright install --with-deps chromium
       - name: End-to-end tests (real calls between two browsers)

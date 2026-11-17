@@ -3,8 +3,22 @@ import { useSyncExternalStore } from "react";
 /** Best scores for the Chill games, saved on this device. */
 
 export type GameId =
-  | "2048" | "snake" | "mines" | "memory" | "trivia" | "reaction" | "typing"
-  | "wordguess" | "sudoku" | "blocks" | "bricks" | "skyhop" | "slide" | "echo" | "hangman" | "math";
+  | "2048"
+  | "snake"
+  | "mines"
+  | "memory"
+  | "trivia"
+  | "reaction"
+  | "typing"
+  | "wordguess"
+  | "sudoku"
+  | "blocks"
+  | "bricks"
+  | "skyhop"
+  | "slide"
+  | "echo"
+  | "hangman"
+  | "math";
 
 const KEY = "relay:scores";
 /** For these, lower is better (a time). */

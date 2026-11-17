@@ -1,0 +1,15 @@
+# Weekly pull requests for outdated dependencies and GitHub Actions; security fixes arrive as soon as they're published.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dev-tools:
+        dependency-type: development
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

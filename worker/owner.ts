@@ -44,7 +44,9 @@ export async function routeOwner(request: Request, env: Env, url: URL, owner: Se
 }
 
 async function target(env: Env, id: string): Promise<{ id: string; username: string; super_admin: number }> {
-  const u = await env.DB.prepare("SELECT id, username, super_admin FROM users WHERE id = ?1").bind(id).first<{ id: string; username: string; super_admin: number }>();
+  const u = await env.DB.prepare("SELECT id, username, super_admin FROM users WHERE id = ?1")
+    .bind(id)
+    .first<{ id: string; username: string; super_admin: number }>();
   if (!u) throw new HttpError(404, "User not found.");
   return u;
 }
@@ -60,7 +62,11 @@ async function broadcast(request: Request, env: Env, owner: User): Promise<Respo
   const { results } = await env.DB.prepare("SELECT id FROM users WHERE suspended_at IS NULL").all<{ id: string }>();
   const ids = results.map((r) => r.id);
   await lobby(env).notify(ids, { type: "broadcast", title: title || "Message from the owner", text, at: Date.now() });
-  if (body.push === true) await pushTo(env, ids.filter((id) => id !== owner.id)).catch(() => undefined);
+  if (body.push === true)
+    await pushTo(
+      env,
+      ids.filter((id) => id !== owner.id),
+    ).catch(() => undefined);
   await audit(env, owner, "owner.broadcast", null, `${title ? `${title}: ` : ""}${text.slice(0, 120)} (to ${ids.length} people)`);
   return json({ ok: true, sent: ids.length });
 }
@@ -72,7 +78,10 @@ async function signOutAll(env: Env, owner: SessionUser): Promise<Response> {
     env.DB.prepare("DELETE FROM sessions WHERE user_id != ?1").bind(owner.id),
     env.DB.prepare("DELETE FROM sessions WHERE user_id = ?1 AND token_hash != ?2").bind(owner.id, owner.sessionHash),
   ]);
-  await lobby(env).notify(results.map((r) => r.user_id), { type: "signed-out" });
+  await lobby(env).notify(
+    results.map((r) => r.user_id),
+    { type: "signed-out" },
+  );
   await audit(env, owner, "owner.signout_all", null, `${results.length} accounts signed out`);
   return json({ ok: true, accounts: results.length });
 }
@@ -99,7 +108,16 @@ async function userDetail(env: Env, id: string): Promise<Response> {
         ORDER BY last_at DESC NULLS LAST LIMIT 200`,
     )
       .bind(id)
-      .all<{ id: string; type: "dm" | "group"; name: string | null; dm_key: string | null; members: number; messages: number; last_at: number | null; others: string | null }>(),
+      .all<{
+        id: string;
+        type: "dm" | "group";
+        name: string | null;
+        dm_key: string | null;
+        members: number;
+        messages: number;
+        last_at: number | null;
+        others: string | null;
+      }>(),
     env.DB.prepare(
       `SELECT (SELECT COUNT(*) FROM messages WHERE user_id = ?1 AND deleted_at IS NULL) AS messages,
               (SELECT COUNT(*) FROM messages WHERE user_id = ?1 AND media_id IS NOT NULL) AS media,
@@ -113,7 +131,13 @@ async function userDetail(env: Env, id: string): Promise<Response> {
       .first<{ messages: number; media: number; reactions: number; stories: number; reports_against: number; reports_filed: number; blocked_by: number }>(),
   ]);
   const detail: OwnerUserDetail = {
-    sessions: sessions.results.map((s) => ({ id: s.token_hash, device: s.device, location: s.location, createdAt: s.created_at, lastActiveAt: s.last_active_at })),
+    sessions: sessions.results.map((s) => ({
+      id: s.token_hash,
+      device: s.device,
+      location: s.location,
+      createdAt: s.created_at,
+      lastActiveAt: s.last_active_at,
+    })),
     rooms: rooms.results.map((r) => ({
       id: r.id,
       type: r.type,
@@ -141,7 +165,9 @@ async function signOutDevice(env: Env, owner: User, userId: string, hash: string
   const res = await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?1 AND token_hash = ?2").bind(userId, hash).run();
   if (!res.meta.changes) throw new HttpError(404, "That device is already signed out.");
   // Close its live connections; its other devices reconnect on their own.
-  await lobby(env).kick(userId).catch(() => undefined);
+  await lobby(env)
+    .kick(userId)
+    .catch(() => undefined);
   await audit(env, owner, "owner.signout_device", t);
   return json({ ok: true });
 }
@@ -175,7 +201,11 @@ async function eraseMessages(env: Env, owner: User, userId: string): Promise<Res
   )
     .bind(userId)
     .all<{ user_id: string }>();
-  if (members.length) await lobby(env).notify(members.map((r) => r.user_id), { type: "rooms-changed" });
+  if (members.length)
+    await lobby(env).notify(
+      members.map((r) => r.user_id),
+      { type: "rooms-changed" },
+    );
   await audit(env, owner, "owner.erase_messages", t, `${results.length} messages in ${byRoom.size} chats`);
   return json({ ok: true, deleted: results.length });
 }
@@ -196,7 +226,10 @@ async function joinGroup(env: Env, owner: User, roomId: string): Promise<Respons
     ).bind(roomId, owner.id, now),
   ]);
   const { results } = await env.DB.prepare("SELECT user_id FROM room_members WHERE room_id = ?1").bind(roomId).all<{ user_id: string }>();
-  await lobby(env).notify(results.map((x) => x.user_id), { type: "rooms-changed" });
+  await lobby(env).notify(
+    results.map((x) => x.user_id),
+    { type: "rooms-changed" },
+  );
   await audit(env, owner, "owner.join_group", null, await roomNames(env, roomId));
   return json({ ok: true, roomId });
 }
@@ -212,7 +245,19 @@ async function listStories(env: Env): Promise<Response> {
       WHERE s.expires_at > ?1 ORDER BY s.created_at DESC LIMIT 300`,
   )
     .bind(Date.now())
-    .all<{ id: string; kind: "text" | "image"; text: string; background: string | null; created_at: number; expires_at: number; user_id: string; username: string; display_name: string; avatar_version: number | null; views: number }>();
+    .all<{
+      id: string;
+      kind: "text" | "image";
+      text: string;
+      background: string | null;
+      created_at: number;
+      expires_at: number;
+      user_id: string;
+      username: string;
+      display_name: string;
+      avatar_version: number | null;
+      views: number;
+    }>();
   const stories: OwnerStory[] = results.map((r) => ({
     id: r.id,
     user: toUser({ id: r.user_id, username: r.username, display_name: r.display_name, avatar_version: r.avatar_version }),
@@ -227,7 +272,9 @@ async function listStories(env: Env): Promise<Response> {
 }
 
 async function storyMedia(env: Env, id: string): Promise<Response> {
-  const row = await env.DB.prepare("SELECT mime, data FROM stories WHERE id = ?1").bind(id).first<{ mime: string | null; data: ArrayBuffer | number[] | null }>();
+  const row = await env.DB.prepare("SELECT mime, data FROM stories WHERE id = ?1")
+    .bind(id)
+    .first<{ mime: string | null; data: ArrayBuffer | number[] | null }>();
   if (!row?.data || !row.mime) throw new HttpError(404, "No photo.");
   const bytes = row.data instanceof ArrayBuffer ? row.data : new Uint8Array(row.data);
   return new Response(bytes, { headers: mediaHeaders(row.mime, "no-store") });
@@ -257,7 +304,19 @@ async function search(env: Env, url: URL, owner: User): Promise<Response> {
       ORDER BY m.created_at DESC LIMIT 100`,
   )
     .bind(like(q))
-    .all<{ id: string; room_id: string; user_id: string; kind: OwnerSearchHit["kind"]; body: string; created_at: number; username: string; display_name: string; type: "dm" | "group"; name: string | null; people: string | null }>();
+    .all<{
+      id: string;
+      room_id: string;
+      user_id: string;
+      kind: OwnerSearchHit["kind"];
+      body: string;
+      created_at: number;
+      username: string;
+      display_name: string;
+      type: "dm" | "group";
+      name: string | null;
+      people: string | null;
+    }>();
   const hits: OwnerSearchHit[] = results.map((r) => ({
     roomId: r.room_id,
     roomTitle: r.type === "group" ? (r.name ?? "Group") : (r.people ?? "Chat"),

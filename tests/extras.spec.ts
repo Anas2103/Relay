@@ -28,7 +28,11 @@ async function say(text: string) {
 
 test("share your location after confirming it", async () => {
   await ann.getByRole("button", { name: "Attach" }).click();
-  await ann.getByRole("menuitem", { name: "Location" }).or(ann.getByRole("button", { name: "Location" })).first().click();
+  await ann
+    .getByRole("menuitem", { name: "Location" })
+    .or(ann.getByRole("button", { name: "Location" }))
+    .first()
+    .click();
   await expect(ann.getByText("Share your location?")).toBeVisible();
   await expect(ann.getByText("33.57311° N, 7.58984° W").first()).toBeVisible();
   await ann.getByRole("button", { name: "Send location" }).click();
@@ -80,7 +84,10 @@ test("Remind me schedules a reminder in Saved Messages", async () => {
   // And a reminder that's due shows up in Saved Messages, marked as a reminder.
   const delivered = await ann.evaluate(async () => {
     const { room } = await (await fetch("/api/rooms/saved", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })).json();
-    const url = performance.getEntriesByType("resource").map((e) => e.name).find((n) => n.includes("/src/lib/sendToRoom.ts"))!;
+    const url = performance
+      .getEntriesByType("resource")
+      .map((e) => e.name)
+      .find((n) => n.includes("/src/lib/sendToRoom.ts"))!;
     const { scheduleInRoom } = await import(/* @vite-ignore */ url);
     await scheduleInRoom(room.id, "⏰ Reminder · test\n\nwater the plants", Date.now() + 6000);
     for (let i = 0; i < 40; i++) {

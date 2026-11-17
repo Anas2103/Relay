@@ -12,12 +12,17 @@ const input =
   "w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-zinc-400 focus:border-accent focus:ring-4 focus:ring-accent/15 dark:border-zinc-700 dark:bg-zinc-800";
 const primary =
   "flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
-const secondary = "rounded-xl px-3.5 py-2 text-sm font-medium ring-1 ring-zinc-200 transition hover:bg-zinc-50 disabled:opacity-50 dark:ring-zinc-700 dark:hover:bg-zinc-800";
+const secondary =
+  "rounded-xl px-3.5 py-2 text-sm font-medium ring-1 ring-zinc-200 transition hover:bg-zinc-50 disabled:opacity-50 dark:ring-zinc-700 dark:hover:bg-zinc-800";
 
 function Title({ title, hint, icon }: { title: string; hint?: string; icon?: ReactNode }) {
   return (
     <div className="flex items-start gap-3">
-      {icon && <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 [&>svg]:size-4.5">{icon}</span>}
+      {icon && (
+        <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 [&>svg]:size-4.5">
+          {icon}
+        </span>
+      )}
       <div className="min-w-0">
         <h3 className="text-sm font-semibold">{title}</h3>
         {hint && <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{hint}</p>}
@@ -132,7 +137,9 @@ function TwoFactorSection({ me, security, onChanged }: { me: Me; security: Secur
 
   const on = me.twoFactor;
   return (
-    <section className={`rounded-2xl p-4 ring-1 ${on ? "bg-emerald-50/60 ring-emerald-600/20 dark:bg-emerald-950/30 dark:ring-emerald-400/20" : "ring-zinc-200 dark:ring-zinc-800"}`}>
+    <section
+      className={`rounded-2xl p-4 ring-1 ${on ? "bg-emerald-50/60 ring-emerald-600/20 dark:bg-emerald-950/30 dark:ring-emerald-400/20" : "ring-zinc-200 dark:ring-zinc-800"}`}
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <Title
           icon={<ShieldIcon />}
@@ -164,7 +171,15 @@ function TwoFactorSection({ me, security, onChanged }: { me: Me; security: Secur
           <form onSubmit={begin} className="space-y-4 pt-1">
             <p className="text-sm text-zinc-600 dark:text-zinc-300">First, confirm it's you.</p>
             <input type="text" autoComplete="username" className="hidden" readOnly tabIndex={-1} aria-hidden="true" />
-            <input type="password" className={input} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" autoComplete="current-password" autoFocus />
+            <input
+              type="password"
+              className={input}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Your password"
+              autoComplete="current-password"
+              autoFocus
+            />
             <ErrorLine text={error} />
             <button className={`${primary} w-full`} disabled={!password || busy}>
               {busy && <Spinner />} Continue
@@ -188,7 +203,9 @@ function TwoFactorSection({ me, security, onChanged }: { me: Me; security: Secur
               </a>
               <details className="w-full text-center">
                 <summary className="cursor-pointer text-xs text-zinc-500 dark:text-zinc-400">Can't scan? Enter this key instead</summary>
-                <p className="mt-2 rounded-lg bg-zinc-100 px-3 py-2 font-mono text-sm tracking-wider break-all select-all dark:bg-zinc-800">{setup.secret.match(/.{1,4}/g)?.join(" ")}</p>
+                <p className="mt-2 rounded-lg bg-zinc-100 px-3 py-2 font-mono text-sm tracking-wider break-all select-all dark:bg-zinc-800">
+                  {setup.secret.match(/.{1,4}/g)?.join(" ")}
+                </p>
               </details>
             </div>
             <input
@@ -220,13 +237,25 @@ function TwoFactorSection({ me, security, onChanged }: { me: Me; security: Secur
       )}
 
       {action && (
-        <Sheet title={action === "disable" ? "Turn off two-step verification?" : "Make new recovery codes"} onClose={() => (setAction(null), setPassword(""), setError(null))}>
+        <Sheet
+          title={action === "disable" ? "Turn off two-step verification?" : "Make new recovery codes"}
+          onClose={() => (setAction(null), setPassword(""), setError(null))}
+        >
           <form onSubmit={passwordAction} className="space-y-4 pt-1">
             <p className="text-sm text-zinc-600 dark:text-zinc-300">
-              {action === "disable" ? "Your account will only be protected by your password." : "Your old recovery codes will stop working."} Enter your password to continue.
+              {action === "disable" ? "Your account will only be protected by your password." : "Your old recovery codes will stop working."} Enter your
+              password to continue.
             </p>
             <input type="text" autoComplete="username" className="hidden" readOnly tabIndex={-1} aria-hidden="true" />
-            <input type="password" className={input} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" autoComplete="current-password" autoFocus />
+            <input
+              type="password"
+              className={input}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Your password"
+              autoComplete="current-password"
+              autoFocus
+            />
             <ErrorLine text={error} />
             <button
               className={`${action === "disable" ? "flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50" : primary} w-full`}
@@ -259,7 +288,8 @@ function RecoveryCodes({ codes, username, onDone }: { codes: string[]; username:
     >
       <div className="space-y-4 pt-1">
         <p className="text-sm text-zinc-600 dark:text-zinc-300">
-          If you lose your phone, these let you sign in. <strong>Each works once and they won't be shown again.</strong> Store them in a password manager or print them.
+          If you lose your phone, these let you sign in. <strong>Each works once and they won't be shown again.</strong> Store them in a password manager or
+          print them.
         </p>
         <ul className="grid grid-cols-2 gap-2 rounded-2xl bg-zinc-100 p-4 font-mono text-sm select-all dark:bg-zinc-800">
           {codes.map((c) => (
@@ -280,7 +310,12 @@ function RecoveryCodes({ codes, username, onDone }: { codes: string[]; username:
           >
             {copied ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />} {copied ? "Copied" : "Copy"}
           </button>
-          <a href={download} download={`relay-recovery-codes-${username}.txt`} onClick={() => setSaved(true)} className={`${secondary} flex flex-1 items-center justify-center gap-2`}>
+          <a
+            href={download}
+            download={`relay-recovery-codes-${username}.txt`}
+            onClick={() => setSaved(true)}
+            className={`${secondary} flex flex-1 items-center justify-center gap-2`}
+          >
             <DownloadIcon className="size-4" /> Download
           </a>
         </div>
@@ -305,7 +340,13 @@ function QrCode({ text }: { text: string }) {
     return { n, d: out.join("") };
   }, [text]);
   return (
-    <svg viewBox={`-3 -3 ${cells.n + 6} ${cells.n + 6}`} className="size-48 rounded-2xl bg-white shadow-sm ring-1 ring-zinc-200" role="img" aria-label="QR code for your authenticator app" shapeRendering="crispEdges">
+    <svg
+      viewBox={`-3 -3 ${cells.n + 6} ${cells.n + 6}`}
+      className="size-48 rounded-2xl bg-white shadow-sm ring-1 ring-zinc-200"
+      role="img"
+      aria-label="QR code for your authenticator app"
+      shapeRendering="crispEdges"
+    >
       <path d={cells.d} fill="#000" />
     </svg>
   );
@@ -357,7 +398,11 @@ function DevicesSection({
             ))}
           </ul>
           {others.length > 0 && (
-            <button onClick={() => setConfirmAll(true)} disabled={busy !== null} className="w-full rounded-xl px-4 py-2.5 text-sm font-semibold text-red-600 ring-1 ring-red-600/25 transition hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:ring-red-400/25 dark:hover:bg-red-950/40">
+            <button
+              onClick={() => setConfirmAll(true)}
+              disabled={busy !== null}
+              className="w-full rounded-xl px-4 py-2.5 text-sm font-semibold text-red-600 ring-1 ring-red-600/25 transition hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:ring-red-400/25 dark:hover:bg-red-950/40"
+            >
               {busy === "all" ? <Spinner className="mx-auto" /> : `Sign out all other devices (${others.length})`}
             </button>
           )}
@@ -399,7 +444,9 @@ function DeviceRow({ session: s, busy, onRevoke }: { session: SessionInfo; busy:
   const phone = /iPhone|Android|iPad/.test(s.device);
   return (
     <li className="flex items-center gap-3 bg-white px-4 py-3 dark:bg-zinc-900">
-      <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${s.current ? "bg-accent/15 text-accent-fg" : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"}`}>
+      <span
+        className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${s.current ? "bg-accent/15 text-accent-fg" : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"}`}
+      >
         {phone ? <SmartphoneIcon className="size-5" /> : <LaptopIcon className="size-5" />}
       </span>
       <div className="min-w-0 flex-1">
@@ -409,7 +456,11 @@ function DeviceRow({ session: s, busy, onRevoke }: { session: SessionInfo; busy:
         </p>
       </div>
       {!s.current && (
-        <button onClick={onRevoke} disabled={busy} className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/40">
+        <button
+          onClick={onRevoke}
+          disabled={busy}
+          className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/40"
+        >
           {busy ? <Spinner className="size-3.5" /> : "Sign out"}
         </button>
       )}
@@ -526,7 +577,11 @@ function PasscodeSection({ me }: { me: Me }) {
             </p>
             <label className="flex items-center justify-between gap-3 text-sm">
               <span>Auto-lock</span>
-              <select value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} className="rounded-lg bg-zinc-100 px-2 py-1.5 text-sm outline-none dark:bg-zinc-800">
+              <select
+                value={minutes}
+                onChange={(e) => setMinutes(Number(e.target.value))}
+                className="rounded-lg bg-zinc-100 px-2 py-1.5 text-sm outline-none dark:bg-zinc-800"
+              >
                 {AUTO_LOCK_OPTIONS.map((o) => (
                   <option key={o.minutes} value={o.minutes}>
                     {o.label}

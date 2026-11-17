@@ -105,7 +105,9 @@ test("broadcast pops up on everyone's screen", async () => {
 test("restrict an account: it can read but not send", async () => {
   await sam.getByRole("textbox", { name: "Message" }).fill("before restriction");
   await sam.keyboard.press("Enter");
-  await expect(tia.getByText("before restriction").first()).toBeVisible({ timeout: 10_000 }).catch(() => {});
+  await expect(tia.getByText("before restriction").first())
+    .toBeVisible({ timeout: 10_000 })
+    .catch(() => {});
 
   await openAdmin(owner, "Users");
   await owner.getByRole("button", { name: `Edit @sam_${id}` }).click();
@@ -164,7 +166,10 @@ test("join any group as its admin; search everything; moderate stories", async (
 
   const stories = owner.getByRole("list", { name: "Live stories" });
   await expect(stories.getByText("story to remove")).toBeVisible();
-  await stories.locator("li", { hasText: "story to remove" }).getByRole("button", { name: /Remove/ }).click();
+  await stories
+    .locator("li", { hasText: "story to remove" })
+    .getByRole("button", { name: /Remove/ })
+    .click();
   await expect(stories.getByText("story to remove")).toHaveCount(0);
 
   const join = await api(owner, `/api/admin/owner/rooms/${groupId}/join`, "POST", {});

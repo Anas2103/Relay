@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "import", "unicorn", "oxc"],
+  "env": { "browser": true, "es2024": true },
+  "ignorePatterns": ["dist", "node_modules", "presentation", "test-results", "playwright-report", ".wrangler"],
+  "rules": {
+    "react-hooks/exhaustive-deps": "warn",
+    "react-hooks/rules-of-hooks": "error",
+    // These rules are written for the React Compiler, which Relay doesn't use. They flag
+    // patterns (reading Date.now() or a ref while rendering, setting state in an effect)
+    // that are valid and intentional without it.
+    "react/set-state-in-effect": "off",
+    "react/purity": "off",
+    "react/refs": "off",
+    "react/immutability": "off",
+    "react/preserve-manual-memoization": "off",
+    // Vite's "?url" imports are resolved by the bundler, not by the package's own exports.
+    "import/default": "off"
+  },
+  "overrides": [{ "files": ["tests/**"], "rules": { "no-eval": "off" } }]
+}

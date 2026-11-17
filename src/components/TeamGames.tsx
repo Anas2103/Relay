@@ -154,7 +154,11 @@ export function CrackTheCode({ game, onMove }: { game: CodeGame; onMove: Move })
                 <Peg key={j} color={c} size="size-5" />
               ))}
             </span>
-            <span className="flex flex-1 gap-0.5" aria-label={`${g.exact} right place, ${g.near} wrong place`} title={`${g.exact} right place, ${g.near} wrong place`}>
+            <span
+              className="flex flex-1 gap-0.5"
+              aria-label={`${g.exact} right place, ${g.near} wrong place`}
+              title={`${g.exact} right place, ${g.near} wrong place`}
+            >
               {Array.from({ length: g.exact }, (_, k) => (
                 <span key={`e${k}`} className="size-2.5 rounded-full bg-current" />
               ))}
@@ -170,7 +174,11 @@ export function CrackTheCode({ game, onMove }: { game: CodeGame; onMove: Move })
         <>
           <div className="mt-2 flex items-center justify-center gap-1.5" aria-label="Your guess">
             {Array.from({ length: CODE_LENGTH }, (_, i) => (
-              <button key={i} onClick={() => setDraft((d) => d.filter((_, j) => j !== i))} aria-label={draft[i] !== undefined ? `Remove ${PEG_NAMES[draft[i]]}` : "Empty"}>
+              <button
+                key={i}
+                onClick={() => setDraft((d) => d.filter((_, j) => j !== i))}
+                aria-label={draft[i] !== undefined ? `Remove ${PEG_NAMES[draft[i]]}` : "Empty"}
+              >
                 <Peg color={draft[i] ?? null} size="size-7" />
               </button>
             ))}
@@ -237,7 +245,11 @@ export function PairUp({ game, onMove }: { game: PairsGame; onMove: Move }) {
               disabled={!!game.winner || done || (game.open.includes(i) && game.open.length < 2)}
               aria-label={up ? `Card ${i + 1}: ${face}` : `Card ${i + 1}, face down`}
               className={`flex aspect-square items-center justify-center rounded-xl text-2xl transition ${
-                done ? "bg-emerald-500/25 opacity-70" : up ? "bg-white/80 shadow-sm dark:bg-white/20" : "bg-black/15 hover:bg-black/25 dark:bg-white/10 dark:hover:bg-white/20"
+                done
+                  ? "bg-emerald-500/25 opacity-70"
+                  : up
+                    ? "bg-white/80 shadow-sm dark:bg-white/20"
+                    : "bg-black/15 hover:bg-black/25 dark:bg-white/10 dark:hover:bg-white/20"
               }`}
             >
               {up ? FACES[face] : ""}
@@ -306,7 +318,9 @@ export function Reversi({ game, meId, onMove }: { game: ReversiGame; meId: strin
               className="flex aspect-square items-center justify-center rounded-sm bg-emerald-600"
             >
               {v !== -1 ? (
-                <span className={`size-[80%] rounded-full shadow ${v === 0 ? "bg-zinc-900" : "bg-zinc-50"} ${game.last === i ? "ring-2 ring-amber-300" : ""}`} />
+                <span
+                  className={`size-[80%] rounded-full shadow ${v === 0 ? "bg-zinc-900" : "bg-zinc-50"} ${game.last === i ? "ring-2 ring-amber-300" : ""}`}
+                />
               ) : legal ? (
                 <span className="size-2 rounded-full bg-black/25" />
               ) : null}
@@ -352,14 +366,20 @@ export function Mancala({ game, meId, onMove }: { game: MancalaGame; meId: strin
     <>
       <Header game={game} meId={meId} />
       <div className="flex items-stretch gap-1.5 rounded-2xl bg-amber-700/70 p-2 text-amber-50">
-        <div className="flex w-9 flex-col items-center justify-center rounded-full bg-amber-900/40 text-base font-bold tabular-nums" aria-label={`Their store: ${game.pits[theirs * 7 + 6]}`}>
+        <div
+          className="flex w-9 flex-col items-center justify-center rounded-full bg-amber-900/40 text-base font-bold tabular-nums"
+          aria-label={`Their store: ${game.pits[theirs * 7 + 6]}`}
+        >
           {game.pits[theirs * 7 + 6]}
         </div>
         <div className="grid flex-1 grid-cols-6 gap-1">
           {row(theirs, false)}
           {row(side, true)}
         </div>
-        <div className="flex w-9 flex-col items-center justify-center rounded-full bg-amber-900/40 text-base font-bold tabular-nums" aria-label={`Your store: ${game.pits[side * 7 + 6]}`}>
+        <div
+          className="flex w-9 flex-col items-center justify-center rounded-full bg-amber-900/40 text-base font-bold tabular-nums"
+          aria-label={`Your store: ${game.pits[side * 7 + 6]}`}
+        >
           {game.pits[side * 7 + 6]}
         </div>
       </div>

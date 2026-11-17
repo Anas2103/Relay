@@ -11,15 +11,10 @@ export function str(value: unknown): string {
 export function validUsername(raw: unknown): string {
   const username = str(raw).trim();
   if (!USERNAME_RE.test(username)) {
-    throw new HttpError(
-      400,
-      `Username must be ${LIMITS.usernameMin}–${LIMITS.usernameMax} characters: letters, numbers or _.`,
-    );
+    throw new HttpError(400, `Username must be ${LIMITS.usernameMin}–${LIMITS.usernameMax} characters: letters, numbers or _.`);
   }
   return username;
 }
-
-
 
 export function validPassword(raw: unknown, username = ""): string {
   const password = str(raw);

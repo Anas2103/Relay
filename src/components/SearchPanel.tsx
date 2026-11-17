@@ -103,14 +103,17 @@ export function SearchPanel({
       <div className="flex-1 overflow-y-auto">
         {!active ? (
           <p className="px-6 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
-            Find any message in this chat, even ones from months ago. Use the filters to see only photos, files, links or voice messages, from one person or a time.
+            Find any message in this chat, even ones from months ago. Use the filters to see only photos, files, links or voice messages, from one person or a
+            time.
           </p>
         ) : loading && !results ? (
           <div className="flex justify-center py-12 text-zinc-400">
             <Spinner className="size-6" />
           </div>
         ) : results && results.length === 0 ? (
-          <p className="px-6 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">{q ? `No messages match “${q}”.` : "Nothing matches these filters."}</p>
+          <p className="px-6 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
+            {q ? `No messages match “${q}”.` : "Nothing matches these filters."}
+          </p>
         ) : (
           <ul className="mx-auto max-w-3xl divide-y divide-zinc-100 dark:divide-zinc-800">
             {results?.map((m) => (
@@ -136,7 +139,14 @@ export function SearchPanel({
                       <span className="shrink-0 text-xs text-zinc-400 tabular-nums">{formatDateTime(m.createdAt)}</span>
                     </span>
                     <span className="mt-0.5 line-clamp-2 text-sm text-zinc-600 dark:text-zinc-300">
-                      {highlight(m.kind === "file" ? (m.meta?.name ?? "") : m.kind === "voice" ? `Voice message · ${Math.round(m.meta?.duration ?? 0)}s` : m.body || (m.kind === "image" ? "Photo" : m.kind === "video" ? "Video" : ""), q)}
+                      {highlight(
+                        m.kind === "file"
+                          ? (m.meta?.name ?? "")
+                          : m.kind === "voice"
+                            ? `Voice message · ${Math.round(m.meta?.duration ?? 0)}s`
+                            : m.body || (m.kind === "image" ? "Photo" : m.kind === "video" ? "Video" : ""),
+                        q,
+                      )}
                     </span>
                   </span>
                 </button>
@@ -193,12 +203,7 @@ function FilterSelect({ label, value, options, onChange }: { label: string; valu
       <span className="text-zinc-400">{label}:</span>
       {options.find(([v]) => v === value)?.[1] ?? options[0][1]}
       <span aria-hidden="true">▾</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={label}
-        className="absolute inset-0 cursor-pointer opacity-0"
-      >
+      <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={label} className="absolute inset-0 cursor-pointer opacity-0">
         {options.map(([v, l]) => (
           <option key={v} value={v}>
             {l}

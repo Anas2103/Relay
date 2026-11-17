@@ -30,9 +30,7 @@ test("an open tab notices a new deploy, offers Reload, and switches over when hi
       })
       .catch(() => {}); // the page reloads right away, mid-command: that's the point
     // A fresh page has no marker (asked again until the reloaded page answers).
-    await expect
-      .poll(() => page.evaluate(() => (window as unknown as { marker?: number }).marker ?? "fresh").catch(() => "reloading"))
-      .toBe("fresh");
+    await expect.poll(() => page.evaluate(() => (window as unknown as { marker?: number }).marker ?? "fresh").catch(() => "reloading")).toBe("fresh");
   } finally {
     writeFileSync(VERSION, original);
   }

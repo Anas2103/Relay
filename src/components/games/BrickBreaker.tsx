@@ -36,10 +36,34 @@ export function BrickBreaker({ onExit }: { onExit: () => void }) {
   const [lvl, setLvl] = useState(1);
   const [record, setRecord] = useState(false);
   const best = useBest().bricks ?? 0;
-  const g = useRef({ px: CW / 2, bx: CW / 2, by: CH - 60, vx: 3.2, vy: -4.6, bricks: level(1), score: 0, lives: 3, level: 1, keys: { l: false, r: false }, stuck: true });
+  const g = useRef({
+    px: CW / 2,
+    bx: CW / 2,
+    by: CH - 60,
+    vx: 3.2,
+    vy: -4.6,
+    bricks: level(1),
+    score: 0,
+    lives: 3,
+    level: 1,
+    keys: { l: false, r: false },
+    stuck: true,
+  });
 
   const reset = () => {
-    g.current = { px: CW / 2, bx: CW / 2, by: CH - 60, vx: 3.2, vy: -4.6, bricks: level(1), score: 0, lives: 3, level: 1, keys: { l: false, r: false }, stuck: true };
+    g.current = {
+      px: CW / 2,
+      bx: CW / 2,
+      by: CH - 60,
+      vx: 3.2,
+      vy: -4.6,
+      bricks: level(1),
+      score: 0,
+      lives: 3,
+      level: 1,
+      keys: { l: false, r: false },
+      stuck: true,
+    };
     setScore(0);
     setLives(3);
     setLvl(1);
@@ -164,7 +188,18 @@ export function BrickBreaker({ onExit }: { onExit: () => void }) {
   };
 
   return (
-    <GameShell title="Brick Breaker" onExit={onExit} stats={[["Score", score], ["Lives", "❤️".repeat(Math.max(0, lives)) || "0"], ["Level", lvl], ["Best", Math.max(best, score)]]} onRestart={reset} hint="Move with the mouse or your finger (or ← →). Tap or Space to launch.">
+    <GameShell
+      title="Brick Breaker"
+      onExit={onExit}
+      stats={[
+        ["Score", score],
+        ["Lives", "❤️".repeat(Math.max(0, lives)) || "0"],
+        ["Level", lvl],
+        ["Best", Math.max(best, score)],
+      ]}
+      onRestart={reset}
+      hint="Move with the mouse or your finger (or ← →). Tap or Space to launch."
+    >
       <div className="relative mx-auto aspect-[3/4] h-auto w-full max-w-[min(100%,calc((100dvh-15rem)*0.75))] touch-none overflow-hidden rounded-2xl bg-zinc-900">
         <canvas
           ref={canvas}

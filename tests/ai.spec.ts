@@ -45,7 +45,11 @@ test("transcribe a voice message and translate messages", async ({ browser }) =>
 
   // Ben translates a text message into French
   await ben.evaluate(async () => {
-    await fetch("/api/account", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ settings: { translateTo: "fr" } }) });
+    await fetch("/api/account", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ settings: { translateTo: "fr" } }),
+    });
   });
   await ben.reload();
   await ben.getByRole("button", { name: /Ann/ }).first().click();

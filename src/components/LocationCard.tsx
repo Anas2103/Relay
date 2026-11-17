@@ -30,7 +30,10 @@ function MiniMap({ point }: { point: GeoPoint }) {
     <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#e8efe3] dark:bg-[#1f2a24]">
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 size-full" aria-hidden="true">
         <rect x={10 + rnd(11) * 50} y={10 + rnd(12) * 40} width="22" height="16" rx="3" className="fill-[#cfe3c4] dark:fill-[#25382c]" />
-        <path d={`M0 ${70 + rnd(13) * 20} Q 40 ${60 + rnd(14) * 20} 100 ${75 + rnd(15) * 15} L100 100 L0 100Z`} className="fill-[#c7dcef] dark:fill-[#1d2c3a]" />
+        <path
+          d={`M0 ${70 + rnd(13) * 20} Q 40 ${60 + rnd(14) * 20} 100 ${75 + rnd(15) * 15} L100 100 L0 100Z`}
+          className="fill-[#c7dcef] dark:fill-[#1d2c3a]"
+        />
         {roads.map((d, i) => (
           <path key={i} d={d} fill="none" strokeWidth={i < 2 ? 3.2 : 1.8} className="stroke-white dark:stroke-zinc-600" />
         ))}
@@ -60,7 +63,9 @@ export function LocationCard({ point, tinted }: { point: GeoPoint; tinted: boole
           <span className="block text-sm font-semibold">Location</span>
           <span className={`block truncate text-xs tabular-nums ${tinted ? "opacity-80" : "text-zinc-500 dark:text-zinc-400"}`}>{coords(point)}</span>
         </span>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${tinted ? "bg-white/20" : "bg-accent/15 text-accent-fg"}`}>Open in Maps</span>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${tinted ? "bg-white/20" : "bg-accent/15 text-accent-fg"}`}>
+          Open in Maps
+        </span>
       </span>
     </a>
   );

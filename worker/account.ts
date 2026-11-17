@@ -1,25 +1,9 @@
-import {
-  isBubbleStyle,
-  isAccentColor,
-  isDarkTheme,
-  isLightTheme,
-  isWallpaper,
-  LIMITS,
-  type Settings,
-  type User,
-} from "../shared/types";
-import {
-  hashPassword,
-  loadMe,
-  parseSettings,
-  rateLimit,
-  requireUser,
-  type SessionUser,
-  verifyPassword,
-} from "./auth";
+import { isBubbleStyle, isAccentColor, isDarkTheme, isLightTheme, isWallpaper, LIMITS, type Settings, type User } from "../shared/types";
+import { hashPassword, loadMe, parseSettings, rateLimit, requireUser, type SessionUser, verifyPassword } from "./auth";
 import { lobby, type Env } from "./env";
 import { HttpError, json, readJson } from "./http";
 import { readUpload } from "./media";
+import { recordConsent } from "./consent";
 import { routeSecurity, signOutOtherDevices } from "./security";
 import { str, validDisplayName, validPassword } from "./validate";
 
@@ -32,6 +16,7 @@ export async function routeAccount(request: Request, env: Env, url: URL): Promis
   const m = request.method;
 
   if (p === "/api/account" && m === "PATCH") return updateProfile(request, env, me);
+  if (p === "/api/account/consent" && m === "POST") return recordConsent(request, env, me);
   if (p === "/api/account/password" && m === "POST") return changePassword(request, env, me);
   if (p === "/api/account/avatar" && m === "PUT") return uploadAvatar(request, env, me);
   if (p === "/api/account/avatar" && m === "DELETE") return removeAvatar(env, me);
@@ -50,7 +35,10 @@ async function announceProfileChange(env: Env, userId: string): Promise<void> {
   )
     .bind(userId)
     .all<{ user_id: string }>();
-  await lobby(env).notify(results.map((r) => r.user_id), { type: "rooms-changed" });
+  await lobby(env).notify(
+    results.map((r) => r.user_id),
+    { type: "rooms-changed" },
+  );
 }
 
 async function updateProfile(request: Request, env: Env, me: User): Promise<Response> {
@@ -105,7 +93,9 @@ async function updateProfile(request: Request, env: Env, me: User): Promise<Resp
 
   if (sets.length) {
     binds.push(me.id);
-    await env.DB.prepare(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`).bind(...binds).run();
+    await env.DB.prepare(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`)
+      .bind(...binds)
+      .run();
     if (publicChange) await announceProfileChange(env, me.id);
   }
   return json({ user: await loadMe(env, me.id) });
@@ -143,9 +133,7 @@ async function changePassword(request: Request, env: Env, me: SessionUser): Prom
   const currentPassword = str(body.currentPassword);
   const newPassword = validPassword(body.newPassword, me.username);
 
-  const row = await env.DB.prepare("SELECT password_hash FROM users WHERE id = ?1")
-    .bind(me.id)
-    .first<{ password_hash: string }>();
+  const row = await env.DB.prepare("SELECT password_hash FROM users WHERE id = ?1").bind(me.id).first<{ password_hash: string }>();
   if (!row || !(await verifyPassword(currentPassword, row.password_hash))) {
     throw new HttpError(400, "Your current password is incorrect.");
   }

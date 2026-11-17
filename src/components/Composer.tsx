@@ -1,13 +1,4 @@
-import {
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ClipboardEvent,
-  type KeyboardEvent,
-} from "react";
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { type Sticker, BLOCKED_EXTENSIONS, fileExtension, formatBytes, LIMITS, type User } from "../../shared/types";
 import { getDraft, setDraft as saveDraft } from "../lib/drafts";
 import {
@@ -27,20 +18,7 @@ import { DeviceHelp } from "./DeviceHelp";
 import type { UiMessage } from "./MessageBubble";
 import { Avatar, BellOffIcon, ChartIcon, ClockIcon, MapPinIcon, SmileIcon } from "./ui";
 import { StickerPanel } from "./StickerPanel";
-import {
-  CameraIcon,
-  EditIcon,
-  FileIcon,
-  ImageIcon,
-  MicIcon,
-  OnceIcon,
-  PaperclipIcon,
-  ReplyIcon,
-  SendIcon,
-  Spinner,
-  TrashIcon,
-  XIcon,
-} from "./ui";
+import { CameraIcon, EditIcon, FileIcon, ImageIcon, MicIcon, OnceIcon, PaperclipIcon, ReplyIcon, SendIcon, Spinner, TrashIcon, XIcon } from "./ui";
 
 export interface ComposerHandle {
   addFile: (file: File) => void;
@@ -89,9 +67,7 @@ interface Props {
   placeholder?: string;
 }
 
-type Pending =
-  | { kind: "image"; image: PreparedImage; url: string }
-  | { kind: "video"; video: PreparedVideo; url: string };
+type Pending = { kind: "image"; image: PreparedImage; url: string } | { kind: "video"; video: PreparedVideo; url: string };
 
 const TYPING_SEND_INTERVAL = 2500;
 const TYPING_IDLE_MS = 3000;
@@ -200,7 +176,12 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
     mention && mentionables?.length
       ? mentionables
           .filter((u) => u.id !== meId)
-          .filter((u) => !mention.query || u.username.toLowerCase().startsWith(mention.query.toLowerCase()) || u.displayName.toLowerCase().includes(mention.query.toLowerCase()))
+          .filter(
+            (u) =>
+              !mention.query ||
+              u.username.toLowerCase().startsWith(mention.query.toLowerCase()) ||
+              u.displayName.toLowerCase().includes(mention.query.toLowerCase()),
+          )
           .slice(0, 6)
       : [];
 
@@ -451,11 +432,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
       <div className="mx-auto max-w-3xl">
         {context && (
           <div className="fade-in mb-2 flex items-center gap-3 rounded-xl bg-zinc-100 px-3 py-2 dark:bg-zinc-800">
-            {editing ? (
-              <EditIcon className="size-4 shrink-0 text-accent-fg" />
-            ) : (
-              <ReplyIcon className="size-4 shrink-0 text-accent-fg" />
-            )}
+            {editing ? <EditIcon className="size-4 shrink-0 text-accent-fg" /> : <ReplyIcon className="size-4 shrink-0 text-accent-fg" />}
             <div className="min-w-0 flex-1 border-l-2 border-accent pl-2.5">
               <p className="text-xs font-semibold text-accent-fg">
                 {editing ? "Editing message" : `Replying to ${context.userId === meId ? "yourself" : context.displayName}`}
@@ -537,7 +514,10 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
                 {menuOpen && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
-                    <div className="pop-in absolute bottom-14 left-0 z-40 w-56 overflow-hidden rounded-2xl bg-white py-1.5 shadow-xl ring-1 ring-zinc-900/10 dark:bg-zinc-800 dark:ring-white/10" role="menu">
+                    <div
+                      className="pop-in absolute bottom-14 left-0 z-40 w-56 overflow-hidden rounded-2xl bg-white py-1.5 shadow-xl ring-1 ring-zinc-900/10 dark:bg-zinc-800 dark:ring-white/10"
+                      role="menu"
+                    >
                       <AttachItem
                         icon={<ImageIcon className="size-5" />}
                         color="bg-violet-500"
@@ -621,7 +601,11 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
             )}
             <div className="relative flex-1">
               {mentionList.length > 0 && (
-                <ul className="pop-in absolute right-0 bottom-full left-0 z-40 mb-2 overflow-hidden rounded-2xl bg-white p-1 shadow-xl ring-1 ring-zinc-900/10 dark:bg-zinc-800 dark:ring-white/10" role="listbox" aria-label="Mention someone">
+                <ul
+                  className="pop-in absolute right-0 bottom-full left-0 z-40 mb-2 overflow-hidden rounded-2xl bg-white p-1 shadow-xl ring-1 ring-zinc-900/10 dark:bg-zinc-800 dark:ring-white/10"
+                  role="listbox"
+                  aria-label="Mention someone"
+                >
                   {mentionList.map((u, i) => (
                     <li key={u.id} role="option" aria-selected={i === mentionIndex}>
                       <button
@@ -675,9 +659,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
                 aria-label="Message"
                 enterKeyHint="send"
                 className={`msg-text no-scrollbar block w-full resize-none overflow-hidden rounded-[1.375rem] border bg-zinc-50 py-2.5 pl-4 ${showStickerButton ? "pr-11" : "pr-4"} leading-6 placeholder:truncate outline-none transition placeholder:text-zinc-400 focus:bg-white focus:ring-4 dark:bg-zinc-800 dark:focus:bg-zinc-800 ${
-                  tooLong
-                    ? "border-red-400 focus:ring-red-500/15"
-                    : "border-zinc-200 focus:border-accent focus:ring-accent/15 dark:border-zinc-700"
+                  tooLong ? "border-red-400 focus:ring-red-500/15" : "border-zinc-200 focus:border-accent focus:ring-accent/15 dark:border-zinc-700"
                 }`}
               />
               {draft.length > LIMITS.messageMax - 200 && (
@@ -718,7 +700,10 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
                 {sendMenu && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setSendMenu(false)} />
-                    <div className="pop-in absolute right-0 bottom-14 z-40 w-56 overflow-hidden rounded-2xl bg-white p-1 shadow-xl ring-1 ring-zinc-900/10 dark:bg-zinc-800 dark:ring-white/10" role="menu">
+                    <div
+                      className="pop-in absolute right-0 bottom-14 z-40 w-56 overflow-hidden rounded-2xl bg-white p-1 shadow-xl ring-1 ring-zinc-900/10 dark:bg-zinc-800 dark:ring-white/10"
+                      role="menu"
+                    >
                       <button
                         type="button"
                         role="menuitem"

@@ -54,10 +54,13 @@ export function ColorEcho({ onExit }: { onExit: () => void }) {
     const speed = Math.max(260, 620 - s.length * 25);
     s.forEach((p, k) => timers.current.push(window.setTimeout(() => flash(p, speed * 0.75), 500 + k * speed)));
     timers.current.push(
-      window.setTimeout(() => {
-        setPhase("input");
-        setStep(0);
-      }, 500 + s.length * speed),
+      window.setTimeout(
+        () => {
+          setPhase("input");
+          setStep(0);
+        },
+        500 + s.length * speed,
+      ),
     );
   };
 
@@ -86,8 +89,18 @@ export function ColorEcho({ onExit }: { onExit: () => void }) {
   };
 
   return (
-    <GameShell title="Color Echo" onExit={onExit} stats={[["Level", level], ["Best", best]]} hint="Watch the colours light up, then tap them in the same order.">
-      <div className="mb-2 text-center text-sm font-semibold">{phase === "showing" ? "Watch…" : phase === "input" ? `Your turn (${step}/${seq.length})` : " "}</div>
+    <GameShell
+      title="Color Echo"
+      onExit={onExit}
+      stats={[
+        ["Level", level],
+        ["Best", best],
+      ]}
+      hint="Watch the colours light up, then tap them in the same order."
+    >
+      <div className="mb-2 text-center text-sm font-semibold">
+        {phase === "showing" ? "Watch…" : phase === "input" ? `Your turn (${step}/${seq.length})` : " "}
+      </div>
       <div className={`relative ${BOARD} grid grid-cols-2 gap-3 rounded-full bg-zinc-900 p-3`}>
         {PADS.map((p, i) => (
           <button
@@ -101,7 +114,12 @@ export function ColorEcho({ onExit }: { onExit: () => void }) {
           />
         ))}
         {(phase === "ready" || phase === "over") && (
-          <Overlay title={phase === "over" ? (record ? "New record! 🎉" : "Oops!") : "Color Echo"} detail={phase === "over" ? `You reached level ${level}` : undefined} action={phase === "over" ? "Play again" : "Start"} onAction={start} />
+          <Overlay
+            title={phase === "over" ? (record ? "New record! 🎉" : "Oops!") : "Color Echo"}
+            detail={phase === "over" ? `You reached level ${level}` : undefined}
+            action={phase === "over" ? "Play again" : "Start"}
+            onAction={start}
+          />
         )}
       </div>
       <label className="mt-3 flex items-center justify-center gap-2 text-sm text-zinc-500">

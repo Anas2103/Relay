@@ -130,50 +130,39 @@ function toAdminUser(r: UserRow, online = false): AdminUser {
 async function getUser(env: Env, id: string): Promise<AdminUser> {
   const row = await env.DB.prepare(`${USER_SELECT} WHERE u.id = ?2`).bind(Date.now(), id).first<UserRow>();
   if (!row) throw new HttpError(404, "User not found.");
-  const online = await lobby(env).onlineAmong([id]).catch(() => [] as string[]);
+  const online = await lobby(env)
+    .onlineAmong([id])
+    .catch(() => [] as string[]);
   return toAdminUser(row, online.length > 0);
 }
 
-export async function audit(
-  env: Env,
-  admin: User,
-  action: string,
-  target: { id: string; username: string } | null,
-  details?: string,
-): Promise<void> {
+export async function audit(env: Env, admin: User, action: string, target: { id: string; username: string } | null, details?: string): Promise<void> {
   await env.DB.prepare(
     `INSERT INTO admin_audit (id, admin_id, admin_username, action, target_id, target_username, details, created_at)
      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
   )
-    .bind(
-      crypto.randomUUID(),
-      admin.id,
-      admin.username,
-      action,
-      target?.id ?? null,
-      target?.username ?? null,
-      details ?? null,
-      Date.now(),
-    )
+    .bind(crypto.randomUUID(), admin.id, admin.username, action, target?.id ?? null, target?.username ?? null, details ?? null, Date.now())
     .run();
 }
 
 async function adminCount(env: Env): Promise<number> {
-  const row = await env.DB.prepare(
-    "SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND suspended_at IS NULL",
-  ).first<{ n: number }>();
+  const row = await env.DB.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND suspended_at IS NULL").first<{ n: number }>();
   return row?.n ?? 0;
 }
 
 /** Deletes all sessions and closes every live socket for a user. */
 export async function revokeAccess(env: Env, userId: string): Promise<void> {
   await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?1").bind(userId).run();
-  const { results } = await env.DB.prepare("SELECT room_id FROM room_members WHERE user_id = ?1")
-    .bind(userId)
-    .all<{ room_id: string }>();
+  const { results } = await env.DB.prepare("SELECT room_id FROM room_members WHERE user_id = ?1").bind(userId).all<{ room_id: string }>();
   await Promise.all([
-    ...results.map((r) => room(env, r.room_id).kick(userId).catch(() => 0)),
-    lobby(env).kick(userId).catch(() => undefined),
+    ...results.map((r) =>
+      room(env, r.room_id)
+        .kick(userId)
+        .catch(() => 0),
+    ),
+    lobby(env)
+      .kick(userId)
+      .catch(() => undefined),
   ]);
 }
 
@@ -256,14 +245,16 @@ async function listUsers(env: Env, url: URL): Promise<Response> {
   )
     .bind(Date.now(), q, `%${escaped}%`)
     .all<UserRow>();
-  const online = new Set(await lobby(env).onlineAmong(results.map((r) => r.id)).catch(() => [] as string[]));
+  const online = new Set(
+    await lobby(env)
+      .onlineAmong(results.map((r) => r.id))
+      .catch(() => [] as string[]),
+  );
   return json({ users: results.map((r) => toAdminUser(r, online.has(r.id))) });
 }
 
 async function createUser(request: Request, env: Env, admin: User): Promise<Response> {
-  const body = await readJson<{ username?: unknown; password?: unknown; displayName?: unknown; role?: unknown }>(
-    request,
-  );
+  const body = await readJson<{ username?: unknown; password?: unknown; displayName?: unknown; role?: unknown }>(request);
   const username = validUsername(body.username);
   const password = validPassword(body.password, username);
   const displayName = validDisplayName(body.displayName, username);
@@ -379,8 +370,16 @@ async function updateUser(request: Request, env: Env, admin: User, id: string): 
     const reason = until ? cleanReason(body.restrictReason) : null;
     sets.push("restricted_until = ?, restrict_reason = ?");
     binds.push(until, reason);
-    changes.push(until ? `restricted until ${new Date(until).toISOString().slice(0, 16).replace("T", " ")} UTC${reason ? ` (${reason})` : ""}` : "restriction lifted");
-    if (until) await lobby(env).notify([id], { type: "broadcast", at: Date.now(), title: "Your account is restricted", text: `Until ${new Date(until).toUTCString()} you can read your chats but not send, call, upload or post.${reason ? ` Reason: ${reason}` : ""}` });
+    changes.push(
+      until ? `restricted until ${new Date(until).toISOString().slice(0, 16).replace("T", " ")} UTC${reason ? ` (${reason})` : ""}` : "restriction lifted",
+    );
+    if (until)
+      await lobby(env).notify([id], {
+        type: "broadcast",
+        at: Date.now(),
+        title: "Your account is restricted",
+        text: `Until ${new Date(until).toUTCString()} you can read your chats but not send, call, upload or post.${reason ? ` Reason: ${reason}` : ""}`,
+      });
     else await lobby(env).notify([id], { type: "broadcast", at: Date.now(), title: "Restriction lifted", text: "You can send messages again." });
   }
   if (body.password !== undefined && body.password !== "") {
@@ -401,7 +400,9 @@ async function updateUser(request: Request, env: Env, admin: User, id: string): 
 
   binds.push(id);
   try {
-    await env.DB.prepare(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`).bind(...binds).run();
+    await env.DB.prepare(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`)
+      .bind(...binds)
+      .run();
   } catch (err) {
     if (isUniqueViolation(err)) throw new HttpError(409, "That username is taken.");
     throw err;
@@ -459,9 +460,7 @@ export async function removeAccount(env: Env, id: string): Promise<void> {
   // DMs involving this user are removed entirely (cascades to their members and messages).
   // Their messages in group chats are removed too, then the account itself.
   await env.DB.batch([
-    env.DB.prepare(
-      "DELETE FROM rooms WHERE type = 'dm' AND id IN (SELECT room_id FROM room_members WHERE user_id = ?1)",
-    ).bind(id),
+    env.DB.prepare("DELETE FROM rooms WHERE type = 'dm' AND id IN (SELECT room_id FROM room_members WHERE user_id = ?1)").bind(id),
     env.DB.prepare("DELETE FROM messages WHERE user_id = ?1").bind(id),
     env.DB.prepare("DELETE FROM users WHERE id = ?1").bind(id),
   ]);
@@ -477,18 +476,20 @@ export async function removeAccount(env: Env, id: string): Promise<void> {
       .run();
   }
   // Empty groups are removed.
-  await env.DB.prepare(
-    "DELETE FROM rooms WHERE type = 'group' AND NOT EXISTS (SELECT 1 FROM room_members WHERE room_id = rooms.id)",
-  ).run();
+  await env.DB.prepare("DELETE FROM rooms WHERE type = 'group' AND NOT EXISTS (SELECT 1 FROM room_members WHERE room_id = rooms.id)").run();
 
   // Remove the deleted DMs' photos/voice notes and refresh everyone's sidebar.
-  await Promise.all(dms.map((d) => room(env, d.id).wipeMedia().catch(() => undefined)));
+  await Promise.all(
+    dms.map((d) =>
+      room(env, d.id)
+        .wipeMedia()
+        .catch(() => undefined),
+    ),
+  );
   const others = dms.map((d) => d.other_id).filter((x): x is string => !!x);
   const groupMembers = groups.length
     ? (
-        await env.DB.prepare(
-          `SELECT DISTINCT user_id FROM room_members WHERE room_id IN (${groups.map((_, i) => `?${i + 1}`).join(",")})`,
-        )
+        await env.DB.prepare(`SELECT DISTINCT user_id FROM room_members WHERE room_id IN (${groups.map((_, i) => `?${i + 1}`).join(",")})`)
           .bind(...groups.map((g) => g.room_id))
           .all<{ user_id: string }>()
       ).results.map((r) => r.user_id)
@@ -512,13 +513,13 @@ async function listAudit(env: Env, url: URL): Promise<Response> {
   )
     .bind(before, q, like)
     .all<{
-    id: string;
-    admin_username: string;
-    action: string;
-    target_username: string | null;
-    details: string | null;
-    created_at: number;
-  }>();
+      id: string;
+      admin_username: string;
+      action: string;
+      target_username: string | null;
+      details: string | null;
+      created_at: number;
+    }>();
   const entries: AuditEntry[] = results.map((r) => ({
     id: r.id,
     adminUsername: r.admin_username,
@@ -529,7 +530,6 @@ async function listAudit(env: Env, url: URL): Promise<Response> {
   }));
   return json({ entries });
 }
-
 
 // ---------- Owner (Grimm): conversations ----------
 
@@ -578,9 +578,7 @@ async function listAllRooms(env: Env, url: URL): Promise<Response> {
     messageCount: r.message_count,
     lastActivity: r.last_activity,
     members: JSON.parse(r.members),
-    lastPreview: r.last_kind
-      ? messagePreview({ kind: r.last_kind, body: r.last_body ?? "", deletedAt: r.last_deleted_at, meta: safeMeta(r.last_meta) })
-      : null,
+    lastPreview: r.last_kind ? messagePreview({ kind: r.last_kind, body: r.last_body ?? "", deletedAt: r.last_deleted_at, meta: safeMeta(r.last_meta) }) : null,
   }));
   return json({ rooms });
 }
@@ -676,9 +674,10 @@ async function ownerDeleteMessage(env: Env, owner: User, roomId: string, message
   if (msg.deleted_at !== null) return json({ ok: true });
   const deletedAt = Date.now();
   await env.DB.batch([
-    env.DB.prepare(
-      "UPDATE messages SET deleted_at = ?1, body = '', meta = NULL, media_id = NULL, pinned_at = NULL, pinned_by = NULL WHERE id = ?2",
-    ).bind(deletedAt, messageId),
+    env.DB.prepare("UPDATE messages SET deleted_at = ?1, body = '', meta = NULL, media_id = NULL, pinned_at = NULL, pinned_by = NULL WHERE id = ?2").bind(
+      deletedAt,
+      messageId,
+    ),
     env.DB.prepare("DELETE FROM message_reactions WHERE message_id = ?1").bind(messageId),
   ]);
   const stub = room(env, roomId);
@@ -691,9 +690,7 @@ async function ownerDeleteMessage(env: Env, owner: User, roomId: string, message
 /** Deletes a whole conversation (messages, files, members) for everyone. */
 async function ownerDeleteRoom(env: Env, owner: User, roomId: string): Promise<Response> {
   const details = await roomNames(env, roomId);
-  const { results } = await env.DB.prepare("SELECT user_id FROM room_members WHERE room_id = ?1")
-    .bind(roomId)
-    .all<{ user_id: string }>();
+  const { results } = await env.DB.prepare("SELECT user_id FROM room_members WHERE room_id = ?1").bind(roomId).all<{ user_id: string }>();
   const members = results.map((r) => r.user_id);
   await env.DB.prepare("DELETE FROM rooms WHERE id = ?1").bind(roomId).run();
   const stub = room(env, roomId);
@@ -712,7 +709,16 @@ async function ownerExport(env: Env, owner: User, roomId: string): Promise<Respo
        FROM messages m JOIN users u ON u.id = m.user_id WHERE m.room_id = ?1 ORDER BY m.created_at ASC LIMIT 50000`,
   )
     .bind(roomId)
-    .all<{ id: string; sender: string; kind: string; body: string; meta: string | null; created_at: number; edited_at: number | null; deleted_at: number | null }>();
+    .all<{
+      id: string;
+      sender: string;
+      kind: string;
+      body: string;
+      meta: string | null;
+      created_at: number;
+      edited_at: number | null;
+      deleted_at: number | null;
+    }>();
   const data = {
     exportedAt: new Date().toISOString(),
     conversation: details,
@@ -790,7 +796,10 @@ async function updateSite(request: Request, env: Env, owner: User): Promise<Resp
     await audit(env, owner, "site.update", null, changes.join("; "));
     // Everyone online picks up the new banner right away.
     const { results } = await env.DB.prepare("SELECT id FROM users WHERE suspended_at IS NULL").all<{ id: string }>();
-    await lobby(env).notify(results.map((r) => r.id), { type: "site-changed" });
+    await lobby(env).notify(
+      results.map((r) => r.id),
+      { type: "site-changed" },
+    );
   }
   return json({ site: await readSiteSettings(env, true) });
 }

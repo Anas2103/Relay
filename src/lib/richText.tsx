@@ -43,7 +43,10 @@ function renderBlocks(text: string, o: RichOptions): ReactNode {
   parts.forEach((part, i) => {
     if (i % 2 === 1) {
       out.push(
-        <pre key={`c${i}`} className="my-1 overflow-x-auto rounded-lg bg-black/10 px-2.5 py-2 font-mono text-[0.85em] leading-snug whitespace-pre dark:bg-black/30">
+        <pre
+          key={`c${i}`}
+          className="my-1 overflow-x-auto rounded-lg bg-black/10 px-2.5 py-2 font-mono text-[0.85em] leading-snug whitespace-pre dark:bg-black/30"
+        >
           <code>{part.replace(/\n$/, "")}</code>
         </pre>,
       );
@@ -101,9 +104,17 @@ function renderInline(text: string, o: RichOptions, depth = 0): ReactNode {
     } else if (m[2]) {
       out.push(<Spoiler key={k}>{renderInline(t.slice(2, -2), o, depth + 1)}</Spoiler>);
     } else if (m[3]) {
-      out.push(<strong key={k} className="font-semibold">{renderInline(t.slice(2, -2), o, depth + 1)}</strong>);
+      out.push(
+        <strong key={k} className="font-semibold">
+          {renderInline(t.slice(2, -2), o, depth + 1)}
+        </strong>,
+      );
     } else if (m[4]) {
-      out.push(<u key={k} className="underline-offset-2">{renderInline(t.slice(2, -2), o, depth + 1)}</u>);
+      out.push(
+        <u key={k} className="underline-offset-2">
+          {renderInline(t.slice(2, -2), o, depth + 1)}
+        </u>,
+      );
     } else if (m[5]) {
       out.push(<s key={k}>{renderInline(t.slice(2, -2), o, depth + 1)}</s>);
     } else if (m[6] || m[7]) {

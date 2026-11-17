@@ -83,7 +83,11 @@ export function InviteDialog({
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               {invite.memberCount} {invite.memberCount === 1 ? "member" : "members"}
             </p>
-            <button onClick={join} disabled={busy} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-50">
+            <button
+              onClick={join}
+              disabled={busy}
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-50"
+            >
               {busy && <Spinner />}
               {invite.member ? "Open group" : "Join group"}
             </button>

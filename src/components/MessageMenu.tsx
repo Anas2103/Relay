@@ -1,11 +1,41 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { UiMessage } from "./MessageBubble";
 import { canSpeak, isSpeaking } from "../lib/speak";
-import { AlertIcon, CopyIcon, EditIcon, EyeIcon, ForwardIcon, PinIcon, ReplyIcon, SelectIcon, StarIcon, TrashIcon, VolumeIcon, ClockIcon, SmileIcon, GlobeIcon } from "./ui";
+import {
+  AlertIcon,
+  CopyIcon,
+  EditIcon,
+  EyeIcon,
+  ForwardIcon,
+  PinIcon,
+  ReplyIcon,
+  SelectIcon,
+  StarIcon,
+  TrashIcon,
+  VolumeIcon,
+  ClockIcon,
+  SmileIcon,
+  GlobeIcon,
+} from "./ui";
 
 export const QUICK_REACTIONS = ["❤️", "😂", "😮", "😢", "🙏", "👍"];
 
-export type MenuAction = "reply" | "copy" | "edit" | "delete" | "pin" | "star" | "forward" | "select" | "report" | "seen" | "speak" | "remind" | "sticker" | "translate" | { react: string };
+export type MenuAction =
+  | "reply"
+  | "copy"
+  | "edit"
+  | "delete"
+  | "pin"
+  | "star"
+  | "forward"
+  | "select"
+  | "report"
+  | "seen"
+  | "speak"
+  | "remind"
+  | "sticker"
+  | "translate"
+  | { react: string };
 
 /** Reaction bar + actions, anchored next to the long-pressed / right-clicked bubble. */
 export function MessageMenu({
@@ -76,11 +106,7 @@ export function MessageMenu({
   const simple = document.documentElement.dataset.simple === "on";
 
   return (
-    <div
-      className="fade-in fixed inset-0 z-40 bg-zinc-950/20 backdrop-blur-[2px] dark:bg-black/50"
-      onClick={onClose}
-      onContextMenu={(e) => e.preventDefault()}
-    >
+    <div className="fade-in fixed inset-0 z-40 bg-zinc-950/20 backdrop-blur-[2px] dark:bg-black/50" onClick={onClose} onContextMenu={(e) => e.preventDefault()}>
       <div
         ref={ref}
         role="menu"
@@ -106,17 +132,26 @@ export function MessageMenu({
           <MenuItem icon={<ReplyIcon className="size-4" />} label="Reply" onClick={() => onAction("reply")} />
           {canCopy && <MenuItem icon={<CopyIcon className="size-4" />} label="Copy text" onClick={() => onAction("copy")} />}
           {canSpeak && !locked && message.body.trim() && message.kind !== "call" && (
-            <MenuItem icon={<VolumeIcon className="size-4" />} label={isSpeaking(message.id) ? "Stop reading" : "Read aloud"} onClick={() => onAction("speak")} />
+            <MenuItem
+              icon={<VolumeIcon className="size-4" />}
+              label={isSpeaking(message.id) ? "Stop reading" : "Read aloud"}
+              onClick={() => onAction("speak")}
+            />
           )}
-          {canTranslate && !locked && (message.kind === "voice" ? message.transcript?.state === "done" || !!message.transcriptText : !!message.body.trim() && !message.meta?.location) && message.kind !== "call" && (
-            <MenuItem icon={<GlobeIcon className="size-4" />} label={message.translation ? "Translate again" : "Translate"} onClick={() => onAction("translate")} />
-          )}
+          {canTranslate &&
+            !locked &&
+            (message.kind === "voice" ? message.transcript?.state === "done" || !!message.transcriptText : !!message.body.trim() && !message.meta?.location) &&
+            message.kind !== "call" && (
+              <MenuItem
+                icon={<GlobeIcon className="size-4" />}
+                label={message.translation ? "Translate again" : "Translate"}
+                onClick={() => onAction("translate")}
+              />
+            )}
           {canSticker && message.kind === "image" && !message.meta?.viewOnce && !locked && !message.meta?.sticker && (
             <MenuItem icon={<SmileIcon className="size-4" />} label="Add to stickers" onClick={() => onAction("sticker")} />
           )}
-          {canRemind && message.kind !== "call" && (
-            <MenuItem icon={<ClockIcon className="size-4" />} label="Remind me" onClick={() => onAction("remind")} />
-          )}
+          {canRemind && message.kind !== "call" && <MenuItem icon={<ClockIcon className="size-4" />} label="Remind me" onClick={() => onAction("remind")} />}
           {canForward && <MenuItem icon={<ForwardIcon className="size-4" />} label="Forward" onClick={() => onAction("forward")} />}
           {canPin && !simple && (
             <MenuItem icon={<PinIcon className="size-4" />} label={message.pinnedAt ? "Unpin" : "Pin for everyone"} onClick={() => onAction("pin")} />
@@ -124,7 +159,9 @@ export function MessageMenu({
           {!simple && <MenuItem icon={<StarIcon className="size-4" filled={starred} />} label={starred ? "Unstar" : "Star"} onClick={() => onAction("star")} />}
           {canEdit && <MenuItem icon={<EditIcon className="size-4" />} label="Edit" onClick={() => onAction("edit")} />}
           {!simple && <MenuItem icon={<SelectIcon className="size-4" />} label="Select" onClick={() => onAction("select")} />}
-          {seenCount !== undefined && <MenuItem icon={<EyeIcon className="size-4" />} label={seenCount ? `Seen by ${seenCount}` : "Not seen yet"} onClick={() => onAction("seen")} />}
+          {seenCount !== undefined && (
+            <MenuItem icon={<EyeIcon className="size-4" />} label={seenCount ? `Seen by ${seenCount}` : "Not seen yet"} onClick={() => onAction("seen")} />
+          )}
           {!mine && message.kind !== "call" && <MenuItem icon={<AlertIcon className="size-4" />} label="Report" danger onClick={() => onAction("report")} />}
           {mine && (
             <MenuItem
@@ -140,17 +177,7 @@ export function MessageMenu({
   );
 }
 
-function MenuItem({
-  icon,
-  label,
-  danger,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  danger?: boolean;
-  onClick: () => void;
-}) {
+function MenuItem({ icon, label, danger, onClick }: { icon: React.ReactNode; label: string; danger?: boolean; onClick: () => void }) {
   return (
     <button
       role="menuitem"

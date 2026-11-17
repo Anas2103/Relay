@@ -148,13 +148,7 @@ export function VoicePlayer({ id, src, meta, mine }: { id: string; src: string; 
         }`}
         aria-label={playing ? "Pause voice message" : "Play voice message"}
       >
-        {loading ? (
-          <Spinner className="size-4" />
-        ) : playing ? (
-          <PauseIcon className="size-4" />
-        ) : (
-          <PlayIcon className="size-4 translate-x-px" />
-        )}
+        {loading ? <Spinner className="size-4" /> : playing ? <PauseIcon className="size-4" /> : <PlayIcon className="size-4 translate-x-px" />}
       </button>
       <div className="min-w-0 flex-1">
         <div

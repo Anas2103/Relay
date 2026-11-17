@@ -12,7 +12,11 @@ const LEVELS = [
 /** Live meter under a new-password field, using the same rules as the server. */
 export function PasswordStrength({ password, username = "" }: { password: string; username?: string }) {
   if (!password) {
-    return <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">At least {LIMITS.passwordMin} characters. A short sentence is easy to remember and hard to guess.</p>;
+    return (
+      <p className="mt-1.5 text-xs text-zinc-600 dark:text-zinc-400">
+        At least {LIMITS.passwordMin} characters. A short sentence is easy to remember and hard to guess.
+      </p>
+    );
   }
   const score = passwordStrength(password, username);
   const problem = passwordProblem(password, username);

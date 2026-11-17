@@ -20,7 +20,18 @@ function freeCell(snake: Pt[]): Pt {
 /** Classic snake on a canvas: eat, grow, speed up; walls wrap around. */
 export function Snake({ onExit }: { onExit: () => void }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const game = useRef({ snake: [[8, 9], [7, 9], [6, 9]] as Pt[], dir: "right" as Dir, queue: [] as Dir[], food: [13, 9] as Pt, alive: true, score: 0 });
+  const game = useRef({
+    snake: [
+      [8, 9],
+      [7, 9],
+      [6, 9],
+    ] as Pt[],
+    dir: "right" as Dir,
+    queue: [] as Dir[],
+    food: [13, 9] as Pt,
+    alive: true,
+    score: 0,
+  });
   const [score, setScore] = useState(0);
   const [state, setState] = useState<"ready" | "playing" | "paused" | "over">("ready");
   const [record, setRecord] = useState(false);
@@ -35,7 +46,18 @@ export function Snake({ onExit }: { onExit: () => void }) {
   };
 
   const reset = () => {
-    game.current = { snake: [[8, 9], [7, 9], [6, 9]], dir: "right", queue: [], food: [13, 9], alive: true, score: 0 };
+    game.current = {
+      snake: [
+        [8, 9],
+        [7, 9],
+        [6, 9],
+      ],
+      dir: "right",
+      queue: [],
+      food: [13, 9],
+      alive: true,
+      score: 0,
+    };
     setScore(0);
     setRecord(false);
     setState("ready");
@@ -112,7 +134,16 @@ export function Snake({ onExit }: { onExit: () => void }) {
   }, [state]);
 
   return (
-    <GameShell title="Snake" onExit={onExit} stats={[["Score", score], ["Best", Math.max(best, score)]]} onRestart={reset} hint="Arrow keys / WASD or swipe. Space pauses. Walls wrap around.">
+    <GameShell
+      title="Snake"
+      onExit={onExit}
+      stats={[
+        ["Score", score],
+        ["Best", Math.max(best, score)],
+      ]}
+      onRestart={reset}
+      hint="Arrow keys / WASD or swipe. Space pauses. Walls wrap around."
+    >
       <div
         className={`relative ${BOARD} touch-none overflow-hidden rounded-2xl bg-black/5 ring-1 ring-black/5 dark:bg-zinc-800 dark:ring-white/10`}
         onTouchStart={(e) => (touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY })}
@@ -163,7 +194,11 @@ export function Snake({ onExit }: { onExit: () => void }) {
 
 function ArrowPad({ label, onPress, children }: { label: string; onPress: () => void; children: React.ReactNode }) {
   return (
-    <button onPointerDown={onPress} aria-label={label} className="flex h-11 items-center justify-center rounded-xl bg-black/5 active:bg-black/10 dark:bg-zinc-800 dark:active:bg-zinc-700">
+    <button
+      onPointerDown={onPress}
+      aria-label={label}
+      className="flex h-11 items-center justify-center rounded-xl bg-black/5 active:bg-black/10 dark:bg-zinc-800 dark:active:bg-zinc-700"
+    >
       {children}
     </button>
   );

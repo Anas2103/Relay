@@ -7,7 +7,22 @@ import { connection } from "../lib/offline";
 import { translateTarget } from "../lib/speak";
 import { LocationPreview } from "./LocationCard";
 import { addToStickers, stickerUrl } from "./StickerPanel";
-import { bubbleLook, disappearLabel, SLOW_MODE_OPTIONS, type MediaKind, type MediaMeta, type Me, type Message, type MessageKind, type GeoPoint, type PollInfo, type Sticker, type Room, type ScheduledMessage, type User } from "../../shared/types";
+import {
+  bubbleLook,
+  disappearLabel,
+  SLOW_MODE_OPTIONS,
+  type MediaKind,
+  type MediaMeta,
+  type Me,
+  type Message,
+  type MessageKind,
+  type GeoPoint,
+  type PollInfo,
+  type Sticker,
+  type Room,
+  type ScheduledMessage,
+  type User,
+} from "../../shared/types";
 import { api, ApiError, fetchMedia, mediaUrl } from "../lib/api";
 import { formatDayDivider, formatRelative, sameDay } from "../lib/format";
 import type { PreparedImage, PreparedVideo, Recording } from "../lib/media";
@@ -90,7 +105,9 @@ interface Outgoing {
   replyToId?: string;
   blob?: Blob;
   name?: string;
-  meta?: Pick<MediaMeta, "width" | "height" | "duration" | "waveform" | "viewOnce" | "poll" | "location" | "sticker"> & { newGame?: { type: ChatGameType; video?: string; word?: string } };
+  meta?: Pick<MediaMeta, "width" | "height" | "duration" | "waveform" | "viewOnce" | "poll" | "location" | "sticker"> & {
+    newGame?: { type: ChatGameType; video?: string; word?: string };
+  };
   mediaId?: string;
   /** No alerts or sounds for the people receiving it. */
   silent?: boolean;
@@ -259,12 +276,18 @@ export function ChatPane({
 
   // Pinned messages (shared by everyone) and your starred ones.
   const loadPins = useCallback(() => {
-    api.pinned(room.id).then((r) => setPins(r.messages)).catch(() => {});
+    api
+      .pinned(room.id)
+      .then((r) => setPins(r.messages))
+      .catch(() => {});
   }, [room.id]);
   useEffect(() => {
     if (room.status !== "accepted") return;
     loadPins();
-    api.starred(room.id).then((r) => setStarred(new Set(r.messages.map((m) => m.id)))).catch(() => {});
+    api
+      .starred(room.id)
+      .then((r) => setStarred(new Set(r.messages.map((m) => m.id))))
+      .catch(() => {});
   }, [loadPins, room.id, room.status]);
 
   // Secret chats: decrypt whatever is on screen (each message once).
@@ -273,10 +296,7 @@ export function ChatPane({
   }, [messages, pins, room.secret, decryptAll]);
 
   // Disappearing messages vanish on time, even between the server's clean-up runs.
-  const nextExpiry = useMemo(
-    () => messages.reduce((min, m) => (m.expiresAt && m.expiresAt < min ? m.expiresAt : min), Number.POSITIVE_INFINITY),
-    [messages],
-  );
+  const nextExpiry = useMemo(() => messages.reduce((min, m) => (m.expiresAt && m.expiresAt < min ? m.expiresAt : min), Number.POSITIVE_INFINITY), [messages]);
   useEffect(() => {
     if (!Number.isFinite(nextExpiry)) return;
     const t = window.setTimeout(() => setNow(Date.now()), Math.max(250, nextExpiry - Date.now() + 50));
@@ -352,9 +372,7 @@ export function ChatPane({
           break;
         case "delete":
           patch(e.messageId, (m) => ({ ...m, deletedAt: e.deletedAt, body: "", meta: null, mediaId: null, reactions: {} }));
-          setMessages((prev) =>
-            prev.map((m) => (m.replyTo?.id === e.messageId ? { ...m, replyTo: { ...m.replyTo, deleted: true, body: "" } } : m)),
-          );
+          setMessages((prev) => prev.map((m) => (m.replyTo?.id === e.messageId ? { ...m, replyTo: { ...m.replyTo, deleted: true, body: "" } } : m)));
           break;
         case "viewed":
           patch(e.messageId, (m) => (m.viewedBy.includes(e.userId) ? m : { ...m, viewedBy: [...m.viewedBy, e.userId] }));
@@ -654,16 +672,13 @@ export function ChatPane({
       // Secret chat: the photo and its caption are encrypted here; the server stores only ciphertext.
       const replyToId = replyTo?.id;
       const localUrl = URL.createObjectURL(image.blob);
-      secret
-        .encryptPhoto(image.blob, { caption: viewOnce ? "" : caption, width: image.width, height: image.height, mime: image.blob.type })
-        .then(
-          ({ file, body }) =>
-            queue({ kind: "image", body, replyToId, blob: file, meta: viewOnce ? { viewOnce: true } : undefined }, localUrl),
-          (err: Error) => {
-            URL.revokeObjectURL(localUrl);
-            setNotice(err.message);
-          },
-        );
+      secret.encryptPhoto(image.blob, { caption: viewOnce ? "" : caption, width: image.width, height: image.height, mime: image.blob.type }).then(
+        ({ file, body }) => queue({ kind: "image", body, replyToId, blob: file, meta: viewOnce ? { viewOnce: true } : undefined }, localUrl),
+        (err: Error) => {
+          URL.revokeObjectURL(localUrl);
+          setNotice(err.message);
+        },
+      );
       return;
     }
     queue(
@@ -706,7 +721,11 @@ export function ChatPane({
       (pos) => setLocating({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
       (err) => {
         setLocating(null);
-        setNotice(err.code === err.PERMISSION_DENIED ? "Location access is blocked. Allow it in your browser's site settings." : "Couldn't find your location. Try again outside or near a window.");
+        setNotice(
+          err.code === err.PERMISSION_DENIED
+            ? "Location access is blocked. Allow it in your browser's site settings."
+            : "Couldn't find your location. Try again outside or near a window.",
+        );
       },
       { enableHighAccuracy: true, timeout: 15_000, maximumAge: 30_000 },
     );
@@ -736,8 +755,7 @@ export function ChatPane({
 
   const sendLocation = (point: GeoPoint) => queue({ kind: "text", body: "📍 Location", replyToId: replyTo?.id, meta: { location: point } });
 
-  const sendFile = (file: File) =>
-    queue({ kind: "file", body: "", replyToId: replyTo?.id, blob: file, name: file.name }, URL.createObjectURL(file));
+  const sendFile = (file: File) => queue({ kind: "file", body: "", replyToId: replyTo?.id, blob: file, name: file.name }, URL.createObjectURL(file));
 
   const sendVoice = (rec: Recording) =>
     queue(
@@ -804,20 +822,19 @@ export function ChatPane({
     [me.id],
   );
 
+  const openSecretPhoto = secret.openPhoto;
   const openViewOnce = useCallback(
     async (message: UiMessage) => {
       try {
-        const src = room.secret ? await secret.openPhoto(message) : URL.createObjectURL(await fetchMedia(mediaUrl(message.roomId, message.id)));
+        const src = room.secret ? await openSecretPhoto(message) : URL.createObjectURL(await fetchMedia(mediaUrl(message.roomId, message.id)));
         setViewer({ src, viewOnce: true, video: message.kind === "video" });
       } catch (err) {
         setNotice(err instanceof ApiError ? err.message : "Couldn't open this.");
       } finally {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === message.id && !m.viewedBy.includes(me.id) ? { ...m, viewedBy: [...m.viewedBy, me.id] } : m)),
-        );
+        setMessages((prev) => prev.map((m) => (m.id === message.id && !m.viewedBy.includes(me.id) ? { ...m, viewedBy: [...m.viewedBy, me.id] } : m)));
       }
     },
-    [me.id, room.secret, secret.openPhoto],
+    [me.id, room.secret, openSecretPhoto],
   );
 
   const onBubbleAction = useCallback(
@@ -838,7 +855,8 @@ export function ChatPane({
           patch(target.id, (m) => ({ ...m, transcript: { state: "loading" } }));
           api.transcribe(target.roomId, target.id).then(
             (r) => patch(target.id, (m) => ({ ...m, transcript: { state: "done", text: r.text } })),
-            (err) => patch(target.id, (m) => ({ ...m, transcript: { state: "error", text: err instanceof ApiError ? err.message : "Couldn't transcribe this." } })),
+            (err) =>
+              patch(target.id, (m) => ({ ...m, transcript: { state: "error", text: err instanceof ApiError ? err.message : "Couldn't transcribe this." } })),
           );
           break;
         }
@@ -886,7 +904,7 @@ export function ChatPane({
           }
           // Show it right away; the server's totals replace this a moment later.
           patch(a.message.id, (m) => {
-            const votes = { ...(m.votes ?? {}) };
+            const votes = { ...m.votes };
             if (a.options.length) votes[me.id] = a.options;
             else delete votes[me.id];
             return { ...m, votes };
@@ -993,8 +1011,7 @@ export function ChatPane({
   );
   // The other person's chosen bubble style, unless you've turned that off in Settings.
   // Same color as yours? Then theirs stays neutral, so you can always tell the two sides apart.
-  const peerBubble =
-    me.settings.showOthersBubbles && peer?.bubbleColor && peer.bubbleColor !== me.settings.bubbleColor ? peer.bubbleColor : undefined;
+  const peerBubble = me.settings.showOthersBubbles && peer?.bubbleColor && peer.bubbleColor !== me.settings.bubbleColor ? peer.bubbleColor : undefined;
   const peerTint = useMemo(() => (peerBubble && !themed ? bubbleLook(peerBubble) : undefined), [peerBubble, themed]);
   const typingNames = Object.values(typing).map((t) => t.name);
   const statusText =
@@ -1008,19 +1025,16 @@ export function ChatPane({
           ? `${room.memberCount} members`
           : peer?.statusText
             ? `${peer.statusText}${peerPresence?.online ? " · online" : ""}`
-          : peerPresence?.online
-            ? "Online"
-            : peerPresence?.lastSeenAt
-              ? `Last seen ${formatRelative(peerPresence.lastSeenAt)}`
-              : peer
-                ? `@${peer.username}`
-                : "";
+            : peerPresence?.online
+              ? "Online"
+              : peerPresence?.lastSeenAt
+                ? `Last seen ${formatRelative(peerPresence.lastSeenAt)}`
+                : peer
+                  ? `@${peer.username}`
+                  : "";
 
   // What's on screen: decrypted (secret chats), without anything that has disappeared.
-  const view = useMemo(
-    () => messages.filter((m) => !m.expiresAt || m.expiresAt > now).map((m) => readable(m)),
-    [messages, now, readable],
-  );
+  const view = useMemo(() => messages.filter((m) => !m.expiresAt || m.expiresAt > now).map((m) => readable(m)), [messages, now, readable]);
   const pinView = useMemo(() => pins.map((m) => readable(m)), [pins, readable]);
   const currentPin = pinView.length ? pinView[pinIndex % pinView.length] : null;
 
@@ -1077,7 +1091,9 @@ export function ChatPane({
   const selectedList = selected ? view.filter((m) => selected.has(m.id)) : [];
   const allMine = selectedList.length > 0 && selectedList.every((m) => m.userId === me.id);
   const canForwardSelected =
-    !room.secret && selectedList.length > 0 && selectedList.every((m) => !m.locked && m.kind !== "call" && m.kind !== "poll" && m.kind !== "game" && !m.meta?.viewOnce);
+    !room.secret &&
+    selectedList.length > 0 &&
+    selectedList.every((m) => !m.locked && m.kind !== "call" && m.kind !== "poll" && m.kind !== "game" && !m.meta?.viewOnce);
   useEffect(() => {
     if (!selected) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setSelected(null);
@@ -1134,19 +1150,39 @@ export function ChatPane({
         {/* Selection bar (replaces the header while selecting) */}
         {selected && (
           <div className="divider-b absolute inset-x-0 top-0 z-20 flex items-center gap-1 bg-white px-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 md:px-4 dark:bg-zinc-900">
-            <button onClick={() => setSelected(null)} className="flex size-10 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800" aria-label="Cancel selection">
+            <button
+              onClick={() => setSelected(null)}
+              className="flex size-10 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              aria-label="Cancel selection"
+            >
               <XIcon className="size-5" />
             </button>
-            <p className="min-w-0 flex-1 truncate pl-1 font-semibold tabular-nums">
-              {selected.size} selected
-            </p>
-            <button onClick={copySelected} disabled={!selectedList.some((m) => m.body && !m.locked)} className={`${"flex size-10 items-center justify-center rounded-full text-zinc-600 transition hover:bg-zinc-100 disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-800"}`} aria-label="Copy" title="Copy">
+            <p className="min-w-0 flex-1 truncate pl-1 font-semibold tabular-nums">{selected.size} selected</p>
+            <button
+              onClick={copySelected}
+              disabled={!selectedList.some((m) => m.body && !m.locked)}
+              className={`${"flex size-10 items-center justify-center rounded-full text-zinc-600 transition hover:bg-zinc-100 disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-800"}`}
+              aria-label="Copy"
+              title="Copy"
+            >
               <CopyIcon className="size-5" />
             </button>
-            <button onClick={() => setForwarding(selectedList)} disabled={!canForwardSelected} className="flex size-10 items-center justify-center rounded-full text-zinc-600 transition hover:bg-zinc-100 disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-800" aria-label="Forward" title="Forward">
+            <button
+              onClick={() => setForwarding(selectedList)}
+              disabled={!canForwardSelected}
+              className="flex size-10 items-center justify-center rounded-full text-zinc-600 transition hover:bg-zinc-100 disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              aria-label="Forward"
+              title="Forward"
+            >
               <ForwardIcon className="size-5" />
             </button>
-            <button onClick={() => setConfirmBulkDelete(true)} disabled={!allMine} className="flex size-10 items-center justify-center rounded-full text-red-600 transition hover:bg-red-50 disabled:opacity-30 dark:text-red-400 dark:hover:bg-red-950/40" aria-label="Delete for everyone" title={allMine ? "Delete for everyone" : "You can only delete your own messages"}>
+            <button
+              onClick={() => setConfirmBulkDelete(true)}
+              disabled={!allMine}
+              className="flex size-10 items-center justify-center rounded-full text-red-600 transition hover:bg-red-50 disabled:opacity-30 dark:text-red-400 dark:hover:bg-red-950/40"
+              aria-label="Delete for everyone"
+              title={allMine ? "Delete for everyone" : "You can only delete your own messages"}
+            >
               <TrashIcon className="size-5" />
             </button>
           </div>
@@ -1198,12 +1234,7 @@ export function ChatPane({
                 </>
               )}
               {!room.secret && (
-                <button
-                  onClick={() => setSearchOpen(true)}
-                  className={headerButton}
-                  aria-label="Search messages"
-                  title="Search messages"
-                >
+                <button onClick={() => setSearchOpen(true)} className={headerButton} aria-label="Search messages" title="Search messages">
                   <SearchIcon className="size-5" />
                 </button>
               )}
@@ -1326,8 +1357,7 @@ export function ChatPane({
                 const prev = view[i - 1];
                 const next = view[i + 1];
                 const newDay = !prev || !sameDay(prev.createdAt, m.createdAt);
-                const startsGroup =
-                  newDay || prev.userId !== m.userId || m.createdAt - prev.createdAt > GROUP_WINDOW_MS || !!m.replyTo;
+                const startsGroup = newDay || prev.userId !== m.userId || m.createdAt - prev.createdAt > GROUP_WINDOW_MS || !!m.replyTo;
                 const endsGroup =
                   !next ||
                   next.userId !== m.userId ||
@@ -1346,23 +1376,23 @@ export function ChatPane({
                       </div>
                     )}
                     <GameNames.Provider value={gameNames}>
-                    <MessageBubble
-                      message={m}
-                      meId={me.id}
-                      meUsername={me.username}
-                      selecting={selected !== null}
-                      selected={selected?.has(m.id) ?? false}
-                      mine={m.userId === me.id}
-                      showName={room.type === "group" && startsGroup && m.userId !== me.id}
-                      startsGroup={startsGroup}
-                      endsGroup={endsGroup}
-                      read={othersRead >= m.createdAt}
-                      tint={m.userId === me.id ? undefined : room.type === "dm" ? peerTint : undefined}
-                      showTicks={!room.saved}
-                      bigEmoji={me.settings.bigEmoji}
-                      linkPreviews={me.settings.linkPreviews && !room.secret}
-                      onAction={onBubbleAction}
-                    />
+                      <MessageBubble
+                        message={m}
+                        meId={me.id}
+                        meUsername={me.username}
+                        selecting={selected !== null}
+                        selected={selected?.has(m.id) ?? false}
+                        mine={m.userId === me.id}
+                        showName={room.type === "group" && startsGroup && m.userId !== me.id}
+                        startsGroup={startsGroup}
+                        endsGroup={endsGroup}
+                        read={othersRead >= m.createdAt}
+                        tint={m.userId === me.id ? undefined : room.type === "dm" ? peerTint : undefined}
+                        showTicks={!room.saved}
+                        bigEmoji={me.settings.bigEmoji}
+                        linkPreviews={me.settings.linkPreviews && !room.secret}
+                        onAction={onBubbleAction}
+                      />
                     </GameNames.Provider>
                   </div>
                 );
@@ -1457,41 +1487,41 @@ export function ChatPane({
             {siteReadOnly ? "Relay is in read-only mode right now. You can read, but not send." : "Only admins can send messages in this group."}
           </div>
         ) : (
-        <Composer
-          ref={composerRef}
-          title={title}
-          draftKey={room.secret ? undefined : room.id}
-          mentionables={room.type === "group" ? members : undefined}
-          onCreatePoll={room.secret || room.saved ? undefined : () => setPollOpen(true)}
-          onPlayGame={room.secret || room.saved ? undefined : () => setGameOpen(true)}
-          onShareLocation={room.secret ? undefined : shareLocation}
-          onSendSticker={room.secret ? undefined : (s) => void sendSticker(s)}
-          onSchedule={scheduleMessage}
-          meId={me.id}
-          replyTo={replyTo}
-          editing={editing}
-          onCancelContext={() => {
-            setReplyTo(null);
-            setEditing(null);
-          }}
-          onSendText={sendText}
-          onSaveEdit={saveEdit}
-          onSendImage={sendImage}
-          onSendVideo={sendVideo}
-          onSendFile={sendFile}
-          onSendVoice={sendVoice}
-          onTyping={(isTyping) => {
-            if (me.settings.sendTyping && !room.saved) send({ type: "typing", isTyping });
-          }}
-          onError={setNotice}
-          voice={me.settings}
-          textOnly={room.secret}
-          uploads={canUpload}
-          enterToSend={me.settings.enterToSend}
-          placeholder={
-            room.saved ? "Write a note to yourself" : room.secret ? "Encrypted message" : slowLabel ? `Slow mode · 1 message every ${slowLabel}` : undefined
-          }
-        />
+          <Composer
+            ref={composerRef}
+            title={title}
+            draftKey={room.secret ? undefined : room.id}
+            mentionables={room.type === "group" ? members : undefined}
+            onCreatePoll={room.secret || room.saved ? undefined : () => setPollOpen(true)}
+            onPlayGame={room.secret || room.saved ? undefined : () => setGameOpen(true)}
+            onShareLocation={room.secret ? undefined : shareLocation}
+            onSendSticker={room.secret ? undefined : (s) => void sendSticker(s)}
+            onSchedule={scheduleMessage}
+            meId={me.id}
+            replyTo={replyTo}
+            editing={editing}
+            onCancelContext={() => {
+              setReplyTo(null);
+              setEditing(null);
+            }}
+            onSendText={sendText}
+            onSaveEdit={saveEdit}
+            onSendImage={sendImage}
+            onSendVideo={sendVideo}
+            onSendFile={sendFile}
+            onSendVoice={sendVoice}
+            onTyping={(isTyping) => {
+              if (me.settings.sendTyping && !room.saved) send({ type: "typing", isTyping });
+            }}
+            onError={setNotice}
+            voice={me.settings}
+            textOnly={room.secret}
+            uploads={canUpload}
+            enterToSend={me.settings.enterToSend}
+            placeholder={
+              room.saved ? "Write a note to yourself" : room.secret ? "Encrypted message" : slowLabel ? `Slow mode · 1 message every ${slowLabel}` : undefined
+            }
+          />
         )}
 
         {dragging && (
@@ -1514,7 +1544,12 @@ export function ChatPane({
                 : undefined
             }
             canForward={
-              !room.secret && !menu.message.locked && menu.message.kind !== "call" && menu.message.kind !== "game" && !menu.message.meta?.viewOnce && !menu.message.deletedAt
+              !room.secret &&
+              !menu.message.locked &&
+              menu.message.kind !== "call" &&
+              menu.message.kind !== "game" &&
+              !menu.message.meta?.viewOnce &&
+              !menu.message.deletedAt
             }
             canRemind={!room.secret && !menu.message.locked && !menu.message.deletedAt}
             canTranslate={!room.secret && !menu.message.deletedAt}
@@ -1569,7 +1604,15 @@ export function ChatPane({
             <RemindDialog
               excerpt={
                 reminding.body ||
-                (reminding.kind === "image" ? "📷 Photo" : reminding.kind === "video" ? "🎬 Video" : reminding.kind === "voice" ? "🎤 Voice message" : reminding.kind === "file" ? `📄 ${reminding.meta?.name ?? "File"}` : "Message")
+                (reminding.kind === "image"
+                  ? "📷 Photo"
+                  : reminding.kind === "video"
+                    ? "🎬 Video"
+                    : reminding.kind === "voice"
+                      ? "🎤 Voice message"
+                      : reminding.kind === "file"
+                        ? `📄 ${reminding.meta?.name ?? "File"}`
+                        : "Message")
               }
               chatName={title}
               onDone={setNotice}
@@ -1586,7 +1629,9 @@ export function ChatPane({
               ) : (
                 <span className="block space-y-3">
                   <LocationPreview point={locating} />
-                  <span className="block">Everyone in this chat will see this spot{locating.accuracy ? ` (accurate to about ${Math.round(locating.accuracy)} m)` : ""}.</span>
+                  <span className="block">
+                    Everyone in this chat will see this spot{locating.accuracy ? ` (accurate to about ${Math.round(locating.accuracy)} m)` : ""}.
+                  </span>
                 </span>
               )
             }
@@ -1708,9 +1753,7 @@ function RequestPanel({
         {incoming ? (
           <>
             <p className="font-semibold">{name} wants to connect</p>
-            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              They can't message, call or see when you're online until you accept.
-            </p>
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">They can't message, call or see when you're online until you accept.</p>
             <div className="mt-4 flex gap-2">
               <button
                 onClick={onDecline}
@@ -1733,9 +1776,7 @@ function RequestPanel({
         ) : (
           <>
             <p className="font-semibold">Request sent</p>
-            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              You can chat with {name} once they accept your request.
-            </p>
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">You can chat with {name} once they accept your request.</p>
             <button
               onClick={onDecline}
               disabled={busy !== null}
@@ -1762,8 +1803,7 @@ function BlockPanel({ blockedByMe, name, onUnblock }: { blockedByMe: boolean; na
         {blockedByMe ? (
           <>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              You blocked <span className="font-medium text-zinc-700 dark:text-zinc-200">{name}</span>. They can't message
-              or call you.
+              You blocked <span className="font-medium text-zinc-700 dark:text-zinc-200">{name}</span>. They can't message or call you.
             </p>
             {onUnblock && (
               <button
@@ -1884,9 +1924,7 @@ function SecretPanel({
       return shell(
         <>
           <p className="font-semibold">Waiting for {name}</p>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            They need to open Relay and accept. You'll be able to write as soon as they do.
-          </p>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">They need to open Relay and accept. You'll be able to write as soon as they do.</p>
           <button
             onClick={onDecline}
             disabled={busy !== null}
@@ -1898,13 +1936,16 @@ function SecretPanel({
         </>,
       );
     case "unsupported":
-      return shell(<p className="text-sm text-zinc-500 dark:text-zinc-400">This browser can't do secret chats. Try an up-to-date Chrome, Edge, Firefox or Safari.</p>);
+      return shell(
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">This browser can't do secret chats. Try an up-to-date Chrome, Edge, Firefox or Safari.</p>,
+      );
     default:
       return shell(
         <>
           <p className="font-semibold">This secret chat lives on another device</p>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Secret chats can only be read on the device where they were set up (signing out also removes them). Open it there, or end it and start a new one here.
+            Secret chats can only be read on the device where they were set up (signing out also removes them). Open it there, or end it and start a new one
+            here.
           </p>
           <button
             onClick={onEnd}

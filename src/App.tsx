@@ -14,6 +14,7 @@ import { useUpdateAvailable } from "./lib/update";
 
 // Signed-in people (almost everyone, almost always) never download the sign-in screen.
 const AuthScreen = lazy(() => import("./components/AuthScreen").then((m) => ({ default: m.AuthScreen })));
+const ConsentScreen = lazy(() => import("./components/ConsentScreen").then((m) => ({ default: m.ConsentScreen })));
 
 export default function App() {
   const [me, setMe] = useState<Me | null>(null);
@@ -102,8 +103,28 @@ export default function App() {
 
   if (!me) {
     return (
-      <Suspense fallback={<div className="flex h-full items-center justify-center"><Logo size={48} /></div>}>
+      <Suspense
+        fallback={
+          <div className="flex h-full items-center justify-center">
+            <Logo size={48} />
+          </div>
+        }
+      >
         <AuthScreen onAuthed={updateMe} />
+      </Suspense>
+    );
+  }
+
+  if (me.needsConsent) {
+    return (
+      <Suspense
+        fallback={
+          <div className="flex h-full items-center justify-center">
+            <Logo size={48} />
+          </div>
+        }
+      >
+        <ConsentScreen me={me} onDone={updateMe} onLogout={logout} />
       </Suspense>
     );
   }
@@ -131,10 +152,7 @@ function UpdateBanner() {
       style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}
     >
       <span className="min-w-0 truncate">✨ Relay was updated</span>
-      <button
-        onClick={() => location.reload()}
-        className="shrink-0 rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-ink hover:opacity-90"
-      >
+      <button onClick={() => location.reload()} className="shrink-0 rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-ink hover:opacity-90">
         Reload
       </button>
       <button onClick={() => setHidden(true)} aria-label="Later" className="shrink-0 rounded-full px-2 py-1 text-xs opacity-70 hover:opacity-100">

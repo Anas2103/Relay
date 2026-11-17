@@ -15,8 +15,7 @@ const id = uniq();
 let dmId = "";
 
 /** An Android phone: no setSinkId, so the speaker is chosen through the phone's audio routes. */
-const ANDROID_UA =
-  "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36";
+const ANDROID_UA = "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36";
 
 test.beforeAll(async ({ browser }) => {
   resetRateLimits();
@@ -31,7 +30,10 @@ test.beforeAll(async ({ browser }) => {
 
 test("Android phones get a sound output picker (speaker / earpiece / Bluetooth routes)", async () => {
   await ben.getByRole("button", { name: "Settings" }).first().click();
-  await ben.getByRole("button", { name: /Voice & video/ }).first().click();
+  await ben
+    .getByRole("button", { name: /Voice & video/ })
+    .first()
+    .click();
   await expect(ben.getByText("Sound output", { exact: true })).toBeVisible();
   await expect(ben.getByText("Loudspeaker, phone earpiece, wired or Bluetooth headphones.")).toBeVisible();
   const group = ben.getByRole("radiogroup", { name: "Sound output" });
@@ -71,7 +73,9 @@ test("in a call: output button, volume boost above 100%, studio voice quality", 
   await sheet.getByRole("button", { name: "Close" }).click();
 
   // Opus is tuned (FEC, up to 128 kbps), and "Studio" raises the cap.
-  expect(await call<string>(ann, "(c) => c.pc.localDescription.sdp")).toMatch(/useinbandfec=1.*maxaveragebitrate=128000|maxaveragebitrate=128000.*useinbandfec=1/);
+  expect(await call<string>(ann, "(c) => c.pc.localDescription.sdp")).toMatch(
+    /useinbandfec=1.*maxaveragebitrate=128000|maxaveragebitrate=128000.*useinbandfec=1/,
+  );
   expect(await call(ann, "(c) => c.audioSender.getParameters().encodings[0].maxBitrate")).toBe(48_000);
   await ann.getByRole("button", { name: /Call settings/ }).click();
   await ann.getByRole("dialog", { name: "Call settings" }).getByRole("tab", { name: "Noise & voice" }).click();
@@ -81,8 +85,14 @@ test("in a call: output button, volume boost above 100%, studio voice quality", 
 
   await ann.getByRole("button", { name: "End call" }).click();
   await sleep(1500);
-  await ann.getByRole("button", { name: "Close" }).click({ timeout: 1000 }).catch(() => {});
-  await ben.getByRole("button", { name: "Close" }).click({ timeout: 1000 }).catch(() => {});
+  await ann
+    .getByRole("button", { name: "Close" })
+    .click({ timeout: 1000 })
+    .catch(() => {});
+  await ben
+    .getByRole("button", { name: "Close" })
+    .click({ timeout: 1000 })
+    .catch(() => {});
 });
 
 /** A small real PNG, drawn in the page. */
@@ -110,10 +120,22 @@ test("secret chat: photos are encrypted on the device, the server only has ciphe
   await expect(ann.getByText(/Waiting for Ben|waiting/i).first()).toBeVisible({ timeout: 10_000 });
 
   // Ben accepts on his phone.
-  await ben.getByRole("button", { name: "Back" }).first().click().catch(() => {});
-  await ben.getByRole("button", { name: /Ben|Ann/ }).filter({ hasText: /secret/i }).first().click().catch(async () => {
-    await ben.getByText(/secret chat/i).first().click();
-  });
+  await ben
+    .getByRole("button", { name: "Back" })
+    .first()
+    .click()
+    .catch(() => {});
+  await ben
+    .getByRole("button", { name: /Ben|Ann/ })
+    .filter({ hasText: /secret/i })
+    .first()
+    .click()
+    .catch(async () => {
+      await ben
+        .getByText(/secret chat/i)
+        .first()
+        .click();
+    });
   await ben.getByRole("button", { name: /^Accept/ }).click();
   await expect(ben.getByPlaceholder("Encrypted message")).toBeVisible({ timeout: 15_000 });
   await expect(ann.getByPlaceholder("Encrypted message")).toBeVisible({ timeout: 15_000 });
@@ -192,7 +214,11 @@ test("ending the secret chat erases it everywhere: messages, photos and both dev
   // Ann ends it from the chat's info.
   await ann.getByRole("button", { name: /View .*info/ }).click();
   await ann.getByRole("button", { name: "End secret chat" }).click();
-  await ann.getByRole("dialog").getByRole("button", { name: /End secret chat/ }).last().click();
+  await ann
+    .getByRole("dialog")
+    .getByRole("button", { name: /End secret chat/ })
+    .last()
+    .click();
   await expect(ann.getByPlaceholder("Encrypted message")).toHaveCount(0, { timeout: 10_000 });
 
   // Server: chat, messages and the photo file are gone.

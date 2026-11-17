@@ -51,7 +51,19 @@ function Button({
   );
 }
 
-function Toggle({ label, checked, disabled, danger, onChange }: { label: string; checked: boolean; disabled?: boolean; danger?: boolean; onChange: () => void }) {
+function Toggle({
+  label,
+  checked,
+  disabled,
+  danger,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  danger?: boolean;
+  onChange: () => void;
+}) {
   return (
     <button
       role="switch"
@@ -119,7 +131,13 @@ export function OwnerSiteExtras({ site, onSite, onToast }: { site: SiteSettings;
                 : "Freeze the whole app without locking anyone out: people can read, not send."}
             </p>
           </div>
-          <Toggle label="Read-only mode" checked={site.readOnly} danger disabled={busy !== null} onChange={() => update("ro", { readOnly: !site.readOnly }, site.readOnly ? "Read-only mode off" : "Read-only mode on")} />
+          <Toggle
+            label="Read-only mode"
+            checked={site.readOnly}
+            danger
+            disabled={busy !== null}
+            onChange={() => update("ro", { readOnly: !site.readOnly }, site.readOnly ? "Read-only mode off" : "Read-only mode on")}
+          />
         </div>
         <div className="p-5">
           <p className="font-medium">Features</p>
@@ -144,8 +162,17 @@ export function OwnerSiteExtras({ site, onSite, onToast }: { site: SiteSettings;
         <h2 className="flex items-center gap-2 font-semibold">
           <MegaphoneIcon className="size-4 text-accent-fg" /> Broadcast
         </h2>
-        <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">Pops up on every screen right now, like an alert. Unlike the announcement banner, it can't be missed.</p>
-        <input className={`${inputClass} mt-3`} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} placeholder="Title (optional)" aria-label="Broadcast title" />
+        <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+          Pops up on every screen right now, like an alert. Unlike the announcement banner, it can't be missed.
+        </p>
+        <input
+          className={`${inputClass} mt-3`}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={80}
+          placeholder="Title (optional)"
+          aria-label="Broadcast title"
+        />
         <textarea
           className={`${inputClass} mt-2 resize-none`}
           rows={3}
@@ -250,7 +277,9 @@ function SearchEverything({ onOpenRoom }: { onOpenRoom: (roomId: string) => void
       <h2 className="flex items-center gap-2 font-semibold">
         <SearchIcon className="size-4 text-accent-fg" /> Search every conversation
       </h2>
-      <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">Words in any chat or group. Secret chats never match: they're encrypted. Each search is recorded in the audit log.</p>
+      <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+        Words in any chat or group. Secret chats never match: they're encrypted. Each search is recorded in the audit log.
+      </p>
       <form
         className="mt-3 flex gap-2"
         onSubmit={(e) => {
@@ -259,7 +288,10 @@ function SearchEverything({ onOpenRoom }: { onOpenRoom: (roomId: string) => void
         }}
       >
         <input className={inputClass} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search all messages…" aria-label="Search all messages" />
-        <button disabled={busy || q.trim().length < 2} className="flex shrink-0 items-center gap-2 rounded-xl bg-accent px-4 text-sm font-semibold text-accent-ink disabled:opacity-50">
+        <button
+          disabled={busy || q.trim().length < 2}
+          className="flex shrink-0 items-center gap-2 rounded-xl bg-accent px-4 text-sm font-semibold text-accent-ink disabled:opacity-50"
+        >
           {busy && <Spinner />} Search
         </button>
       </form>
@@ -295,7 +327,10 @@ function StoriesModeration({ onToast }: { onToast: (m: string) => void }) {
   const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
-    api.admin.owner.stories().then((r) => setStories(r.stories), (e) => setError(errorMessage(e)));
+    api.admin.owner.stories().then(
+      (r) => setStories(r.stories),
+      (e) => setError(errorMessage(e)),
+    );
   }, []);
 
   async function remove(s: OwnerStory) {
@@ -414,18 +449,32 @@ export function ModerationActions({ user, onSaved }: { user: AdminUser; onSaved:
           ))}
         </select>
       </div>
-      <input className={inputClass} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} placeholder="Reason (they'll see it)" aria-label="Reason" />
+      <input
+        className={inputClass}
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        maxLength={200}
+        placeholder="Reason (they'll see it)"
+        aria-label="Reason"
+      />
       <div className="flex flex-wrap gap-2">
         <Button
           busy={busy === "restrict"}
           onClick={() =>
-            run("restrict", () => api.admin.updateUser(user.id, { restrictedUntil: restrictUntil, restrictReason: reason || null }), `Restricted @${user.username}`)
+            run(
+              "restrict",
+              () => api.admin.updateUser(user.id, { restrictedUntil: restrictUntil, restrictReason: reason || null }),
+              `Restricted @${user.username}`,
+            )
           }
         >
           Restrict (read-only)
         </Button>
         {user.restrictedUntil && (
-          <Button busy={busy === "unrestrict"} onClick={() => run("unrestrict", () => api.admin.updateUser(user.id, { restrictedUntil: null }), `Lifted @${user.username}'s restriction`)}>
+          <Button
+            busy={busy === "unrestrict"}
+            onClick={() => run("unrestrict", () => api.admin.updateUser(user.id, { restrictedUntil: null }), `Lifted @${user.username}'s restriction`)}
+          >
             Lift restriction
           </Button>
         )}
@@ -443,7 +492,9 @@ export function ModerationActions({ user, onSaved }: { user: AdminUser; onSaved:
           {user.suspendedAt ? "Change suspension" : "Suspend"}
         </Button>
       </div>
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">Restricted people can still read and receive messages, but can't send, call, upload or post. Suspended people can't sign in.</p>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        Restricted people can still read and receive messages, but can't send, call, upload or post. Suspended people can't sign in.
+      </p>
       <ErrorLine text={error} />
     </div>
   );
@@ -456,7 +507,11 @@ export function OwnerUserInsight({ user, onToast, onOpenRoom }: { user: AdminUse
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmErase, setConfirmErase] = useState(false);
 
-  const load = () => api.admin.owner.user(user.id).then((r) => setDetail(r.detail), (e) => setError(errorMessage(e)));
+  const load = () =>
+    api.admin.owner.user(user.id).then(
+      (r) => setDetail(r.detail),
+      (e) => setError(errorMessage(e)),
+    );
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -474,7 +529,14 @@ export function OwnerUserInsight({ user, onToast, onOpenRoom }: { user: AdminUse
     }
   }
 
-  if (!detail) return error ? <ErrorLine text={error} /> : <div className="flex justify-center py-4"><Spinner /></div>;
+  if (!detail)
+    return error ? (
+      <ErrorLine text={error} />
+    ) : (
+      <div className="flex justify-center py-4">
+        <Spinner />
+      </div>
+    );
   const s = detail.stats;
 
   return (
@@ -503,7 +565,11 @@ export function OwnerUserInsight({ user, onToast, onOpenRoom }: { user: AdminUse
         <ul className="space-y-1.5">
           {detail.sessions.map((d) => (
             <li key={d.id} className="flex items-center gap-3 rounded-xl bg-zinc-50 px-3 py-2 dark:bg-zinc-800/50">
-              {/Android|iPhone|iPad|Mobile/i.test(d.device ?? "") ? <SmartphoneIcon className="size-4 shrink-0 text-zinc-500" /> : <LaptopIcon className="size-4 shrink-0 text-zinc-500" />}
+              {/Android|iPhone|iPad|Mobile/i.test(d.device ?? "") ? (
+                <SmartphoneIcon className="size-4 shrink-0 text-zinc-500" />
+              ) : (
+                <LaptopIcon className="size-4 shrink-0 text-zinc-500" />
+              )}
               <span className="min-w-0 flex-1 text-xs">
                 <span className="block truncate font-medium">{d.device ?? "Unknown device"}</span>
                 <span className="block truncate text-zinc-500">
@@ -597,7 +663,9 @@ export function OwnerPowersList() {
         <ShieldIcon className="size-4 text-amber-600" /> What the owner can do
       </h2>
       <ul className="mt-2 list-disc space-y-1 pl-5 text-zinc-600 dark:text-zinc-300">
-        <li>Everything admins can: create, edit, suspend, sign out and delete accounts, reset passwords and two-step verification, handle reports, see stats.</li>
+        <li>
+          Everything admins can: create, edit, suspend, sign out and delete accounts, reset passwords and two-step verification, handle reports, see stats.
+        </li>
         <li>Manage admins and promote people. Nobody else can touch admins or the owner account.</li>
         <li>Restrict anyone (read-only for a while) or suspend them for a set time, with a reason they see.</li>
         <li>See any account's devices, chats and activity; sign out a single device; erase everything someone wrote.</li>
@@ -606,7 +674,8 @@ export function OwnerPowersList() {
         <li>Run the site: announcement, broadcast alerts, sign-ups, maintenance mode, read-only mode, switch any feature off, sign everyone out.</li>
         <li>Search and filter the full audit log.</li>
         <li>
-          <strong>Secret chats are the one exception:</strong> they're end-to-end encrypted, so nobody (you included) can read them. You can still see who and when, and delete them.
+          <strong>Secret chats are the one exception:</strong> they're end-to-end encrypted, so nobody (you included) can read them. You can still see who and
+          when, and delete them.
         </li>
       </ul>
       <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">Every action here is recorded in the audit log.</p>

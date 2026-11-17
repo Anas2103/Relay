@@ -49,6 +49,9 @@ test("delete your story", async () => {
   const storyId = groups[0].stories[0].id;
   const status = await ann.evaluate(async (sid) => (await fetch(`/api/stories/${sid}`, { method: "DELETE" })).status, storyId);
   expect(status).toBe(200);
-  const forBen = await ben.evaluate(async (sid) => (await fetch(`/api/stories/${sid}/view`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })).status, storyId);
+  const forBen = await ben.evaluate(
+    async (sid) => (await fetch(`/api/stories/${sid}/view`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })).status,
+    storyId,
+  );
   expect(forBen).toBe(404);
 });

@@ -48,7 +48,12 @@ export function LockScreen({ onUnlock, onForgot }: { onUnlock: () => void; onFor
   const seconds = Math.ceil(wait / 1000);
 
   return (
-    <div className="fade-in fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white px-6 pt-[env(safe-area-inset-top)] pb-[max(1.5rem,env(safe-area-inset-bottom))] dark:bg-zinc-950" role="dialog" aria-modal="true" aria-label="Relay is locked">
+    <div
+      className="fade-in fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white px-6 pt-[env(safe-area-inset-top)] pb-[max(1.5rem,env(safe-area-inset-bottom))] dark:bg-zinc-950"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Relay is locked"
+    >
       <span className="flex size-14 items-center justify-center rounded-2xl bg-accent text-accent-ink shadow-sm">
         <LockIcon className="size-7" />
       </span>
@@ -88,7 +93,10 @@ export function LockScreen({ onUnlock, onForgot }: { onUnlock: () => void; onFor
         <div className="mt-8 max-w-xs rounded-2xl bg-zinc-100 p-4 text-center text-sm dark:bg-zinc-900">
           <p>The passcode only lives on this device. To reset it, sign out and sign back in with your password.</p>
           <div className="mt-3 flex justify-center gap-2">
-            <button onClick={() => setForgot(false)} className="rounded-lg px-3 py-1.5 font-medium text-zinc-600 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800">
+            <button
+              onClick={() => setForgot(false)}
+              className="rounded-lg px-3 py-1.5 font-medium text-zinc-600 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
               Cancel
             </button>
             <button onClick={onForgot} className="rounded-lg bg-red-600 px-3 py-1.5 font-semibold text-white hover:bg-red-500">

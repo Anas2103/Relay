@@ -30,8 +30,7 @@ function choices(): [string, number][] {
   ];
 }
 
-const when = (t: number) =>
-  new Date(t).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+const when = (t: number) => new Date(t).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
 /** For <input type="datetime-local">, in local time. */
 function localInput(t: number) {
@@ -44,7 +43,17 @@ function localInput(t: number) {
  * Messages, sent by the server at the right time — so it arrives as a
  * notification even when the app is closed.
  */
-export function RemindDialog({ excerpt, chatName, onDone, onClose }: { excerpt: string; chatName: string; onDone: (text: string) => void; onClose: () => void }) {
+export function RemindDialog({
+  excerpt,
+  chatName,
+  onDone,
+  onClose,
+}: {
+  excerpt: string;
+  chatName: string;
+  onDone: (text: string) => void;
+  onClose: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [custom, setCustom] = useState(localInput(Date.now() + 2 * 60 * 60_000));
@@ -101,7 +110,10 @@ export function RemindDialog({ excerpt, chatName, onDone, onClose }: { excerpt: 
           aria-label="Pick a date and time"
           className="h-10 min-w-0 flex-1 rounded-xl bg-zinc-100 px-3 text-sm outline-none focus:ring-2 focus:ring-accent dark:bg-zinc-800"
         />
-        <button disabled={busy} className="flex shrink-0 items-center gap-2 rounded-xl bg-accent px-4 text-sm font-semibold text-accent-ink disabled:opacity-50">
+        <button
+          disabled={busy}
+          className="flex shrink-0 items-center gap-2 rounded-xl bg-accent px-4 text-sm font-semibold text-accent-ink disabled:opacity-50"
+        >
           {busy && <Spinner />} Set
         </button>
       </form>

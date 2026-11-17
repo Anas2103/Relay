@@ -100,7 +100,9 @@ export function ChillView({ me, tab, onTab, onClose }: { me: Me; tab: ChillTab; 
             aria-selected={tab === id}
             onClick={() => onTab(id)}
             className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
-              tab === id ? "bg-zinc-900 text-white shadow-sm dark:bg-white dark:text-zinc-900" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              tab === id
+                ? "bg-zinc-900 text-white shadow-sm dark:bg-white dark:text-zinc-900"
+                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
             }`}
           >
             <span aria-hidden="true">{emoji}</span>
@@ -244,8 +246,10 @@ function ShortsFeed() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.closest("input, textarea")) return;
-      if (e.key === "ArrowDown" || e.key === "j") (e.preventDefault(), go(1));
-      if (e.key === "ArrowUp" || e.key === "k") (e.preventDefault(), go(-1));
+      if (e.key === "ArrowDown" || e.key === "j" || e.key === "ArrowUp" || e.key === "k") {
+        e.preventDefault();
+        go(e.key === "ArrowDown" || e.key === "j" ? 1 : -1);
+      }
       if (e.key === "m") setMuted((m) => !m);
     };
     window.addEventListener("keydown", onKey);
@@ -298,7 +302,9 @@ function ShortsFeed() {
                 aria-selected={topic === id}
                 onClick={() => setTopic(id)}
                 className={`shrink-0 rounded-full px-3 py-1 text-sm font-medium transition ${
-                  topic === id ? "bg-accent text-accent-ink" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                  topic === id
+                    ? "bg-accent text-accent-ink"
+                    : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                 }`}
               >
                 {label}
@@ -309,7 +315,12 @@ function ShortsFeed() {
       </div>
 
       <div className="relative min-h-0 flex-1 bg-black md:mx-3 md:mb-3 md:rounded-2xl md:overflow-hidden">
-        <div ref={scroller} className="no-scrollbar h-full snap-y snap-mandatory overflow-y-auto overscroll-contain" aria-label="Shorts" data-testid="shorts-feed">
+        <div
+          ref={scroller}
+          className="no-scrollbar h-full snap-y snap-mandatory overflow-y-auto overscroll-contain"
+          aria-label="Shorts"
+          data-testid="shorts-feed"
+        >
           {videos.map((v, i) => (
             <section key={v.id} data-i={i} className="relative flex h-full snap-start snap-always items-center justify-center">
               <ShortPlayer
@@ -329,7 +340,10 @@ function ShortsFeed() {
               ) : error ? (
                 <div className="space-y-3">
                   <p>{error}</p>
-                  <button onClick={() => void load(videos.length === 0, nextPage ?? undefined)} className="rounded-full bg-white/15 px-4 py-1.5 font-medium text-white hover:bg-white/25">
+                  <button
+                    onClick={() => void load(videos.length === 0, nextPage ?? undefined)}
+                    className="rounded-full bg-white/15 px-4 py-1.5 font-medium text-white hover:bg-white/25"
+                  >
                     Try again
                   </button>
                 </div>
@@ -341,7 +355,12 @@ function ShortsFeed() {
         </div>
         {videos.length > 0 && (
           <div className="absolute top-1/2 right-3 z-10 hidden -translate-y-1/2 flex-col gap-2 md:flex">
-            <button onClick={() => go(-1)} disabled={active === 0} aria-label="Previous Short" className="rounded-full bg-white/15 p-2.5 text-white backdrop-blur hover:bg-white/25 disabled:opacity-30">
+            <button
+              onClick={() => go(-1)}
+              disabled={active === 0}
+              aria-label="Previous Short"
+              className="rounded-full bg-white/15 p-2.5 text-white backdrop-blur hover:bg-white/25 disabled:opacity-30"
+            >
               <ChevronUpIcon className="size-5" />
             </button>
             <button onClick={() => go(1)} aria-label="Next Short" className="rounded-full bg-white/15 p-2.5 text-white backdrop-blur hover:bg-white/25">
@@ -477,7 +496,9 @@ function ShortPlayer({
         </span>
       )}
       {failed && (
-        <span className="absolute inset-0 z-[2] flex items-center justify-center p-6 text-center text-sm text-white/80">This one can't play here — skipping…</span>
+        <span className="absolute inset-0 z-[2] flex items-center justify-center p-6 text-center text-sm text-white/80">
+          This one can't play here — skipping…
+        </span>
       )}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 pt-16 text-white">
         <p className="line-clamp-2 text-sm font-semibold drop-shadow">{video.title}</p>
@@ -574,8 +595,15 @@ function MusicTab() {
             tracks.map((t, i) => {
               const isCurrent = current?.id === t.id;
               return (
-                <li key={t.id} className={`group flex items-center gap-3 rounded-xl px-2 py-1.5 ${isCurrent ? "bg-accent/10" : "hover:bg-zinc-100 dark:hover:bg-zinc-800/70"}`}>
-                  <button onClick={() => (isCurrent ? toggle() : playList(tracks, i))} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label={`Play ${t.title} by ${t.artist}`}>
+                <li
+                  key={t.id}
+                  className={`group flex items-center gap-3 rounded-xl px-2 py-1.5 ${isCurrent ? "bg-accent/10" : "hover:bg-zinc-100 dark:hover:bg-zinc-800/70"}`}
+                >
+                  <button
+                    onClick={() => (isCurrent ? toggle() : playList(tracks, i))}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    aria-label={`Play ${t.title} by ${t.artist}`}
+                  >
                     <Art track={t} className="size-11 rounded-lg" playing={isCurrent && m.playing} />
                     <span className="min-w-0 flex-1">
                       <span className={`block truncate text-sm font-medium ${isCurrent ? "text-accent-fg" : ""}`}>{t.title}</span>
@@ -583,10 +611,20 @@ function MusicTab() {
                     </span>
                     <span className="shrink-0 text-xs text-zinc-400 tabular-nums">{formatTime(t.duration)}</span>
                   </button>
-                  <button onClick={() => playNextInQueue(t)} title="Play next" aria-label={`Play ${t.title} next`} className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-700 dark:hover:text-zinc-200">
+                  <button
+                    onClick={() => playNextInQueue(t)}
+                    title="Play next"
+                    aria-label={`Play ${t.title} next`}
+                    className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
+                  >
                     <ListIcon className="size-4" />
                   </button>
-                  <button onClick={() => addToQueue(t)} title="Add to queue" aria-label={`Add ${t.title} to the queue`} className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-700 dark:hover:text-zinc-200">
+                  <button
+                    onClick={() => addToQueue(t)}
+                    title="Add to queue"
+                    aria-label={`Add ${t.title} to the queue`}
+                    className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
+                  >
                     <PlusIcon className="size-4" />
                   </button>
                 </li>
@@ -604,7 +642,11 @@ function Art({ track, className, playing }: { track: ChillTrack; className: stri
   const src = trackArt(track);
   return (
     <span className={`relative flex shrink-0 items-center justify-center overflow-hidden bg-zinc-200 text-zinc-400 dark:bg-zinc-700 ${className}`}>
-      {src && !broken ? <img src={src} alt="" loading="lazy" onError={() => setBroken(true)} className="size-full object-cover" /> : <MusicIcon className="size-1/2" />}
+      {src && !broken ? (
+        <img src={src} alt="" loading="lazy" onError={() => setBroken(true)} className="size-full object-cover" />
+      ) : (
+        <MusicIcon className="size-1/2" />
+      )}
       {playing && (
         <span className="absolute inset-0 flex items-end justify-center gap-0.5 bg-black/40 pb-2" aria-hidden="true">
           {[0, 1, 2].map((i) => (
@@ -626,7 +668,10 @@ function NowPlaying() {
   if (!t) return null;
   const duration = m.duration || t.duration;
   return (
-    <aside className="divider-t shrink-0 p-3 md:w-80 md:overflow-y-auto md:border-t-0 md:border-l md:border-zinc-200 md:dark:border-zinc-800" aria-label="Now playing">
+    <aside
+      className="divider-t shrink-0 p-3 md:w-80 md:overflow-y-auto md:border-t-0 md:border-l md:border-zinc-200 md:dark:border-zinc-800"
+      aria-label="Now playing"
+    >
       <div className="flex items-center gap-3 md:flex-col md:items-stretch">
         <Art track={t} className="size-14 rounded-xl md:aspect-square md:size-auto md:w-full md:rounded-2xl" />
         <div className="min-w-0 flex-1 md:mt-2">
@@ -660,7 +705,11 @@ function NowPlaying() {
       )}
       {t.kind === "podcast" && (
         <div className="mt-1 flex items-center justify-between gap-2">
-          <button onClick={() => skipBy(-15)} className="rounded-full px-2.5 py-1 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800" aria-label="Back 15 seconds">
+          <button
+            onClick={() => skipBy(-15)}
+            className="rounded-full px-2.5 py-1 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            aria-label="Back 15 seconds"
+          >
             ↺ 15s
           </button>
           <button
@@ -670,7 +719,11 @@ function NowPlaying() {
           >
             {m.rate}×
           </button>
-          <button onClick={() => skipBy(30)} className="rounded-full px-2.5 py-1 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800" aria-label="Forward 30 seconds">
+          <button
+            onClick={() => skipBy(30)}
+            className="rounded-full px-2.5 py-1 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            aria-label="Forward 30 seconds"
+          >
             30s ↻
           </button>
         </div>
@@ -682,13 +735,27 @@ function NowPlaying() {
         <button onClick={prev} aria-label="Previous song" className="rounded-full p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800">
           <SkipPrevIcon className="size-5" />
         </button>
-        <button onClick={toggle} aria-label={m.playing ? "Pause music" : "Play music"} className="flex size-12 items-center justify-center rounded-full bg-accent text-accent-ink shadow transition active:scale-95">
-          {m.loading && m.playing ? <Spinner className="size-5" /> : m.playing ? <PauseIcon className="size-5" /> : <PlayIcon className="size-5 translate-x-px" />}
+        <button
+          onClick={toggle}
+          aria-label={m.playing ? "Pause music" : "Play music"}
+          className="flex size-12 items-center justify-center rounded-full bg-accent text-accent-ink shadow transition active:scale-95"
+        >
+          {m.loading && m.playing ? (
+            <Spinner className="size-5" />
+          ) : m.playing ? (
+            <PauseIcon className="size-5" />
+          ) : (
+            <PlayIcon className="size-5 translate-x-px" />
+          )}
         </button>
         <button onClick={() => next()} aria-label="Next song" className="rounded-full p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800">
           <SkipNextIcon className="size-5" />
         </button>
-        <IconToggle label={m.repeat === "one" ? "Repeat this song" : m.repeat === "all" ? "Repeat all" : "Repeat off"} active={m.repeat !== "off"} onClick={cycleRepeat}>
+        <IconToggle
+          label={m.repeat === "one" ? "Repeat this song" : m.repeat === "all" ? "Repeat all" : "Repeat off"}
+          active={m.repeat !== "off"}
+          onClick={cycleRepeat}
+        >
           <span className="relative">
             <RepeatIcon className="size-5" />
             {m.repeat === "one" && <span className="absolute -top-1.5 -right-1.5 text-[9px] font-bold">1</span>}
@@ -696,11 +763,27 @@ function NowPlaying() {
         </IconToggle>
       </div>
       <div className="mt-2 flex items-center gap-2">
-        <button onClick={() => setVolume(m.volume > 0 ? 0 : 80)} aria-label={m.volume > 0 ? "Mute music" : "Unmute music"} className="rounded-full p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+        <button
+          onClick={() => setVolume(m.volume > 0 ? 0 : 80)}
+          aria-label={m.volume > 0 ? "Mute music" : "Unmute music"}
+          className="rounded-full p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+        >
           {m.volume > 0 ? <VolumeIcon className="size-4" /> : <VolumeOffIcon className="size-4" />}
         </button>
-        <input type="range" min={0} max={100} value={m.volume} onChange={(e) => setVolume(Number(e.target.value))} aria-label="Music volume" className="min-w-0 flex-1 accent-[var(--accent)]" />
-        <button onClick={() => setShowQueue((s) => !s)} aria-expanded={showQueue} className="rounded-lg px-2 py-1 text-xs font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={m.volume}
+          onChange={(e) => setVolume(Number(e.target.value))}
+          aria-label="Music volume"
+          className="min-w-0 flex-1 accent-[var(--accent)]"
+        />
+        <button
+          onClick={() => setShowQueue((s) => !s)}
+          aria-expanded={showQueue}
+          className="rounded-lg px-2 py-1 text-xs font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+        >
           Queue ({m.queue.length})
         </button>
       </div>
@@ -726,7 +809,13 @@ function NowPlaying() {
 
 function IconToggle({ label, active, onClick, children }: { label: string; active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button onClick={onClick} aria-label={label} aria-pressed={active} title={label} className={`rounded-full p-2 transition ${active ? "text-accent-fg" : "text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"}`}>
+    <button
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={active}
+      title={label}
+      className={`rounded-full p-2 transition ${active ? "text-accent-fg" : "text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"}`}
+    >
       {children}
     </button>
   );
@@ -757,7 +846,11 @@ export function MiniPlayer({ onOpen }: { onOpen: () => void }) {
         <button onClick={() => next()} aria-label="Next song" className="rounded-full p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-700">
           <SkipNextIcon className="size-4" />
         </button>
-        <button onClick={clearMusic} aria-label="Stop music" className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-700">
+        <button
+          onClick={clearMusic}
+          aria-label="Stop music"
+          className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-700"
+        >
           <XIcon className="size-4" />
         </button>
       </div>

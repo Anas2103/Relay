@@ -2,6 +2,8 @@ export class HttpError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** Extra response headers (e.g. a Set-Cookie on a refusal). */
+    public headers?: Record<string, string>,
   ) {
     super(message);
   }

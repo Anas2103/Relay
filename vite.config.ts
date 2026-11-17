@@ -23,7 +23,7 @@ export default defineConfig({
     rolldownOptions: {
       output: {
         // React rarely changes, so it gets its own file that stays cached across Relay updates.
-        codeSplitting: { groups: [{ name: "react", test: /node_modules[\/](react|react-dom|scheduler)[\/]/ }] },
+        codeSplitting: { groups: [{ name: "react", test: /node_modules\/(react|react-dom|scheduler)\// }] },
       },
     },
   },

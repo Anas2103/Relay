@@ -17,8 +17,7 @@ import { canPickSpeaker, devicePrefs, liveChoice, refreshDevices, type DeviceLis
 const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
 export const isAndroid = /Android/i.test(ua);
 /** iPadOS reports itself as a Mac, but with touch. */
-export const isIOS =
-  /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && typeof navigator !== "undefined" && navigator.maxTouchPoints > 1);
+export const isIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && typeof navigator !== "undefined" && navigator.maxTouchPoints > 1);
 export const isMobile = isAndroid || isIOS;
 
 export type OutputMethod = "sink" | "route" | "system";
@@ -89,8 +88,7 @@ export async function askForSpeaker(): Promise<void> {
 
 /** Safari's AirPlay / Bluetooth route picker (iPhone, iPad, Mac). */
 type WebkitMedia = HTMLMediaElement & { webkitShowPlaybackTargetPicker?: () => void };
-export const canShowRoutePicker =
-  typeof HTMLMediaElement !== "undefined" && "webkitShowPlaybackTargetPicker" in HTMLMediaElement.prototype;
+export const canShowRoutePicker = typeof HTMLMediaElement !== "undefined" && "webkitShowPlaybackTargetPicker" in HTMLMediaElement.prototype;
 
 let pickerEl: HTMLAudioElement | null = null;
 export function showRoutePicker(el?: HTMLMediaElement | null) {
@@ -100,7 +98,10 @@ export function showRoutePicker(el?: HTMLMediaElement | null) {
 }
 
 function silentWav() {
-  const b = new Uint8Array([82, 73, 70, 70, 36, 0, 0, 0, 87, 65, 86, 69, 102, 109, 116, 32, 16, 0, 0, 0, 1, 0, 1, 0, 64, 31, 0, 0, 128, 62, 0, 0, 2, 0, 16, 0, 100, 97, 116, 97, 0, 0, 0, 0]);
+  const b = new Uint8Array([
+    82, 73, 70, 70, 36, 0, 0, 0, 87, 65, 86, 69, 102, 109, 116, 32, 16, 0, 0, 0, 1, 0, 1, 0, 64, 31, 0, 0, 128, 62, 0, 0, 2, 0, 16, 0, 100, 97, 116, 97, 0, 0,
+    0, 0,
+  ]);
   return URL.createObjectURL(new Blob([b], { type: "audio/wav" }));
 }
 
@@ -137,7 +138,8 @@ export function systemOutputHint(): string {
       ? "Choose AirPods, a Bluetooth speaker or the iPhone itself with the button below, or from Control Center (long-press the sound tile)."
       : "Choose AirPods, a Bluetooth speaker or the iPhone itself from Control Center (long-press the sound tile).";
   }
-  if (isAndroid) return "Headphones and Bluetooth take over automatically when connected. Allow the microphone to choose between loudspeaker, earpiece and Bluetooth.";
+  if (isAndroid)
+    return "Headphones and Bluetooth take over automatically when connected. Allow the microphone to choose between loudspeaker, earpiece and Bluetooth.";
   return "This browser plays sound on your system's speaker — change it in your computer's sound settings.";
 }
 

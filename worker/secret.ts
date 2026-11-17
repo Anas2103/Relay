@@ -58,16 +58,12 @@ export async function openSaved(request: Request, env: Env): Promise<Response> {
   const key = `saved:${me.id}`;
   const now = Date.now();
   const id = crypto.randomUUID();
-  await env.DB.prepare(
-    "INSERT OR IGNORE INTO rooms (id, type, dm_key, created_at, status, created_by) VALUES (?1, 'dm', ?2, ?3, 'accepted', ?4)",
-  )
+  await env.DB.prepare("INSERT OR IGNORE INTO rooms (id, type, dm_key, created_at, status, created_by) VALUES (?1, 'dm', ?2, ?3, 'accepted', ?4)")
     .bind(id, key, now, me.id)
     .run();
   const saved = await env.DB.prepare("SELECT id FROM rooms WHERE dm_key = ?1").bind(key).first<{ id: string }>();
   if (!saved) throw new Error("Saved Messages missing after insert");
-  await env.DB.prepare("INSERT OR IGNORE INTO room_members (room_id, user_id, joined_at) VALUES (?1, ?2, ?3)")
-    .bind(saved.id, me.id, now)
-    .run();
+  await env.DB.prepare("INSERT OR IGNORE INTO room_members (room_id, user_id, joined_at) VALUES (?1, ?2, ?3)").bind(saved.id, me.id, now).run();
   const [result] = await listRooms(env, me.id, saved.id);
   return json({ room: result });
 }
@@ -128,9 +124,7 @@ export async function updatePrefs(request: Request, env: Env, roomId: string): P
  */
 export async function deleteChat(request: Request, env: Env, roomId: string): Promise<Response> {
   const me = await requireUser(request, env);
-  const membership = await env.DB.prepare("SELECT role FROM room_members WHERE room_id = ?1 AND user_id = ?2")
-    .bind(roomId, me.id)
-    .first<{ role: string }>();
+  const membership = await env.DB.prepare("SELECT role FROM room_members WHERE room_id = ?1 AND user_id = ?2").bind(roomId, me.id).first<{ role: string }>();
   if (!membership) throw new HttpError(404, "Chat not found.");
   const r = await roomRow(env, roomId);
   if (!r) throw new HttpError(404, "Chat not found.");
@@ -180,14 +174,21 @@ export async function startSecret(request: Request, env: Env, dmId: string): Pro
   const now = Date.now();
   const addMember = env.DB.prepare("INSERT INTO room_members (room_id, user_id, joined_at) VALUES (?1, ?2, ?3)");
   await env.DB.batch([
-    env.DB.prepare(
-      "INSERT INTO rooms (id, type, dm_key, created_at, status, requested_by, created_by) VALUES (?1, 'dm', ?2, ?3, 'pending', ?4, ?4)",
-    ).bind(id, secretKey, now, me.id),
+    env.DB.prepare("INSERT INTO rooms (id, type, dm_key, created_at, status, requested_by, created_by) VALUES (?1, 'dm', ?2, ?3, 'pending', ?4, ?4)").bind(
+      id,
+      secretKey,
+      now,
+      me.id,
+    ),
     addMember.bind(id, me.id, now),
     addMember.bind(id, otherId, now),
-    env.DB.prepare(
-      "INSERT INTO secret_keys (room_id, user_id, device_id, public_key, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-    ).bind(id, me.id, key.deviceId, key.publicKey, now),
+    env.DB.prepare("INSERT INTO secret_keys (room_id, user_id, device_id, public_key, created_at) VALUES (?1, ?2, ?3, ?4, ?5)").bind(
+      id,
+      me.id,
+      key.deviceId,
+      key.publicKey,
+      now,
+    ),
   ]);
   await lobby(env).notify([otherId], { type: "rooms-changed" });
   const [result] = await listRooms(env, me.id, id);
@@ -209,9 +210,7 @@ export async function acceptSecret(request: Request, env: Env, roomId: string): 
   const block = await blockState(env, me.id, otherId);
   if (block.iBlocked || block.blockedMe) throw new HttpError(403, "You can't accept this secret chat.");
 
-  const res = await env.DB.prepare(
-    "INSERT OR IGNORE INTO secret_keys (room_id, user_id, device_id, public_key, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-  )
+  const res = await env.DB.prepare("INSERT OR IGNORE INTO secret_keys (room_id, user_id, device_id, public_key, created_at) VALUES (?1, ?2, ?3, ?4, ?5)")
     .bind(roomId, me.id, key.deviceId, key.publicKey, Date.now())
     .run();
   if (!res.meta.changes) throw new HttpError(409, "This secret chat was already accepted on another device.");

@@ -214,7 +214,7 @@ async function trackArt(env: Env, id: string): Promise<Response> {
     if (!res.ok) return [] as string[];
     const art = ((await res.json()) as { data?: AudiusTrack }).data?.artwork as (Record<string, string> & { mirrors?: string[] }) | undefined;
     const main = art?.["480x480"] ?? art?.["150x150"];
-    if (!main || !/^https:\/\//.test(main)) return [];
+    if (!main || !main.startsWith("https://")) return [];
     const path = new URL(main).pathname;
     return [main, ...(Array.isArray(art?.mirrors) ? art.mirrors : []).filter((m) => /^https:\/\/[\w.-]+$/.test(m)).map((m) => m + path)].slice(0, 4);
   });

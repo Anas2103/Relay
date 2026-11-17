@@ -24,7 +24,11 @@ test.afterAll(async () => {
   await ben?.context().close();
 });
 
-const inCall = (p: Page) => p.getByRole("dialog", { name: /call with/ }).getByText(/^0:0\d$/).first();
+const inCall = (p: Page) =>
+  p
+    .getByRole("dialog", { name: /call with/ })
+    .getByText(/^0:0\d$/)
+    .first();
 
 async function startCall(video = false) {
   await ann.getByRole("button", { name: video ? "Video call" : "Voice call", exact: true }).click();
@@ -39,13 +43,22 @@ async function hangUp() {
   await ann.getByRole("button", { name: "End call" }).click();
   await sleep(1500);
   // The "call ended" screen closes by itself after a moment; close it sooner if it's still there.
-  await ann.getByRole("button", { name: "Close" }).click({ timeout: 1000 }).catch(() => {});
-  await ben.getByRole("button", { name: "Close" }).click({ timeout: 1000 }).catch(() => {});
+  await ann
+    .getByRole("button", { name: "Close" })
+    .click({ timeout: 1000 })
+    .catch(() => {});
+  await ben
+    .getByRole("button", { name: "Close" })
+    .click({ timeout: 1000 })
+    .catch(() => {});
 }
 
 test("Settings lists devices, saves the mic and previews the camera", async () => {
   await ann.getByRole("button", { name: "Settings" }).first().click();
-  await ann.getByRole("button", { name: /Voice & video/ }).first().click();
+  await ann
+    .getByRole("button", { name: /Voice & video/ })
+    .first()
+    .click();
   const mic = ann.locator("label", { hasText: "Microphone" }).locator("select").first();
   await expect(mic.locator("option")).toHaveCount(3); // default + 2 fake mics
   const second = (await mic.locator("option").nth(2).getAttribute("value"))!;
@@ -113,7 +126,9 @@ test("screen sharing and video quality", async () => {
   expect(await call(ann, "(c) => c.videoSender.track?.contentHint")).toBe("motion");
 
   // A shared tab's sound gets mixed with the mic: stand in a tone for the tab's audio.
-  const mixed = await call(ann, `async (c) => {
+  const mixed = await call(
+    ann,
+    `async (c) => {
     const ctx = new AudioContext();
     const osc = ctx.createOscillator();
     const dest = ctx.createMediaStreamDestination();
@@ -129,7 +144,8 @@ test("screen sharing and video quality", async () => {
     const stillLive = sending.readyState === "live" && sending.enabled;
     c.setMicOn(true);
     return { differs: sending !== mic, stillLive, bitrate };
-  }`);
+  }`,
+  );
   expect(mixed).toEqual({ differs: true, stillLive: true, bitrate: 128_000 });
 
   await ann.getByRole("button", { name: "Stop sharing your screen" }).click();
@@ -155,7 +171,10 @@ test("push-to-talk", async () => {
   await expect.poll(() => call(ann, "(c) => c.getState().micOn")).toBe(false);
   // Turn it back off the way the app does (the switch lives in the closed panel).
   await ann.evaluate(async () => {
-    const url = performance.getEntriesByType("resource").map((e) => e.name).find((n) => n.includes("/src/lib/devices.ts"))!;
+    const url = performance
+      .getEntriesByType("resource")
+      .map((e) => e.name)
+      .find((n) => n.includes("/src/lib/devices.ts"))!;
     (await import(/* @vite-ignore */ url)).devicePrefs.set({ pushToTalk: false });
   });
   await expect.poll(() => call(ann, "(c) => c.getState().micOn")).toBe(true);
@@ -183,7 +202,10 @@ test("decline with a message, then Call again", async () => {
 });
 
 test("answer a video call without video, then turn the camera on", async () => {
-  await ann.getByRole("button", { name: "Close" }).click({ timeout: 1000 }).catch(() => {});
+  await ann
+    .getByRole("button", { name: "Close" })
+    .click({ timeout: 1000 })
+    .catch(() => {});
   await ann.getByRole("button", { name: "Video call", exact: true }).click();
   await ben.getByText("Incoming video call…").waitFor();
   await ben.getByRole("button", { name: "Answer without video" }).click();

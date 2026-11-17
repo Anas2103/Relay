@@ -11,15 +11,7 @@ export function roomTitle(room: Room): string {
 }
 
 /** Avatar for any chat: Saved Messages (bookmark), groups (initials), secret chats (with a lock badge). */
-export function RoomAvatar({
-  room,
-  size = "md",
-  online,
-}: {
-  room: Room;
-  size?: keyof typeof SIZES;
-  online?: boolean;
-}) {
+export function RoomAvatar({ room, size = "md", online }: { room: Room; size?: keyof typeof SIZES; online?: boolean }) {
   if (room.saved) {
     return (
       <span className={`${SIZES[size]} avatar-shape inline-flex shrink-0 items-center justify-center bg-accent text-accent-ink`} aria-hidden="true">

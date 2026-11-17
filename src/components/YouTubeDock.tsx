@@ -88,7 +88,9 @@ function Dock({ video }: { video: string }) {
           referrerPolicy="strict-origin-when-cross-origin"
           className={`size-full border-0 ${stuck ? "" : "pointer-events-none"}`}
         />
-        {stuck && <p className="pointer-events-none absolute inset-x-0 top-2 text-center text-xs font-semibold text-white drop-shadow">Tap the video to start</p>}
+        {stuck && (
+          <p className="pointer-events-none absolute inset-x-0 top-2 text-center text-xs font-semibold text-white drop-shadow">Tap the video to start</p>
+        )}
       </div>
       <div className="flex items-center gap-1 px-2 py-1.5 text-white">
         <button onClick={toggle} aria-label={m.playing ? "Pause music" : "Play music"} className="rounded-full p-1.5 hover:bg-white/15">

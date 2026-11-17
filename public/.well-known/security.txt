@@ -1,0 +1,6 @@
+# Found a security problem in Relay? Please report it privately (not in a public issue).
+Contact: https://github.com/Anas2103/Relay/security/advisories/new
+Expires: 2027-11-17T00:00:00.000Z
+Preferred-Languages: en, fr, ar
+Policy: https://github.com/Anas2103/Relay/blob/main/SECURITY.md
+Canonical: https://relay-chat.bunbunchat.workers.dev/.well-known/security.txt

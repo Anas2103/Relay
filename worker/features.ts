@@ -73,9 +73,12 @@ export async function createGroup(request: Request, env: Env): Promise<Response>
   const now = Date.now();
   const add = env.DB.prepare("INSERT INTO room_members (room_id, user_id, joined_at, role) VALUES (?1, ?2, ?3, ?4)");
   await env.DB.batch([
-    env.DB.prepare(
-      "INSERT INTO rooms (id, type, name, created_at, status, created_by) VALUES (?1, 'group', ?2, ?3, 'accepted', ?4)",
-    ).bind(id, name, now, me.id),
+    env.DB.prepare("INSERT INTO rooms (id, type, name, created_at, status, created_by) VALUES (?1, 'group', ?2, ?3, 'accepted', ?4)").bind(
+      id,
+      name,
+      now,
+      me.id,
+    ),
     add.bind(id, me.id, now, "admin"),
     ...members.map((m) => add.bind(id, m, now, "member")),
   ]);
@@ -85,9 +88,7 @@ export async function createGroup(request: Request, env: Env): Promise<Response>
 }
 
 async function memberRole(env: Env, roomId: string, userId: string): Promise<{ role: string; type: string } | null> {
-  return env.DB.prepare(
-    "SELECT m.role, r.type FROM room_members m JOIN rooms r ON r.id = m.room_id WHERE m.room_id = ?1 AND m.user_id = ?2",
-  )
+  return env.DB.prepare("SELECT m.role, r.type FROM room_members m JOIN rooms r ON r.id = m.room_id WHERE m.room_id = ?1 AND m.user_id = ?2")
     .bind(roomId, userId)
     .first<{ role: string; type: string }>();
 }
@@ -110,7 +111,9 @@ export async function setInvite(request: Request, env: Env, roomId: string, on: 
   if (!mine) throw new HttpError(404, "Chat not found.");
   if (mine.type !== "group" || mine.role !== "admin") throw new HttpError(403, "Only group admins can manage invite links.");
   await rateLimit(env, `invite:${me.id}`, 30, 60 * 60 * 1000);
-  await env.DB.prepare("UPDATE rooms SET invite_code = ?1 WHERE id = ?2").bind(on ? newInviteCode() : null, roomId).run();
+  await env.DB.prepare("UPDATE rooms SET invite_code = ?1 WHERE id = ?2")
+    .bind(on ? newInviteCode() : null, roomId)
+    .run();
   const [result] = await listRooms(env, me.id, roomId);
   return json({ room: result });
 }
@@ -145,9 +148,7 @@ export async function joinInvite(request: Request, env: Env, code: string): Prom
     if (row.members >= MAX_GROUP_MEMBERS) throw new HttpError(400, `This group is full (${MAX_GROUP_MEMBERS} people).`);
     const before = await roomMemberIds(env.DB, row.id);
     const now = Date.now();
-    await env.DB.prepare(
-      "INSERT OR IGNORE INTO room_members (room_id, user_id, joined_at, role, last_read_at) VALUES (?1, ?2, ?3, 'member', ?3)",
-    )
+    await env.DB.prepare("INSERT OR IGNORE INTO room_members (room_id, user_id, joined_at, role, last_read_at) VALUES (?1, ?2, ?3, 'member', ?3)")
       .bind(row.id, me.id, now)
       .run();
     await lobby(env).notify([...before, me.id], { type: "rooms-changed" });
@@ -256,9 +257,7 @@ export async function setMemberRole(request: Request, env: Env, roomId: string, 
   const body = await readJson<{ role?: unknown }>(request);
   const role = body.role === "admin" ? "admin" : "member";
   if (userId === me.id && role === "member") {
-    const admins = await env.DB.prepare("SELECT COUNT(*) AS n FROM room_members WHERE room_id = ?1 AND role = 'admin'")
-      .bind(roomId)
-      .first<{ n: number }>();
+    const admins = await env.DB.prepare("SELECT COUNT(*) AS n FROM room_members WHERE room_id = ?1 AND role = 'admin'").bind(roomId).first<{ n: number }>();
     if ((admins?.n ?? 0) <= 1) throw new HttpError(400, "A group needs at least one admin.");
   }
   const res = await env.DB.prepare("UPDATE room_members SET role = ?1 WHERE room_id = ?2 AND user_id = ?3").bind(role, roomId, userId).run();
@@ -278,7 +277,9 @@ export async function updateRoom(request: Request, env: Env, roomId: string): Pr
     // Like Instagram: anyone in the chat can pick its theme (in announcement groups, only admins).
     if (body.theme !== null && !isChatTheme(body.theme)) throw new HttpError(400, "Unknown theme.");
     await assertAccepted(env, roomId);
-    const rules = await env.DB.prepare("SELECT admins_only, dm_key FROM rooms WHERE id = ?1").bind(roomId).first<{ admins_only: number; dm_key: string | null }>();
+    const rules = await env.DB.prepare("SELECT admins_only, dm_key FROM rooms WHERE id = ?1")
+      .bind(roomId)
+      .first<{ admins_only: number; dm_key: string | null }>();
     if (rules?.admins_only === 1 && mine.role !== "admin") throw new HttpError(403, "Only admins can change this group's theme.");
     await assertAllowed(env, me.id, "send");
     await env.DB.prepare("UPDATE rooms SET theme = ?1 WHERE id = ?2").bind(body.theme, roomId).run();
@@ -287,7 +288,9 @@ export async function updateRoom(request: Request, env: Env, roomId: string): Pr
   if (body.adminsOnly !== undefined || body.slowModeMs !== undefined) {
     if (mine.type !== "group" || mine.role !== "admin") throw new HttpError(403, "Only group admins can change this.");
     if (body.adminsOnly !== undefined) {
-      await env.DB.prepare("UPDATE rooms SET admins_only = ?1 WHERE id = ?2").bind(body.adminsOnly === true ? 1 : 0, roomId).run();
+      await env.DB.prepare("UPDATE rooms SET admins_only = ?1 WHERE id = ?2")
+        .bind(body.adminsOnly === true ? 1 : 0, roomId)
+        .run();
     }
     if (body.slowModeMs !== undefined) {
       const ms = Number(body.slowModeMs);
@@ -344,14 +347,10 @@ export async function listStarred(request: Request, env: Env, roomId: string): P
 export async function setStar(request: Request, env: Env, roomId: string, messageId: string, starred: boolean): Promise<Response> {
   const me = await requireUser(request, env);
   await assertMember(env, roomId, me.id);
-  const msg = await env.DB.prepare("SELECT 1 FROM messages WHERE id = ?1 AND room_id = ?2 AND deleted_at IS NULL")
-    .bind(messageId, roomId)
-    .first();
+  const msg = await env.DB.prepare("SELECT 1 FROM messages WHERE id = ?1 AND room_id = ?2 AND deleted_at IS NULL").bind(messageId, roomId).first();
   if (!msg) throw new HttpError(404, "Message not found.");
   if (starred) {
-    await env.DB.prepare("INSERT OR IGNORE INTO starred (user_id, message_id, created_at) VALUES (?1, ?2, ?3)")
-      .bind(me.id, messageId, Date.now())
-      .run();
+    await env.DB.prepare("INSERT OR IGNORE INTO starred (user_id, message_id, created_at) VALUES (?1, ?2, ?3)").bind(me.id, messageId, Date.now()).run();
   } else {
     await env.DB.prepare("DELETE FROM starred WHERE user_id = ?1 AND message_id = ?2").bind(me.id, messageId).run();
   }
@@ -456,9 +455,7 @@ export async function linkPreview(request: Request, env: Env, reqUrl: URL): Prom
   if (!url) throw new HttpError(400, "Not a link we can preview.");
   const key = url.toString();
 
-  const cached = await env.DB.prepare("SELECT data, fetched_at FROM link_previews WHERE url = ?1")
-    .bind(key)
-    .first<{ data: string; fetched_at: number }>();
+  const cached = await env.DB.prepare("SELECT data, fetched_at FROM link_previews WHERE url = ?1").bind(key).first<{ data: string; fetched_at: number }>();
   if (cached && Date.now() - cached.fetched_at < PREVIEW_TTL) {
     return json({ preview: JSON.parse(cached.data) as LinkPreview | null }, 200, { "Cache-Control": "private, max-age=3600" });
   }
@@ -522,7 +519,9 @@ export async function exportMyData(request: Request, env: Env): Promise<Response
   const me = await requireUser(request, env);
   await rateLimit(env, `export:${me.id}`, 5, 60 * 60 * 1000);
   const profile = await env.DB.prepare(
-    "SELECT id, username, display_name, bio, role, created_at, last_login_at, settings FROM users WHERE id = ?1",
+    `SELECT id, username, display_name, bio, status_text, role, birth_date, created_at, last_login_at, last_seen_at,
+            terms_version, terms_accepted_at, totp_secret IS NOT NULL AS two_step_verification, settings
+       FROM users WHERE id = ?1`,
   )
     .bind(me.id)
     .first<Record<string, unknown>>();
@@ -535,7 +534,16 @@ export async function exportMyData(request: Request, env: Env): Promise<Response
         WHERE m.room_id = ?1 AND ${NOT_EXPIRED} ORDER BY m.created_at ASC LIMIT 20000`,
     )
       .bind(r.id)
-      .all<{ id: string; sender: string; kind: string; body: string; meta: string | null; created_at: number; edited_at: number | null; deleted_at: number | null }>();
+      .all<{
+        id: string;
+        sender: string;
+        kind: string;
+        body: string;
+        meta: string | null;
+        created_at: number;
+        edited_at: number | null;
+        deleted_at: number | null;
+      }>();
     conversations.push({
       id: r.id,
       type: r.type,
@@ -556,9 +564,18 @@ export async function exportMyData(request: Request, env: Env): Promise<Response
       }),
     });
   }
+  // Everything else stored about you (GDPR art. 15 and 20: access and portability).
+  const [devices, blocked, stories] = await Promise.all([
+    env.DB.prepare("SELECT device, location, created_at, last_active_at, expires_at FROM sessions WHERE user_id = ?1 ORDER BY created_at").bind(me.id).all(),
+    env.DB.prepare("SELECT u.username, b.created_at FROM blocks b JOIN users u ON u.id = b.blocked_id WHERE b.blocker_id = ?1").bind(me.id).all(),
+    env.DB.prepare("SELECT kind, text, created_at, expires_at FROM stories WHERE user_id = ?1 ORDER BY created_at").bind(me.id).all(),
+  ]);
   const data = {
     exportedAt: new Date().toISOString(),
     profile: profile ? { ...profile, settings: JSON.parse(String(profile.settings ?? "{}")) } : null,
+    devices: devices.results,
+    blocked: blocked.results,
+    stories: stories.results,
     conversations,
     note: "Photos, videos, voice notes and documents aren't included; open them in the app to save them.",
   };
@@ -643,9 +660,7 @@ export async function getSite(env: Env): Promise<Response> {
 export async function expireMessages(env: Env): Promise<number> {
   let removed = 0;
   for (let round = 0; round < 10; round++) {
-    const { results } = await env.DB.prepare(
-      "SELECT id, room_id, media_id FROM messages WHERE expires_at IS NOT NULL AND expires_at <= ?1 LIMIT 200",
-    )
+    const { results } = await env.DB.prepare("SELECT id, room_id, media_id FROM messages WHERE expires_at IS NOT NULL AND expires_at <= ?1 LIMIT 200")
       .bind(Date.now())
       .all<{ id: string; room_id: string; media_id: string | null }>();
     if (results.length === 0) break;
@@ -657,7 +672,13 @@ export async function expireMessages(env: Env): Promise<number> {
       byRoom.set(r.room_id, entry);
     }
     await env.DB.batch(results.map((r) => env.DB.prepare("DELETE FROM messages WHERE id = ?1").bind(r.id)));
-    await Promise.all([...byRoom].map(([roomId, e]) => room(env, roomId).expire(e.ids, e.media).catch(() => undefined)));
+    await Promise.all(
+      [...byRoom].map(([roomId, e]) =>
+        room(env, roomId)
+          .expire(e.ids, e.media)
+          .catch(() => undefined),
+      ),
+    );
     removed += results.length;
   }
   // Housekeeping
@@ -667,4 +688,3 @@ export async function expireMessages(env: Env): Promise<number> {
   ]);
   return removed;
 }
-

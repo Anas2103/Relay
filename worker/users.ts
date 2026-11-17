@@ -70,9 +70,7 @@ export async function getProfile(request: Request, env: Env, userId: string): Pr
 
 export async function getAvatar(request: Request, env: Env, userId: string): Promise<Response> {
   await requireUser(request, env);
-  const row = await env.DB.prepare("SELECT mime, data FROM avatars WHERE user_id = ?1")
-    .bind(userId)
-    .first<{ mime: string; data: ArrayBuffer | number[] }>();
+  const row = await env.DB.prepare("SELECT mime, data FROM avatars WHERE user_id = ?1").bind(userId).first<{ mime: string; data: ArrayBuffer | number[] }>();
   if (!row) throw new HttpError(404, "No profile picture.");
   const bytes = row.data instanceof ArrayBuffer ? row.data : new Uint8Array(row.data);
   // URLs carry ?v=<version>, so the browser can cache forever.

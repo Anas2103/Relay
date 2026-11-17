@@ -11,6 +11,8 @@ const SECONDS = 30;
 /** How fast can you type? 30 seconds, words per minute. */
 export function Typing({ onExit }: { onExit: () => void }) {
   const [seed, setSeed] = useState(0);
+  // A new random word list whenever `seed` changes ("Play again").
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const words = useMemo(() => Array.from({ length: 80 }, () => WORDS[Math.floor(Math.random() * WORDS.length)]), [seed]);
   const [index, setIndex] = useState(0);
   const [typed, setTyped] = useState("");
@@ -68,10 +70,28 @@ export function Typing({ onExit }: { onExit: () => void }) {
   const visible = words.slice(index, index + 14);
 
   return (
-    <GameShell title="Typing speed" onExit={onExit} stats={[["Time", Math.max(0, left)], ["Best", best ? `${best} wpm` : "—"]]} onRestart={reset} hint="Type each word and press space. Timer starts on your first key.">
+    <GameShell
+      title="Typing speed"
+      onExit={onExit}
+      stats={[
+        ["Time", Math.max(0, left)],
+        ["Best", best ? `${best} wpm` : "—"],
+      ]}
+      onRestart={reset}
+      hint="Type each word and press space. Timer starts on your first key."
+    >
       <div className="rounded-2xl bg-black/5 p-4 text-lg leading-relaxed dark:bg-zinc-800">
         {visible.map((w, i) => (
-          <span key={index + i} className={i === 0 ? (w.startsWith(typed) ? "rounded bg-accent/20 px-0.5 font-semibold" : "rounded bg-red-500/20 px-0.5 font-semibold") : "text-zinc-500 dark:text-zinc-400"}>
+          <span
+            key={index + i}
+            className={
+              i === 0
+                ? w.startsWith(typed)
+                  ? "rounded bg-accent/20 px-0.5 font-semibold"
+                  : "rounded bg-red-500/20 px-0.5 font-semibold"
+                : "text-zinc-500 dark:text-zinc-400"
+            }
+          >
             {w}{" "}
           </span>
         ))}

@@ -29,8 +29,7 @@ export function micConstraints(v: VoiceSettings, deviceId = liveChoice("mic")): 
 
 /** Chrome/Edge (on devices with a voice-isolation mic mode) and Safari support "voice isolation". */
 export const voiceIsolationSupported =
-  typeof navigator !== "undefined" &&
-  !!(navigator.mediaDevices?.getSupportedConstraints?.() as Record<string, boolean> | undefined)?.voiceIsolation;
+  typeof navigator !== "undefined" && !!(navigator.mediaDevices?.getSupportedConstraints?.() as Record<string, boolean> | undefined)?.voiceIsolation;
 
 /**
  * Must be called synchronously inside a tap/click (iPhones only allow audio to

@@ -66,7 +66,13 @@ export function PodcastsTab() {
       <div className="shrink-0 space-y-2 px-3 pb-2">
         <div className="flex items-center gap-2 rounded-xl bg-black/5 px-3 dark:bg-zinc-800">
           <SearchIcon className="size-4 shrink-0 text-zinc-400" />
-          <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Search podcasts" aria-label="Search podcasts" className="h-10 min-w-0 flex-1 bg-transparent text-sm outline-none" />
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Search podcasts"
+            aria-label="Search podcasts"
+            className="h-10 min-w-0 flex-1 bg-transparent text-sm outline-none"
+          />
           {draft && (
             <button onClick={() => setDraft("")} aria-label="Clear search" className="text-zinc-400">
               <XIcon className="size-4" />
@@ -106,7 +112,11 @@ function Cover({ id, className }: { id: string; className: string }) {
   const [broken, setBroken] = useState(false);
   return (
     <span className={`flex items-center justify-center overflow-hidden bg-zinc-200 text-zinc-400 dark:bg-zinc-700 ${className}`}>
-      {!broken ? <img src={art(id)} alt="" loading="lazy" onError={() => setBroken(true)} className="size-full object-cover" /> : <MicIcon className="size-1/3" />}
+      {!broken ? (
+        <img src={art(id)} alt="" loading="lazy" onError={() => setBroken(true)} className="size-full object-cover" />
+      ) : (
+        <MicIcon className="size-1/3" />
+      )}
     </span>
   );
 }
@@ -153,7 +163,14 @@ function Episodes({ podcast, onBack }: { podcast: ChillPodcast; onBack: () => vo
             return (
               <li key={e.index}>
                 <button
-                  onClick={() => (isCurrent ? toggle() : playList(episodes.map((x) => episodeTrack(podcast, x)), i))}
+                  onClick={() =>
+                    isCurrent
+                      ? toggle()
+                      : playList(
+                          episodes.map((x) => episodeTrack(podcast, x)),
+                          i,
+                        )
+                  }
                   className={`flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left ${isCurrent ? "bg-accent/10" : "hover:bg-black/5 dark:hover:bg-zinc-800/70"}`}
                   aria-label={`Play ${e.title}`}
                 >

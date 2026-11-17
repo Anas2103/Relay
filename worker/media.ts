@@ -1,13 +1,4 @@
-import {
-  AUDIO_TYPES,
-  E2E_MEDIA_MAGIC,
-  BLOCKED_EXTENSIONS,
-  fileExtension,
-  IMAGE_TYPES,
-  LIMITS,
-  VIDEO_TYPES,
-  type MediaKind,
-} from "../shared/types";
+import { AUDIO_TYPES, E2E_MEDIA_MAGIC, BLOCKED_EXTENSIONS, fileExtension, IMAGE_TYPES, LIMITS, VIDEO_TYPES, type MediaKind } from "../shared/types";
 import { HttpError } from "./http";
 
 type Container = "jpeg" | "png" | "gif" | "webp" | "matroska" | "ogg" | "mp4" | "quicktime" | "mp3" | "aac";
@@ -48,6 +39,8 @@ function mimeFor(kind: MediaKind, container: Container | null): string | null {
 export function cleanFileName(raw: string | null): string {
   const base = (raw ?? "").split(/[\\/]/).pop() ?? "";
   const cleaned = base
+    // Control characters and characters Windows forbids in file names: removed on purpose.
+    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f\u007f<>:"|?*]/g, "")
     .replace(/\s+/g, " ")
     .trim()
@@ -56,12 +49,7 @@ export function cleanFileName(raw: string | null): string {
 }
 
 /** Reads a raw upload body, enforcing a size limit and (for media) a whitelist of real file types. */
-export async function readUpload(
-  request: Request,
-  kind: MediaKind,
-  maxBytes: number,
-  fileName?: string,
-): Promise<{ bytes: Uint8Array; mime: string }> {
+export async function readUpload(request: Request, kind: MediaKind, maxBytes: number, fileName?: string): Promise<{ bytes: Uint8Array; mime: string }> {
   if (kind === "file" && fileName && BLOCKED_EXTENSIONS.includes(fileExtension(fileName))) {
     throw new HttpError(415, "For safety, programs and scripts can't be sent.");
   }
@@ -131,11 +119,7 @@ async function readCapped(request: Request, maxBytes: number): Promise<Uint8Arra
 }
 
 /** Headers for serving user-uploaded files safely from our own origin. */
-export function mediaHeaders(
-  mime: string,
-  cache: "immutable" | "no-store",
-  download?: string,
-): Record<string, string> {
+export function mediaHeaders(mime: string, cache: "immutable" | "no-store", download?: string): Record<string, string> {
   return {
     "Content-Type": mime,
     "X-Content-Type-Options": "nosniff",

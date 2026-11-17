@@ -52,7 +52,11 @@ export function AdminReports({ onToast, onCount }: { onToast: (t: string) => voi
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="grid grid-cols-2 gap-1 rounded-xl bg-zinc-200/60 p-1 text-sm font-medium dark:bg-zinc-800">
           {(["open", "closed"] as const).map((v) => (
-            <button key={v} onClick={() => setView(v)} className={`rounded-lg px-4 py-1.5 transition ${view === v ? "bg-white shadow-sm dark:bg-zinc-700" : "text-zinc-500 dark:text-zinc-400"}`}>
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`rounded-lg px-4 py-1.5 transition ${view === v ? "bg-white shadow-sm dark:bg-zinc-700" : "text-zinc-500 dark:text-zinc-400"}`}
+            >
               {v === "open" ? "Open" : "Closed"}
             </button>
           ))}
@@ -70,7 +74,9 @@ export function AdminReports({ onToast, onCount }: { onToast: (t: string) => voi
             <CheckIcon className="size-6" />
           </span>
           <p className="font-medium">{view === "open" ? "No open reports" : "Nothing here yet"}</p>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">{view === "open" ? "All clear. New reports show up here." : "Resolved and dismissed reports are kept here."}</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            {view === "open" ? "All clear. New reports show up here." : "Resolved and dismissed reports are kept here."}
+          </p>
         </div>
       ) : (
         <ul className="space-y-3">
@@ -83,14 +89,20 @@ export function AdminReports({ onToast, onCount }: { onToast: (t: string) => voi
                     <p className="truncate font-semibold">
                       {r.target ? r.target.displayName : "Deleted account"}
                       {r.target && <span className="ml-1.5 text-sm font-normal text-zinc-500 dark:text-zinc-400">@{r.target.username}</span>}
-                      {r.target?.suspended && <span className="ml-2 rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700 uppercase dark:bg-red-900/40 dark:text-red-300">Suspended</span>}
+                      {r.target?.suspended && (
+                        <span className="ml-2 rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700 uppercase dark:bg-red-900/40 dark:text-red-300">
+                          Suspended
+                        </span>
+                      )}
                     </p>
                     <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
                       Reported by {r.reporter ? `@${r.reporter.username}` : "a deleted account"} · {formatRelative(r.createdAt)}
                     </p>
                   </div>
                 </div>
-                <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">{REPORT_REASONS[r.reason] ?? r.reason}</span>
+                <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                  {REPORT_REASONS[r.reason] ?? r.reason}
+                </span>
               </div>
               {r.snapshot && (
                 <blockquote className="mt-3 rounded-xl bg-zinc-100 px-3.5 py-2.5 text-sm break-words whitespace-pre-wrap dark:bg-zinc-800">

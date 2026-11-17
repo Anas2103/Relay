@@ -1,0 +1,222 @@
+{
+  "tasks": [
+    {
+      "id": "A",
+      "name": "Analyse des besoins & choix techniques",
+      "d": 0.5,
+      "pred": [],
+      "ES": 0,
+      "EF": 0.5,
+      "LF": 0.5,
+      "LS": 0,
+      "slack": 0,
+      "critical": true
+    },
+    {
+      "id": "B",
+      "name": "Conception : architecture & schéma BD",
+      "d": 0.5,
+      "pred": [
+        "A"
+      ],
+      "ES": 0.5,
+      "EF": 1,
+      "LF": 1,
+      "LS": 0.5,
+      "slack": 0,
+      "critical": true
+    },
+    {
+      "id": "C",
+      "name": "Base de données D1 & authentification",
+      "d": 0.5,
+      "pred": [
+        "B"
+      ],
+      "ES": 1,
+      "EF": 1.5,
+      "LF": 1.5,
+      "LS": 1,
+      "slack": 0,
+      "critical": true
+    },
+    {
+      "id": "D",
+      "name": "Messagerie temps réel (WebSocket, Durable Objects)",
+      "d": 0.5,
+      "pred": [
+        "C"
+      ],
+      "ES": 1.5,
+      "EF": 2,
+      "LF": 2,
+      "LS": 1.5,
+      "slack": 0,
+      "critical": true
+    },
+    {
+      "id": "E",
+      "name": "Interface React (chat, médias, personnalisation)",
+      "d": 1,
+      "pred": [
+        "B"
+      ],
+      "ES": 1,
+      "EF": 2,
+      "LF": 4.5,
+      "LS": 3.5,
+      "slack": 2.5,
+      "critical": false
+    },
+    {
+      "id": "F",
+      "name": "Appels audio/vidéo WebRTC",
+      "d": 0.5,
+      "pred": [
+        "D",
+        "E"
+      ],
+      "ES": 2,
+      "EF": 2.5,
+      "LF": 5,
+      "LS": 4.5,
+      "slack": 2.5,
+      "critical": false
+    },
+    {
+      "id": "G",
+      "name": "Demandes de contact, blocage & groupes",
+      "d": 0.5,
+      "pred": [
+        "D"
+      ],
+      "ES": 2,
+      "EF": 2.5,
+      "LF": 2.5,
+      "LS": 2,
+      "slack": 0,
+      "critical": true
+    },
+    {
+      "id": "H",
+      "name": "Chats secrets chiffrés (E2EE)",
+      "d": 1.5,
+      "pred": [
+        "G"
+      ],
+      "ES": 2.5,
+      "EF": 4,
+      "LF": 4,
+      "LS": 2.5,
+      "slack": 0,
+      "critical": true
+    },
+    {
+      "id": "I",
+      "name": "Sécurité (2FA, appareils) & PWA hors ligne",
+      "d": 1,
+      "pred": [
+        "H"
+      ],
+      "ES": 4,
+      "EF": 5,
+      "LF": 5,
+      "LS": 4,
+      "slack": 0,
+      "critical": true
+    },
+    {
+      "id": "J",
+      "name": "Administration & espace propriétaire",
+      "d": 0.5,
+      "pred": [
+        "H"
+      ],
+      "ES": 4,
+      "EF": 4.5,
+      "LF": 5,
+      "LS": 4.5,
+      "slack": 0.5,
+      "critical": false
+    },
+    {
+      "id": "K",
+      "name": "Chill, jeux & thèmes de discussion",
+      "d": 1,
+      "pred": [
+        "G"
+      ],
+      "ES": 2.5,
+      "EF": 3.5,
+      "LF": 5.5,
+      "LS": 4.5,
+      "slack": 2,
+      "critical": false
+    },
+    {
+      "id": "L",
+      "name": "Tests E2E (Playwright) & intégration continue",
+      "d": 0.5,
+      "pred": [
+        "F",
+        "I",
+        "J"
+      ],
+      "ES": 5,
+      "EF": 5.5,
+      "LF": 5.5,
+      "LS": 5,
+      "slack": 0,
+      "critical": true
+    },
+    {
+      "id": "M",
+      "name": "Déploiement sur Cloudflare",
+      "d": 0.5,
+      "pred": [
+        "K",
+        "L"
+      ],
+      "ES": 5.5,
+      "EF": 6,
+      "LF": 6,
+      "LS": 5.5,
+      "slack": 0,
+      "critical": true
+    }
+  ],
+  "total": 6,
+  "criticalPath": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "G",
+    "H",
+    "I",
+    "L",
+    "M"
+  ],
+  "burndown": {
+    "total": 44,
+    "ideal": [
+      44,
+      36.7,
+      29.3,
+      22,
+      14.7,
+      7.3,
+      0
+    ],
+    "actual": [
+      44,
+      44,
+      31,
+      21,
+      10,
+      0,
+      0
+    ],
+    "days": 6
+  }
+}

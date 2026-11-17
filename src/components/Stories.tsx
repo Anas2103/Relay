@@ -32,7 +32,10 @@ export function StoryBar({ me, rooms }: { me: Me; rooms: Room[] }) {
   const [composing, setComposing] = useState(false);
 
   const refresh = useCallback(() => {
-    api.stories().then((r) => setGroups(r.groups), () => {});
+    api.stories().then(
+      (r) => setGroups(r.groups),
+      () => {},
+    );
   }, []);
   useEffect(() => {
     refresh();
@@ -49,7 +52,10 @@ export function StoryBar({ me, rooms }: { me: Me; rooms: Room[] }) {
       <div className="no-scrollbar fade-x flex shrink-0 gap-3 overflow-x-auto px-3 pt-1 pb-3 md:px-4" role="list" aria-label="Stories">
         <div role="listitem" className="flex w-16 shrink-0 flex-col items-center gap-1">
           <span className="relative">
-            <button onClick={() => (mineIndex >= 0 ? setViewing(mineIndex) : setComposing(true))} aria-label={mineIndex >= 0 ? "View your story" : "Add a story"}>
+            <button
+              onClick={() => (mineIndex >= 0 ? setViewing(mineIndex) : setComposing(true))}
+              aria-label={mineIndex >= 0 ? "View your story" : "Add a story"}
+            >
               <span className={`block rounded-full p-[2px] ${mineIndex >= 0 ? "bg-zinc-300 dark:bg-zinc-600" : ""}`}>
                 <span className="block rounded-full bg-white p-[2px] dark:bg-zinc-900">
                   <Avatar name={me.displayName} seed={me.id} user={me} size="lg" />
@@ -58,7 +64,7 @@ export function StoryBar({ me, rooms }: { me: Me; rooms: Room[] }) {
             </button>
             <button
               onClick={() => setComposing(true)}
-              className="absolute right-0 bottom-0 z-10 flex size-5 items-center justify-center rounded-full bg-accent text-accent-ink ring-2 ring-white dark:ring-zinc-900"
+              className="absolute -right-0.5 -bottom-0.5 z-10 flex size-6 items-center justify-center rounded-full bg-accent text-accent-ink ring-2 ring-white dark:ring-zinc-900"
               aria-label="Add a story"
             >
               <PlusIcon className="size-3" strokeWidth={3} />
@@ -91,11 +97,12 @@ export function StoryBar({ me, rooms }: { me: Me; rooms: Room[] }) {
           me={me}
           rooms={rooms}
           onSeen={(storyId) =>
-            setGroups((gs) =>
-              gs?.map((g) => {
-                const stories = g.stories.map((s) => (s.id === storyId ? { ...s, viewed: true } : s));
-                return { ...g, stories, unseen: stories.some((s) => !s.viewed) };
-              }) ?? gs,
+            setGroups(
+              (gs) =>
+                gs?.map((g) => {
+                  const stories = g.stories.map((s) => (s.id === storyId ? { ...s, viewed: true } : s));
+                  return { ...g, stories, unseen: stories.some((s) => !s.viewed) };
+                }) ?? gs,
             )
           }
           onChanged={refresh}
@@ -145,7 +152,11 @@ function StoryViewer({
 }) {
   const [gi, setGi] = useState(start);
   // Start at the first story you haven't seen.
-  const firstUnseen = (g: StoryGroup) => Math.max(0, g.stories.findIndex((s) => !s.viewed));
+  const firstUnseen = (g: StoryGroup) =>
+    Math.max(
+      0,
+      g.stories.findIndex((s) => !s.viewed),
+    );
   const [si, setSi] = useState(() => firstUnseen(groups[start]));
   const [paused, setPaused] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -234,7 +245,11 @@ function StoryViewer({
   };
 
   return (
-    <div className="fade-in fixed inset-0 z-50 flex items-center justify-center bg-black select-none" role="dialog" aria-label={`${group.user.displayName}'s story`}>
+    <div
+      className="fade-in fixed inset-0 z-50 flex items-center justify-center bg-black select-none"
+      role="dialog"
+      aria-label={`${group.user.displayName}'s story`}
+    >
       <div className="relative flex h-full w-full max-w-md flex-col overflow-hidden md:h-[min(92vh,52rem)] md:rounded-3xl">
         {/* Content */}
         <div
@@ -260,7 +275,9 @@ function StoryViewer({
             <p className="px-8 text-center text-2xl leading-snug font-semibold whitespace-pre-wrap text-white drop-shadow md:text-3xl">{story.text}</p>
           )}
           {story.kind === "image" && story.text && (
-            <p className="absolute inset-x-0 bottom-24 mx-auto w-fit max-w-[90%] rounded-2xl bg-black/50 px-4 py-2 text-center text-white backdrop-blur-sm">{story.text}</p>
+            <p className="absolute inset-x-0 bottom-24 mx-auto w-fit max-w-[90%] rounded-2xl bg-black/50 px-4 py-2 text-center text-white backdrop-blur-sm">
+              {story.text}
+            </p>
           )}
         </div>
 
@@ -269,7 +286,10 @@ function StoryViewer({
         <button className="absolute top-16 right-0 bottom-24 z-10 w-1/3" aria-label="Next" onClick={next} />
 
         {/* Top: progress + who */}
-        <div className="relative z-20 bg-gradient-to-b from-black/60 to-transparent px-3 pt-3 pb-6" style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
+        <div
+          className="relative z-20 bg-gradient-to-b from-black/60 to-transparent px-3 pt-3 pb-6"
+          style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+        >
           <div className="flex gap-1">
             {group.stories.map((s, i) => (
               <span key={s.id} className="h-0.5 flex-1 overflow-hidden rounded-full bg-white/35">
@@ -306,11 +326,19 @@ function StoryViewer({
         <div className="flex-1" />
 
         {/* Bottom: reply, or "seen by" on your own */}
-        <div className="relative z-20 bg-gradient-to-t from-black/70 to-transparent px-3 pt-8 pb-3" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+        <div
+          className="relative z-20 bg-gradient-to-t from-black/70 to-transparent px-3 pt-8 pb-3"
+          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+        >
           {sent && <p className="mb-2 text-center text-sm text-white/90">{sent}</p>}
           {mine ? (
             <button
-              onClick={() => api.storyViewers(story.id).then((r) => setViewers(r.viewers), () => setViewers([]))}
+              onClick={() =>
+                api.storyViewers(story.id).then(
+                  (r) => setViewers(r.viewers),
+                  () => setViewers([]),
+                )
+              }
               className="mx-auto flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-medium text-white backdrop-blur-md hover:bg-white/25"
             >
               <EyeIcon className="size-4" /> Seen by {story.views ?? 0}
@@ -331,7 +359,11 @@ function StoryViewer({
                 aria-label="Reply to this story"
                 className="h-11 min-w-0 flex-1 rounded-full border border-white/40 bg-black/30 px-4 text-sm text-white outline-none placeholder:text-white/60 focus:border-white"
               />
-              <button disabled={!reply.trim()} className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white text-zinc-900 disabled:opacity-40" aria-label="Send reply">
+              <button
+                disabled={!reply.trim()}
+                className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white text-zinc-900 disabled:opacity-40"
+                aria-label="Send reply"
+              >
                 <SendIcon className="size-5" />
               </button>
             </form>
@@ -339,7 +371,11 @@ function StoryViewer({
         </div>
 
         {viewers && (
-          <div className="absolute inset-x-0 bottom-0 z-30 max-h-[60%] overflow-y-auto rounded-t-3xl bg-white p-4 text-zinc-900 dark:bg-zinc-900 dark:text-white" role="dialog" aria-label="Seen by">
+          <div
+            className="absolute inset-x-0 bottom-0 z-30 max-h-[60%] overflow-y-auto rounded-t-3xl bg-white p-4 text-zinc-900 dark:bg-zinc-900 dark:text-white"
+            role="dialog"
+            aria-label="Seen by"
+          >
             <div className="mb-2 flex items-center justify-between">
               <span className="font-semibold">Seen by {viewers.length}</span>
               <button onClick={() => setViewers(null)} className="rounded-full p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800" aria-label="Close">

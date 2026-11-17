@@ -179,7 +179,10 @@ export function CallScreen({
   );
   const unblockSound = () => {
     void calls.resumeAudio();
-    void audioEl.current?.play().then(() => setSoundBlocked(false), () => {});
+    void audioEl.current?.play().then(
+      () => setSoundBlocked(false),
+      () => {},
+    );
   };
   // Paused audio only matters when what you hear (or send) runs through it.
   const needsTap = soundBlocked || (call.audioPaused && call.phase === "active");
@@ -297,10 +300,7 @@ export function CallScreen({
       )}
 
       {/* Top bar */}
-      <div
-        className="relative z-20 flex items-center justify-between gap-3 px-4 pt-4"
-        style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
-      >
+      <div className="relative z-20 flex items-center justify-between gap-3 px-4 pt-4" style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}>
         <div className="flex w-28 items-center gap-2">
           {live ? (
             <GlassButton label="Minimize — keep chatting" onClick={() => calls.setMinimized(true)}>
@@ -363,7 +363,12 @@ export function CallScreen({
           </div>
           <OutputPicker audioEl={audioEl.current} />
           <div className="mt-3">
-            <RangeRow label={`${call.peerName || "Their"} volume`} value={prefs.outputVolume} max={200} onChange={(v) => devicePrefs.set({ outputVolume: v })} />
+            <RangeRow
+              label={`${call.peerName || "Their"} volume`}
+              value={prefs.outputVolume}
+              max={200}
+              onChange={(v) => devicePrefs.set({ outputVolume: v })}
+            />
           </div>
         </div>
       )}
@@ -390,7 +395,11 @@ export function CallScreen({
               {call.notice.action.label}
             </button>
           )}
-          <button onClick={() => calls.dismissNotice()} aria-label="Dismiss" className="shrink-0 rounded-full p-1 text-white/60 hover:bg-white/10 hover:text-white">
+          <button
+            onClick={() => calls.dismissNotice()}
+            aria-label="Dismiss"
+            className="shrink-0 rounded-full p-1 text-white/60 hover:bg-white/10 hover:text-white"
+          >
             <XIcon className="size-4" />
           </button>
         </div>
@@ -527,10 +536,7 @@ export function CallScreen({
       )}
 
       {/* Controls */}
-      <div
-        className="relative z-20 flex justify-center px-3 pb-6"
-        style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
-      >
+      <div className="relative z-20 flex justify-center px-3 pb-6" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
         {call.phase === "incoming" ? (
           <div className="slide-up flex w-full max-w-sm flex-col items-center gap-5">
             <div className="flex w-full items-start justify-around">
@@ -786,7 +792,14 @@ function DevicesTab({ call, audioEl }: { call: CallState; audioEl: HTMLMediaElem
         options={list.mics}
         onPick={(id) => devicePrefs.set({ mic: id })}
       />
-      <div className="flex h-1.5 gap-[2px]" role="meter" aria-label="Your microphone level" aria-valuenow={Math.round(shownLevel * 100)} aria-valuemin={0} aria-valuemax={100}>
+      <div
+        className="flex h-1.5 gap-[2px]"
+        role="meter"
+        aria-label="Your microphone level"
+        aria-valuenow={Math.round(shownLevel * 100)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
         {Array.from({ length: 24 }, (_, i) => (
           <span key={i} className={`flex-1 rounded-full ${i / 24 < shownLevel ? (i > 20 ? "bg-red-500" : "bg-emerald-400") : "bg-white/15"}`} />
         ))}
@@ -969,11 +982,7 @@ function SoundTab({ call, voice, onChange }: { call: CallState; voice: VoiceSett
         <AudioQualityPicker />
       </div>
       <div className="mt-3 border-t border-white/10 pt-3">
-        <PanelToggle
-          label="Clean up their voice too"
-          checked={voice.cleanIncoming}
-          onChange={() => onChange({ cleanIncoming: !voice.cleanIncoming })}
-        />
+        <PanelToggle label="Clean up their voice too" checked={voice.cleanIncoming} onChange={() => onChange({ cleanIncoming: !voice.cleanIncoming })} />
         <p className="px-1 text-xs text-white/55">
           {voice.cleanIncoming && !call.incomingCleaned && call.remoteStream
             ? "Not available in this browser — you're hearing their normal audio"
@@ -1267,12 +1276,7 @@ function QualityPicker({ value }: { value: VideoQuality }) {
   );
 }
 
-const QUICK_REPLIES = [
-  "Can't talk right now. Call you later?",
-  "I'll call you back in a few minutes.",
-  "I'm in a meeting 🙏",
-  "Text me instead 🙂",
-];
+const QUICK_REPLIES = ["Can't talk right now. Call you later?", "I'll call you back in a few minutes.", "I'm in a meeting 🙏", "Text me instead 🙂"];
 
 /** Decline a call with a message, like on a phone. */
 function QuickReplies({ roomId }: { roomId: string }) {

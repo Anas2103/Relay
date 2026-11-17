@@ -58,14 +58,17 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/api/") || url.pathname === "/version.json" || url.pathname === "/sw.js") return;
 
   if (req.mode === "navigate") {
+    // Static pages (legal, help) are separate documents: cache each under its own URL,
+    // never as the app shell, or Relay would open as the Terms page when offline.
+    const page = url.pathname.startsWith("/legal/");
     event.respondWith(
       (async () => {
         try {
           const res = await fetch(req);
-          if (res.ok) (await caches.open(SHELL)).put("/", res.clone());
+          if (res.ok) (await caches.open(SHELL)).put(page ? url.pathname : "/", res.clone());
           return res;
         } catch {
-          return (await caches.match("/")) ?? Response.error();
+          return (await caches.match(page ? url.pathname : "/")) ?? (await caches.match("/")) ?? Response.error();
         }
       })(),
     );

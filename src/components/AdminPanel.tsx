@@ -24,7 +24,10 @@ export function AdminPanel({ me, onClose, callPill }: { me: Me; onClose: () => v
   const [toast, setToast] = useState<string | null>(null);
   const [openReports, setOpenReports] = useState(0);
   useEffect(() => {
-    api.admin.reports("open").then((r) => setOpenReports(r.open), () => {});
+    api.admin.reports("open").then(
+      (r) => setOpenReports(r.open),
+      () => {},
+    );
   }, []);
 
   useEffect(() => {
@@ -88,7 +91,9 @@ export function AdminPanel({ me, onClose, callPill }: { me: Me; onClose: () => v
             >
               {label}
               {id === "reports" && openReports > 0 && (
-                <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-semibold text-white">{openReports}</span>
+                <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-semibold text-white">
+                  {openReports}
+                </span>
               )}
             </button>
           ))}
@@ -214,16 +219,15 @@ function Overview({ onOpenUsers }: { onOpenUsers: () => void }) {
             <>
               <p className="font-medium">Admins can't read messages. The owner account can.</p>
               <p className="mt-0.5 text-accent-fg/80">
-                Regular admins manage accounts only. The single owner account can review conversations (never view-once
-                media), and every conversation it opens is written to the audit log.
+                Regular admins manage accounts only. The single owner account can review conversations (never view-once media), and every conversation it opens
+                is written to the audit log.
               </p>
             </>
           ) : (
             <>
               <p className="font-medium">Messages are private, even from admins.</p>
               <p className="mt-0.5 text-accent-fg/80">
-                Admins can manage accounts, but there is no way to read anyone's conversations from here. Every admin
-                action is recorded in the audit log.
+                Admins can manage accounts, but there is no way to read anyone's conversations from here. Every admin action is recorded in the audit log.
               </p>
             </>
           )}
@@ -241,8 +245,7 @@ function ActivityChart({ daily }: { daily: AdminStats["daily"] }) {
   const step = 10 ** Math.floor(Math.log10(max));
   const top = Math.ceil(max / step) * step;
   const total = daily.reduce((n, d) => n + d.messages, 0);
-  const label = (day: string) =>
-    new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+  const label = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
   const active = hover !== null ? daily[hover] : null;
 
   return (
@@ -252,8 +255,8 @@ function ActivityChart({ daily }: { daily: AdminStats["daily"] }) {
         <span className="text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
           {active ? (
             <>
-              <span className="font-medium text-zinc-900 dark:text-zinc-100">{label(active.day)}</span> ·{" "}
-              {active.messages.toLocaleString()} messages · {active.signups} sign-ups
+              <span className="font-medium text-zinc-900 dark:text-zinc-100">{label(active.day)}</span> · {active.messages.toLocaleString()} messages ·{" "}
+              {active.signups} sign-ups
             </>
           ) : (
             `${total.toLocaleString()} in 14 days`
@@ -264,13 +267,15 @@ function ActivityChart({ daily }: { daily: AdminStats["daily"] }) {
         {/* recessive gridlines */}
         {[1, 0.5, 0].map((f) => (
           <div key={f} className="absolute inset-x-0 flex items-center gap-2" style={{ bottom: `${f * 100}%` }}>
-            <span className="w-7 -translate-y-1/2 text-right text-[10px] text-zinc-400 tabular-nums">
-              {Math.round(top * f).toLocaleString()}
-            </span>
+            <span className="w-7 -translate-y-1/2 text-right text-[10px] text-zinc-400 tabular-nums">{Math.round(top * f).toLocaleString()}</span>
             <span className={`h-px flex-1 ${f === 0 ? "bg-zinc-300 dark:bg-zinc-700" : "bg-zinc-100 dark:bg-zinc-800"}`} />
           </div>
         ))}
-        <div className="absolute inset-y-0 right-0 left-9 flex items-end gap-0.5" role="img" aria-label={`Messages per day for the last 14 days, ${total} in total`}>
+        <div
+          className="absolute inset-y-0 right-0 left-9 flex items-end gap-0.5"
+          role="img"
+          aria-label={`Messages per day for the last 14 days, ${total} in total`}
+        >
           {daily.map((d, i) => (
             <button
               key={d.day}
@@ -491,12 +496,13 @@ function Users({ me, onToast, onOpenRoom }: { me: Me; onToast: (msg: string) => 
                 <span className="hidden text-sm text-zinc-600 md:col-start-2 md:row-start-1 md:block dark:text-zinc-400" title={formatDateTime(u.createdAt)}>
                   {formatRelative(u.createdAt)}
                 </span>
-                <span className="hidden text-sm text-zinc-600 md:col-start-3 md:row-start-1 md:block dark:text-zinc-400" title={u.lastLoginAt ? formatDateTime(u.lastLoginAt) : undefined}>
+                <span
+                  className="hidden text-sm text-zinc-600 md:col-start-3 md:row-start-1 md:block dark:text-zinc-400"
+                  title={u.lastLoginAt ? formatDateTime(u.lastLoginAt) : undefined}
+                >
                   {u.lastLoginAt ? formatRelative(u.lastLoginAt) : "Never"}
                 </span>
-                <span className="hidden text-right text-sm tabular-nums md:col-start-4 md:row-start-1 md:block">
-                  {u.messageCount.toLocaleString()}
-                </span>
+                <span className="hidden text-right text-sm tabular-nums md:col-start-4 md:row-start-1 md:block">{u.messageCount.toLocaleString()}</span>
                 <span className="hidden text-right text-sm tabular-nums md:col-start-5 md:row-start-1 md:block">{u.activeSessions}</span>
               </li>
             ))}
@@ -686,12 +692,7 @@ function UserDialog({
           </label>
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium">Role</span>
-            <select
-              className={inputClass}
-              value={role}
-              onChange={(e) => setRole(e.target.value as Role)}
-              disabled={!canSetRole}
-            >
+            <select className={inputClass} value={role} onChange={(e) => setRole(e.target.value as Role)} disabled={!canSetRole}>
               <option value="user">User</option>
               <option value="admin">Admin</option>
             </select>
@@ -713,9 +714,7 @@ function UserDialog({
               autoComplete="new-password"
               required={isNew}
             />
-            {!isNew && !isSelf && password && (
-              <span className="mt-1.5 block text-xs text-zinc-500">They'll be signed out of all devices.</span>
-            )}
+            {!isNew && !isSelf && password && <span className="mt-1.5 block text-xs text-zinc-500">They'll be signed out of all devices.</span>}
           </label>
         </fieldset>
 
@@ -750,10 +749,7 @@ function UserDialog({
         {user && !isSelf && !locked && (
           <div className="mt-6 space-y-3 border-t border-zinc-200 pt-5 dark:border-zinc-800">
             <h3 className="text-sm font-semibold">Account actions</h3>
-            <ActionRow
-              title="Sign out everywhere"
-              description={`Ends all ${user.activeSessions} active session${user.activeSessions === 1 ? "" : "s"}.`}
-            >
+            <ActionRow title="Sign out everywhere" description={`Ends all ${user.activeSessions} active session${user.activeSessions === 1 ? "" : "s"}.`}>
               <SecondaryButton onClick={signOutAll} busy={busy === "signout"} disabled={busy !== null}>
                 Sign out
               </SecondaryButton>
@@ -783,8 +779,7 @@ function UserDialog({
             <div className="rounded-xl bg-red-50 p-4 ring-1 ring-red-600/10 dark:bg-red-950/30 dark:ring-red-400/10">
               <p className="text-sm font-medium text-red-800 dark:text-red-300">Delete account</p>
               <p className="mt-0.5 text-xs text-red-700/80 dark:text-red-300/70">
-                Permanently deletes @{user.username}, their direct-message conversations and all their messages.
-                This can't be undone.
+                Permanently deletes @{user.username}, their direct-message conversations and all their messages. This can't be undone.
               </p>
               <input
                 className={`${inputClass} mt-3`}
@@ -896,9 +891,7 @@ function AuditLog() {
     const q = query.trim().toLowerCase();
     if (!q) return entries ?? [];
     return (entries ?? []).filter((e) =>
-      [e.adminUsername, e.targetUsername, e.details, ACTION_LABELS[e.action] ?? e.action].some((s) =>
-        s?.toLowerCase().includes(q),
-      ),
+      [e.adminUsername, e.targetUsername, e.details, ACTION_LABELS[e.action] ?? e.action].some((s) => s?.toLowerCase().includes(q)),
     );
   }, [entries, query]);
 
@@ -930,22 +923,24 @@ function AuditLog() {
           {shown.map((e) => {
             const isView = e.action === "conversation.view";
             return (
-            <li key={e.id} className="flex gap-3 border-b border-zinc-100 px-4 py-3 last:border-0 md:px-5 dark:border-zinc-800">
-              <span className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full ${isView ? "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300" : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"}`}>
-                {isView ? <EyeIcon className="size-3.5" /> : <ShieldIcon className="size-3.5" />}
-              </span>
-              <div className="min-w-0 flex-1 text-sm">
-                <p>
-                  <span className="font-medium">@{e.adminUsername}</span>{" "}
-                  <span className="text-zinc-600 dark:text-zinc-400">{ACTION_LABELS[e.action] ?? e.action}</span>{" "}
-                  {e.targetUsername && <span className="font-medium">@{e.targetUsername}</span>}
-                </p>
-                {e.details && <p className="mt-0.5 break-words text-xs text-zinc-500 dark:text-zinc-400">{e.details}</p>}
-              </div>
-              <time className="shrink-0 text-xs text-zinc-500 tabular-nums dark:text-zinc-400" title={formatDateTime(e.createdAt)}>
-                {formatRelative(e.createdAt)}
-              </time>
-            </li>
+              <li key={e.id} className="flex gap-3 border-b border-zinc-100 px-4 py-3 last:border-0 md:px-5 dark:border-zinc-800">
+                <span
+                  className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full ${isView ? "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300" : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"}`}
+                >
+                  {isView ? <EyeIcon className="size-3.5" /> : <ShieldIcon className="size-3.5" />}
+                </span>
+                <div className="min-w-0 flex-1 text-sm">
+                  <p>
+                    <span className="font-medium">@{e.adminUsername}</span>{" "}
+                    <span className="text-zinc-600 dark:text-zinc-400">{ACTION_LABELS[e.action] ?? e.action}</span>{" "}
+                    {e.targetUsername && <span className="font-medium">@{e.targetUsername}</span>}
+                  </p>
+                  {e.details && <p className="mt-0.5 break-words text-xs text-zinc-500 dark:text-zinc-400">{e.details}</p>}
+                </div>
+                <time className="shrink-0 text-xs text-zinc-500 tabular-nums dark:text-zinc-400" title={formatDateTime(e.createdAt)}>
+                  {formatRelative(e.createdAt)}
+                </time>
+              </li>
             );
           })}
         </ol>
@@ -1011,7 +1006,9 @@ function SiteControls({ onToast }: { onToast: (msg: string) => void }) {
     <div className="mx-auto max-w-2xl space-y-4">
       <section className={`${card} p-5`}>
         <h2 className="font-semibold">Announcement</h2>
-        <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">A banner at the top of everyone's chat list. People can dismiss it; a new one shows again.</p>
+        <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+          A banner at the top of everyone's chat list. People can dismiss it; a new one shows again.
+        </p>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -1026,7 +1023,11 @@ function SiteControls({ onToast }: { onToast: (msg: string) => void }) {
           </span>
           <div className="flex gap-2">
             {site.announcement && (
-              <SecondaryButton onClick={() => update("clear", { announcement: "" }, "Announcement removed").then(() => setText(""))} busy={busy === "clear"} disabled={busy !== null}>
+              <SecondaryButton
+                onClick={() => update("clear", { announcement: "" }, "Announcement removed").then(() => setText(""))}
+                busy={busy === "clear"}
+                disabled={busy !== null}
+              >
                 Remove
               </SecondaryButton>
             )}
@@ -1054,7 +1055,7 @@ function SiteControls({ onToast }: { onToast: (msg: string) => void }) {
           title="Maintenance mode"
           description={
             site.maintenance
-              ? "ON: everyone except admins sees a \"Back soon\" screen and can't use the app."
+              ? 'ON: everyone except admins sees a "Back soon" screen and can\'t use the app.'
               : "Temporarily lock the app for everyone except admins (e.g. while you deploy)."
           }
           checked={site.maintenance}

@@ -24,7 +24,10 @@ test.beforeAll(async ({ browser }) => {
 async function start(p: Page, game: string) {
   await p.getByRole("button", { name: "Attach" }).click();
   await p.getByRole("menuitem", { name: "Game / Watch" }).click();
-  await p.getByRole("dialog", { name: "Play together" }).getByRole("button", { name: new RegExp(game) }).click();
+  await p
+    .getByRole("dialog", { name: "Play together" })
+    .getByRole("button", { name: new RegExp(game) })
+    .click();
 }
 
 const lastBoard = (p: Page, label: string) => p.getByLabel(label).last();
@@ -50,7 +53,10 @@ test("tic-tac-toe: turns are enforced and the winner shows for both", async () =
   await expect(ann.getByText("You won! 🎉").last()).toBeVisible();
   await expect(ben.getByText("Ann won 🏆").last()).toBeVisible();
   // Rematch starts a fresh board.
-  await ben.getByRole("button", { name: /Rematch/ }).last().click();
+  await ben
+    .getByRole("button", { name: /Rematch/ })
+    .last()
+    .click();
   await expect(ann.getByLabel("Tic-tac-toe board")).toHaveCount(2);
 });
 

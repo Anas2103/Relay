@@ -107,25 +107,30 @@ export function GameDialog({ onStart, onClose }: { onStart: (type: ChatGameType,
                 <h3 className="text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">{title}</h3>
                 <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">{hint}</p>
                 <ul className="grid gap-2 sm:grid-cols-2">
-            {CHAT_GAMES.filter(([t]) => types.includes(t)).map(([type, name, emoji]) => (
-              <li key={type}>
-                <button
-                  onClick={() => {
-                    if (type === "watch") return setWatch(true);
-                    if (type === "hangman") return setHangman(true);
-                    onStart(type);
-                    onClose();
-                  }}
-                  className="flex h-full w-full items-center gap-3 rounded-2xl bg-zinc-100 p-3 text-left transition hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-                >
-                  <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white text-xl shadow-sm dark:bg-zinc-900" aria-hidden="true">{emoji}</span>
-                  <span>
-                    <span className="block font-semibold">{name}</span>
-                    <span className="block text-xs text-zinc-500 dark:text-zinc-400">{BLURBS[type]}</span>
-                  </span>
-                </button>
-              </li>
-            ))}
+                  {CHAT_GAMES.filter(([t]) => types.includes(t)).map(([type, name, emoji]) => (
+                    <li key={type}>
+                      <button
+                        onClick={() => {
+                          if (type === "watch") return setWatch(true);
+                          if (type === "hangman") return setHangman(true);
+                          onStart(type);
+                          onClose();
+                        }}
+                        className="flex h-full w-full items-center gap-3 rounded-2xl bg-zinc-100 p-3 text-left transition hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+                      >
+                        <span
+                          className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white text-xl shadow-sm dark:bg-zinc-900"
+                          aria-hidden="true"
+                        >
+                          {emoji}
+                        </span>
+                        <span>
+                          <span className="block font-semibold">{name}</span>
+                          <span className="block text-xs text-zinc-500 dark:text-zinc-400">{BLURBS[type]}</span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
                 </ul>
               </section>
             ))}

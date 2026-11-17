@@ -13,7 +13,6 @@ export function useCall() {
   return useSyncExternalStore(calls.subscribe, calls.getState);
 }
 
-
 export function useTimer(call: CallState) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -38,7 +37,6 @@ export function statusText(call: CallState, elapsed: string | null) {
       return call.reconnecting ? "Reconnecting…" : (elapsed ?? "");
   }
 }
-
 
 export function MiniButton({
   label,
@@ -71,7 +69,6 @@ export function MiniButton({
     </button>
   );
 }
-
 
 /** Is a minimized call showing (so headers can make room for the pill)? */
 export function useCallMinimized() {
@@ -118,4 +115,3 @@ export function CallPill({ peer }: { peer: User | null }) {
     </div>
   );
 }
-

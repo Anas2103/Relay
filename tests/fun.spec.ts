@@ -24,7 +24,11 @@ test.beforeAll(async ({ browser }) => {
 const player = (p: Page) =>
   p.evaluate(async () => {
     // The exact module instance the page loaded (after a hot reload its URL carries a ?t= stamp).
-    const url = performance.getEntriesByType("resource").map((e) => e.name).findLast((n) => n.includes("/src/lib/music.ts")) ?? "/src/lib/music.ts";
+    const url =
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .findLast((n) => n.includes("/src/lib/music.ts")) ?? "/src/lib/music.ts";
     const { music } = await import(/* @vite-ignore */ url);
     const s = music.get();
     const t = s.queue[s.index];
@@ -43,7 +47,10 @@ test("radio: Moroccan stations play live", async () => {
     played = await expect
       .poll(async () => (await player(ann)).time, { timeout: 15_000 })
       .toBeGreaterThan(1)
-      .then(() => true, () => false);
+      .then(
+        () => true,
+        () => false,
+      );
   }
   expect(played).toBe(true);
   expect(await player(ann)).toMatchObject({ kind: "radio", live: true, playing: true });
@@ -52,7 +59,10 @@ test("radio: Moroccan stations play live", async () => {
   await expect(ann.getByRole("complementary", { name: "Now playing" }).getByRole("slider", { name: "Seek" })).toHaveCount(0);
 
   // Favourite it, find it under Favorites.
-  await ann.getByRole("button", { name: /^Add .* to favorites$/ }).first().click();
+  await ann
+    .getByRole("button", { name: /^Add .* to favorites$/ })
+    .first()
+    .click();
   await ann.getByRole("tab", { name: /Favorites/ }).click();
   await expect(ann.getByRole("list", { name: "Stations" }).getByRole("button", { name: /^Play / })).toHaveCount(1);
   await ann.getByRole("complementary", { name: "Now playing" }).getByRole("button", { name: "Pause music" }).click();
@@ -89,7 +99,12 @@ test("games: 2048 moves, minesweeper opens, trivia deals questions", async () =>
   await ben.getByRole("button", { name: "Play Minesweeper" }).click();
   await ben.getByLabel("Minefield").getByRole("button").nth(40).click();
   // The first tap is never a mine and opens an area.
-  await expect(ben.getByLabel("Minefield").getByRole("button", { name: /mines around/ }).first()).toBeVisible();
+  await expect(
+    ben
+      .getByLabel("Minefield")
+      .getByRole("button", { name: /mines around/ })
+      .first(),
+  ).toBeVisible();
   await ben.getByRole("button", { name: "Back to games" }).click();
 
   for (const g of ["Snake", "Memory", "Reaction time", "Typing speed"]) {

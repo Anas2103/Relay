@@ -97,14 +97,22 @@ export function Trivia({ onExit }: { onExit: () => void }) {
             ["medium", "Medium"],
             ["hard", "Hard"],
           ].map(([v, l]) => (
-            <button key={v} onClick={() => setDifficulty(v)} className={`flex-1 rounded-lg py-1.5 text-sm font-medium ${difficulty === v ? "bg-white shadow-sm dark:bg-zinc-600" : "text-zinc-500"}`}>
+            <button
+              key={v}
+              onClick={() => setDifficulty(v)}
+              className={`flex-1 rounded-lg py-1.5 text-sm font-medium ${difficulty === v ? "bg-white shadow-sm dark:bg-zinc-600" : "text-zinc-500"}`}
+            >
               {l}
             </button>
           ))}
         </div>
         <div className="grid grid-cols-2 gap-2">
           {CATEGORIES.map(([id, label]) => (
-            <button key={id} onClick={() => start(id)} className="rounded-2xl bg-black/5 px-3 py-4 text-left text-sm font-semibold hover:bg-black/10 dark:bg-zinc-800 dark:hover:bg-zinc-700">
+            <button
+              key={id}
+              onClick={() => start(id)}
+              className="rounded-2xl bg-black/5 px-3 py-4 text-left text-sm font-semibold hover:bg-black/10 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+            >
               {label}
             </button>
           ))}
@@ -115,7 +123,14 @@ export function Trivia({ onExit }: { onExit: () => void }) {
   }
 
   return (
-    <GameShell title="Trivia" onExit={() => setCategory(null)} stats={[["Score", score], ["Best", best ?? "—"]]}>
+    <GameShell
+      title="Trivia"
+      onExit={() => setCategory(null)}
+      stats={[
+        ["Score", score],
+        ["Best", best ?? "—"],
+      ]}
+    >
       {error ? (
         <div className="p-8 text-center text-sm text-zinc-500">
           <p>{error}</p>

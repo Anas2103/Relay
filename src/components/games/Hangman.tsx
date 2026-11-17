@@ -22,7 +22,15 @@ export function Gallows({ wrong }: { wrong: number }) {
     <line key="rl" x1="140" y1="130" x2="158" y2="158" />,
   ];
   return (
-    <svg viewBox="0 0 200 180" className="mx-auto h-36 w-auto" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" aria-label={`${wrong} of ${LIVES} mistakes`}>
+    <svg
+      viewBox="0 0 200 180"
+      className="mx-auto h-36 w-auto"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="5"
+      strokeLinecap="round"
+      aria-label={`${wrong} of ${LIVES} mistakes`}
+    >
       <path d="M30 170h90M60 170V20h80v26" className="opacity-40" />
       {parts.slice(0, wrong)}
     </svg>
@@ -70,10 +78,23 @@ export function Hangman({ onExit }: { onExit: () => void }) {
   };
 
   return (
-    <GameShell title="Hangman" onExit={onExit} stats={[["Streak", streak], ["Best", best]]} onRestart={() => next()} wide>
+    <GameShell
+      title="Hangman"
+      onExit={onExit}
+      stats={[
+        ["Streak", streak],
+        ["Best", best],
+      ]}
+      onRestart={() => next()}
+      wide
+    >
       <div className="no-scrollbar mb-3 flex gap-1.5 overflow-x-auto">
         {["Any", ...Object.keys(HANGMAN)].map((c) => (
-          <button key={c} onClick={() => next(c)} className={`shrink-0 rounded-full px-3 py-1 text-sm font-medium ${category === c ? "bg-accent text-accent-ink" : "bg-black/5 dark:bg-white/10"}`}>
+          <button
+            key={c}
+            onClick={() => next(c)}
+            className={`shrink-0 rounded-full px-3 py-1 text-sm font-medium ${category === c ? "bg-accent text-accent-ink" : "bg-black/5 dark:bg-white/10"}`}
+          >
             {c}
           </button>
         ))}
@@ -84,7 +105,10 @@ export function Hangman({ onExit }: { onExit: () => void }) {
       <p className="mt-1 text-center text-xs text-zinc-500">{LIVES - wrong} mistakes left</p>
       <div className="my-4 flex flex-wrap justify-center gap-1.5" aria-label="The word">
         {[...word].map((l, i) => (
-          <span key={i} className={`flex h-11 w-8 items-end justify-center border-b-4 pb-1 text-2xl font-bold uppercase ${lost && !tried.has(l) ? "text-red-500" : ""}`}>
+          <span
+            key={i}
+            className={`flex h-11 w-8 items-end justify-center border-b-4 pb-1 text-2xl font-bold uppercase ${lost && !tried.has(l) ? "text-red-500" : ""}`}
+          >
             {tried.has(l) || lost ? l : ""}
           </span>
         ))}
@@ -107,7 +131,11 @@ export function Hangman({ onExit }: { onExit: () => void }) {
                 onClick={() => guess(l)}
                 disabled={used}
                 className={`h-11 rounded-lg text-base font-semibold uppercase transition active:scale-95 ${
-                  good ? "bg-emerald-500 text-white" : used ? "bg-black/5 text-zinc-400 line-through dark:bg-white/5" : "bg-black/10 hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/15"
+                  good
+                    ? "bg-emerald-500 text-white"
+                    : used
+                      ? "bg-black/5 text-zinc-400 line-through dark:bg-white/5"
+                      : "bg-black/10 hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/15"
                 }`}
               >
                 {l}

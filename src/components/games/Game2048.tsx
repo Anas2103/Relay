@@ -114,7 +114,16 @@ export function Game2048({ onExit }: { onExit: () => void }) {
   };
 
   return (
-    <GameShell title="2048" onExit={onExit} stats={[["Score", score], ["Best", Math.max(best, score)]]} onRestart={restart} hint="Arrow keys or swipe. Join equal tiles to reach 2048.">
+    <GameShell
+      title="2048"
+      onExit={onExit}
+      stats={[
+        ["Score", score],
+        ["Best", Math.max(best, score)],
+      ]}
+      onRestart={restart}
+      hint="Arrow keys or swipe. Join equal tiles to reach 2048."
+    >
       <div
         className={`relative ${BOARD} grid touch-none grid-cols-4 gap-2 rounded-2xl bg-black/10 p-2 select-none dark:bg-zinc-800`}
         onTouchStart={(e) => (touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY })}

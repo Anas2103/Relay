@@ -51,7 +51,14 @@ export function Rail({
 
       <div className="flex min-h-0 w-full flex-1 flex-col items-center gap-2 overflow-y-auto [scrollbar-width:none]">
         {shortcuts.map((r) => (
-          <RailItem key={r.id} label={roomTitle(r)} active={r.id === activeId && !chill} unread={r.unreadCount} mentions={r.mentions} onClick={() => onSelect(r.id)}>
+          <RailItem
+            key={r.id}
+            label={roomTitle(r)}
+            active={r.id === activeId && !chill}
+            unread={r.unreadCount}
+            mentions={r.mentions}
+            onClick={() => onSelect(r.id)}
+          >
             <RoomAvatar room={r} size="lg" />
           </RailItem>
         ))}

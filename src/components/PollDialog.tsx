@@ -36,7 +36,11 @@ export function PollDialog({ onCreate, onClose }: { onCreate: (question: string,
       title="New poll"
       onClose={onClose}
       footer={
-        <button onClick={create} disabled={!valid} className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-40">
+        <button
+          onClick={create}
+          disabled={!valid}
+          className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-40"
+        >
           Create poll
         </button>
       }
@@ -44,16 +48,34 @@ export function PollDialog({ onCreate, onClose }: { onCreate: (question: string,
       <div className="space-y-5 pt-1">
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium">Question</span>
-          <input className={input} value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={LIMITS.pollQuestionMax} placeholder="Ask something…" autoFocus />
+          <input
+            className={input}
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            maxLength={LIMITS.pollQuestionMax}
+            placeholder="Ask something…"
+            autoFocus
+          />
         </label>
         <div>
           <p className="mb-1.5 text-sm font-medium">Answers</p>
           <ul className="space-y-2">
             {options.map((o, i) => (
               <li key={i} className="flex items-center gap-2">
-                <input className={input} value={o} onChange={(e) => setOption(i, e.target.value)} maxLength={LIMITS.pollOptionMax} placeholder={`Answer ${i + 1}`} aria-label={`Answer ${i + 1}`} />
+                <input
+                  className={input}
+                  value={o}
+                  onChange={(e) => setOption(i, e.target.value)}
+                  maxLength={LIMITS.pollOptionMax}
+                  placeholder={`Answer ${i + 1}`}
+                  aria-label={`Answer ${i + 1}`}
+                />
                 {options.length > 2 && (
-                  <button onClick={() => setOptions((p) => p.filter((_, j) => j !== i))} className="flex size-9 shrink-0 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800" aria-label={`Remove answer ${i + 1}`}>
+                  <button
+                    onClick={() => setOptions((p) => p.filter((_, j) => j !== i))}
+                    className="flex size-9 shrink-0 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800"
+                    aria-label={`Remove answer ${i + 1}`}
+                  >
                     <XIcon className="size-4" />
                   </button>
                 )}
@@ -61,7 +83,10 @@ export function PollDialog({ onCreate, onClose }: { onCreate: (question: string,
             ))}
           </ul>
           {options.length < LIMITS.pollOptionsMax && options.every((o) => o.trim()) && (
-            <button onClick={() => setOptions((p) => [...p, ""])} className="mt-2 flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-accent-fg hover:bg-accent/10">
+            <button
+              onClick={() => setOptions((p) => [...p, ""])}
+              className="mt-2 flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-accent-fg hover:bg-accent/10"
+            >
               <PlusIcon className="size-4" /> Add an answer
             </button>
           )}

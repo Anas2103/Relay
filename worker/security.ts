@@ -1,17 +1,6 @@
 import { assertNotSuspended } from "./policy";
 import { SESSION_IDLE_OPTIONS, type SecurityOverview, type SessionInfo } from "../shared/types";
-import {
-  createSession,
-  loadMe,
-  rateLimit,
-  readCookie,
-  requireUser,
-  SESSION_COOKIE,
-  sessionCookie,
-  sha256Hex,
-  verifyPassword,
-  type SessionUser,
-} from "./auth";
+import { createSession, loadMe, rateLimit, readCookie, requireUser, SESSION_COOKIE, sessionCookie, sha256Hex, verifyPassword, type SessionUser } from "./auth";
 import { lobby, type Env } from "./env";
 import { clientIp, HttpError, json, readJson } from "./http";
 import { str } from "./validate";
@@ -211,9 +200,7 @@ export async function verifyLogin(request: Request, env: Env): Promise<Response>
   await rateLimit(env, `2fa-ip:${clientIp(request)}`, 20, FIFTEEN_MIN);
   const body = await readJson<{ challenge?: unknown; code?: unknown }>(request);
   const tokenHash = await sha256Hex(str(body.challenge));
-  const challenge = await env.DB.prepare(
-    "SELECT user_id, expires_at, attempts, device, location FROM login_challenges WHERE token_hash = ?1",
-  )
+  const challenge = await env.DB.prepare("SELECT user_id, expires_at, attempts, device, location FROM login_challenges WHERE token_hash = ?1")
     .bind(tokenHash)
     .first<{ user_id: string; expires_at: number; attempts: number; device: string; location: string }>();
   if (!challenge || challenge.expires_at < Date.now()) throw new HttpError(401, "This sign-in expired. Enter your password again.");
@@ -336,9 +323,7 @@ async function enableTwoFactor(request: Request, env: Env): Promise<Response> {
   const step = await matchTotp(row.totp_pending, str(body.code).replace(/\s/g, ""), 0);
   if (step === null) throw new HttpError(400, "That code isn't right. Make sure your phone's clock is set automatically.");
   const codes = newRecoveryCodes();
-  await env.DB.prepare(
-    "UPDATE users SET totp_secret = totp_pending, totp_pending = NULL, totp_last_step = ?1, recovery_codes = ?2 WHERE id = ?3",
-  )
+  await env.DB.prepare("UPDATE users SET totp_secret = totp_pending, totp_pending = NULL, totp_last_step = ?1, recovery_codes = ?2 WHERE id = ?3")
     .bind(step, await hashCodes(codes), me.id)
     .run();
   // Turning on 2-step signs out every other device, so a thief who already got in is kicked out too.

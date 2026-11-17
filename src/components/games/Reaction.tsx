@@ -14,10 +14,13 @@ export function Reaction({ onExit }: { onExit: () => void }) {
 
   const start = () => {
     setPhase("waiting");
-    timer.current = window.setTimeout(() => {
-      goAt.current = performance.now();
-      setPhase("go");
-    }, 1200 + Math.random() * 2800);
+    timer.current = window.setTimeout(
+      () => {
+        goAt.current = performance.now();
+        setPhase("go");
+      },
+      1200 + Math.random() * 2800,
+    );
   };
 
   const tap = () => {
@@ -44,8 +47,18 @@ export function Reaction({ onExit }: { onExit: () => void }) {
   const color = phase === "waiting" ? "bg-red-500" : phase === "go" ? "bg-emerald-500" : phase === "early" ? "bg-amber-500" : "bg-accent";
 
   return (
-    <GameShell title="Reaction time" onExit={onExit} stats={[["Round", `${Math.min(times.length + (phase === "waiting" || phase === "go" ? 1 : 0), 5)}/5`], ["Best avg", best ? `${best} ms` : "—"]]}>
-      <button onPointerDown={tap} className={`${BOARD} flex flex-col items-center justify-center gap-2 rounded-3xl text-white transition-colors select-none ${color}`}>
+    <GameShell
+      title="Reaction time"
+      onExit={onExit}
+      stats={[
+        ["Round", `${Math.min(times.length + (phase === "waiting" || phase === "go" ? 1 : 0), 5)}/5`],
+        ["Best avg", best ? `${best} ms` : "—"],
+      ]}
+    >
+      <button
+        onPointerDown={tap}
+        className={`${BOARD} flex flex-col items-center justify-center gap-2 rounded-3xl text-white transition-colors select-none ${color}`}
+      >
         <span className="text-3xl font-bold">
           {phase === "idle" && "Tap to start"}
           {phase === "waiting" && "Wait for green…"}

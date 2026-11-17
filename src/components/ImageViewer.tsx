@@ -54,12 +54,7 @@ export function ImageViewer({
             Save
           </a>
         )}
-        <button
-          onClick={onClose}
-          className="rounded-full bg-white/10 p-2 transition hover:bg-white/20"
-          aria-label="Close"
-          autoFocus
-        >
+        <button onClick={onClose} className="rounded-full bg-white/10 p-2 transition hover:bg-white/20" aria-label="Close" autoFocus>
           <XIcon className="size-5" />
         </button>
       </div>

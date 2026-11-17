@@ -92,7 +92,11 @@ export async function routeFun(request: Request, env: Env, path: string, url: UR
     // Open Trivia DB allows one request every 5 s per address, and every user shares
     // this server's address: fetch a big batch once, then deal from it.
     const pool = await cached(`trivia2:${category}:${difficulty}`, HOUR, () => loadTrivia(category, difficulty));
-    return json({ questions: shuffle([...pool]).slice(0, 10).map(dealQuestion) });
+    return json({
+      questions: shuffle([...pool])
+        .slice(0, 10)
+        .map(dealQuestion),
+    });
   }
   if (path === "/api/chill/fun") {
     const kind = url.searchParams.get("kind") === "fact" ? "fact" : "joke";
@@ -166,7 +170,7 @@ async function pipeAudio(request: Request, src: string, live: boolean): Promise<
 }
 
 async function pipeImage(src: string | null): Promise<Response> {
-  if (!src || !/^https:\/\//.test(src)) throw new HttpError(404, "No picture.");
+  if (!src || !src.startsWith("https://")) throw new HttpError(404, "No picture.");
   try {
     const res = await fetch(src, { signal: AbortSignal.timeout(6000) });
     const type = res.headers.get("Content-Type") ?? "";
@@ -227,7 +231,11 @@ async function searchRadio(q: string, country: string, tag: string): Promise<{ s
       name: name.slice(0, 80),
       country: s.country,
       countryCode: s.countrycode,
-      tags: s.tags.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 3),
+      tags: s.tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .slice(0, 3),
       bitrate: s.bitrate,
     });
     if (stations.length >= 50) break;
@@ -332,7 +340,8 @@ async function loadTrivia(category: string, difficulty: string): Promise<OtdbQue
   if (!data || data.response_code !== 0 || !data.results.length) throw new HttpError(502, "Couldn't get questions right now. Try again in a few seconds.");
   const d = (s: string) => decodeURIComponent(s);
   // The open question bank has some crude ones: leave those out.
-  const crude = /\b(racis\w*|urine|feces|poop|sex\w*|porn\w*|nazi\w*|drug\w*|cocaine|genital\w*|nude|naked|rape|suicide|cards against humanity|kill\w*|murder\w*)\b/i;
+  const crude =
+    /\b(racis\w*|urine|feces|poop|sex\w*|porn\w*|nazi\w*|drug\w*|cocaine|genital\w*|nude|naked|rape|suicide|cards against humanity|kill\w*|murder\w*)\b/i;
   const clean = data.results.filter((r) => ![r.question, r.correct_answer, ...r.incorrect_answers].some((s) => crude.test(d(s))));
   return clean.map((r) => ({
     category: d(r.category),
@@ -463,17 +472,17 @@ async function matchVideo(key: string, song: Song): Promise<string | null> {
     if (res.status === 403 && /quota/i.test(body)) throw new HttpError(503, "YouTube's free daily limit is used up: previews only until tomorrow.");
     throw new HttpError(502, "YouTube isn't answering right now.");
   }
-  const ids = (((await res.json()) as { items?: { id?: { videoId?: string } }[] }).items ?? [])
-    .map((i) => i.id?.videoId)
-    .filter((x): x is string => !!x);
+  const ids = (((await res.json()) as { items?: { id?: { videoId?: string } }[] }).items ?? []).map((i) => i.id?.videoId).filter((x): x is string => !!x);
   if (!ids.length) return null;
   // Lengths and channels for all of them (1 quota unit).
   const det = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet,status&id=${ids.join(",")}&key=${key}`);
   if (!det.ok) return ids[0];
   const items =
-    ((await det.json()) as {
-      items?: { id: string; contentDetails: { duration: string }; snippet: { title: string; channelTitle: string }; status?: { embeddable?: boolean } }[];
-    }).items ?? [];
+    (
+      (await det.json()) as {
+        items?: { id: string; contentDetails: { duration: string }; snippet: { title: string; channelTitle: string }; status?: { embeddable?: boolean } }[];
+      }
+    ).items ?? [];
   const title = norm(song.title);
   const artist = norm(song.artist.split(/,|&| feat\.? | ft\.? | x /i)[0]);
   const wantsVariant = /(cover|karaoke|instrumental|sped up|slowed|live|remix|acoustic)/.test(song.title.toLowerCase());
@@ -489,7 +498,7 @@ async function matchVideo(key: string, song: Song): Promise<string | null> {
     if (song.duration) score -= Math.min(60, Math.abs(len - song.duration)) * 1.5;
     if (vt.includes(title)) score += 30;
     if (artist && (vt.includes(artist) || ch.includes(artist))) score += 20;
-    if (/ topic$/.test(ch) || /vevo/.test(ch) || (artist && ch.replace(/ /g, "").includes(artist.replace(/ /g, "")))) score += 25;
+    if (ch.endsWith(" topic") || /vevo/.test(ch) || (artist && ch.replace(/ /g, "").includes(artist.replace(/ /g, "")))) score += 25;
     if (/official (audio|music video|video)|audio/.test(vt)) score += 8;
     // Not the version you picked:
     if (!wantsVariant && /\b(cover|karaoke|instrumental|sped up|slowed|nightcore|8d|reaction|live|remix|tutorial|acoustic|lullaby)\b/.test(raw)) score -= 40;

@@ -24,8 +24,22 @@ type Appearance = Pick<
   | "simpleMode"
 >;
 const KEYS: (keyof Appearance)[] = [
-  "theme", "lightTheme", "darkTheme", "accentColor", "bubbleColor", "wallpaper", "uiScale", "messageSize",
-  "font", "bubbleRadius", "density", "chatWidth", "avatarShape", "timeFormat", "animations", "simpleMode",
+  "theme",
+  "lightTheme",
+  "darkTheme",
+  "accentColor",
+  "bubbleColor",
+  "wallpaper",
+  "uiScale",
+  "messageSize",
+  "font",
+  "bubbleRadius",
+  "density",
+  "chatWidth",
+  "avatarShape",
+  "timeFormat",
+  "animations",
+  "simpleMode",
 ];
 let current: Appearance | null = null;
 
@@ -80,7 +94,9 @@ function render() {
   root.dataset.simple = current.simpleMode ? "on" : "off";
   for (const [k, v] of Object.entries(variables(current, dark))) root.style.setProperty(k, v);
   // Browser UI color (address bar on phones) follows the theme style.
-  const surface = getComputedStyle(root).getPropertyValue(dark ? "--color-zinc-900" : "--color-white").trim();
+  const surface = getComputedStyle(root)
+    .getPropertyValue(dark ? "--color-zinc-900" : "--color-white")
+    .trim();
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", surface || (dark ? "#18181b" : "#ffffff"));
 }
 

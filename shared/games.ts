@@ -8,10 +8,7 @@
 
 import { FIVE } from "./words";
 
-export type ChatGameType =
-  | "ttt" | "c4" | "rps" | "gomoku" | "checkers" | "dots" | "hangman" | "reversi" | "mancala"
-  | "wordteam" | "code" | "pairs"
-  | "watch";
+export type ChatGameType = "ttt" | "c4" | "rps" | "gomoku" | "checkers" | "dots" | "hangman" | "reversi" | "mancala" | "wordteam" | "code" | "pairs" | "watch";
 
 /** Team games: everyone in the chat plays together against the puzzle. */
 export const COOP_GAMES: ChatGameType[] = ["wordteam", "code", "pairs"];
@@ -198,9 +195,7 @@ export interface PairsGame extends Team {
 }
 
 export type ChatGame =
-  | TttGame | C4Game | RpsGame | GomokuGame | CheckersGame | DotsGame | HangmanGame | ReversiGame | MancalaGame
-  | WordTeamGame | CodeGame | PairsGame
-  | WatchGame;
+  TttGame | C4Game | RpsGame | GomokuGame | CheckersGame | DotsGame | HangmanGame | ReversiGame | MancalaGame | WordTeamGame | CodeGame | PairsGame | WatchGame;
 
 export type GameMove =
   | { cell: number }
@@ -263,13 +258,7 @@ function checkersStart(): number[] {
   return b;
 }
 
-export function newGame(
-  type: ChatGameType,
-  by: string,
-  video?: { videoId: string; title: string },
-  now = Date.now(),
-  word?: string,
-): ChatGame {
+export function newGame(type: ChatGameType, by: string, video?: { videoId: string; title: string }, now = Date.now(), word?: string): ChatGame {
   switch (type) {
     case "reversi": {
       const board = Array(64).fill(-1);
@@ -333,7 +322,16 @@ function randomInt(n: number): number {
   return buf[0] % n;
 }
 
-const DIRS8 = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+const DIRS8 = [
+  [-1, -1],
+  [-1, 0],
+  [-1, 1],
+  [0, -1],
+  [0, 1],
+  [1, -1],
+  [1, 0],
+  [1, 1],
+];
 
 /** Discs that placing `side` at `at` would flip (empty = not a legal move). */
 export function reversiFlips(board: number[], side: number, at: number): number[] {
@@ -396,9 +394,14 @@ function joinTeam(g: { players: string[] }, userId: string) {
 }
 
 const TTT_LINES = [
-  [0, 1, 2], [3, 4, 5], [6, 7, 8],
-  [0, 3, 6], [1, 4, 7], [2, 5, 8],
-  [0, 4, 8], [2, 4, 6],
+  [0, 1, 2],
+  [3, 4, 5],
+  [6, 7, 8],
+  [0, 3, 6],
+  [1, 4, 7],
+  [2, 5, 8],
+  [0, 4, 8],
+  [2, 4, 6],
 ];
 
 /** Joins the second player on their first move; spectators can't move. */
@@ -416,7 +419,12 @@ function c4Line(board: number[], at: number): number[] | null {
   const who = board[at];
   const r0 = Math.floor(at / 7);
   const c0 = at % 7;
-  for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
+  for (const [dr, dc] of [
+    [0, 1],
+    [1, 0],
+    [1, 1],
+    [1, -1],
+  ]) {
     const cells = [at];
     for (const s of [1, -1]) {
       let r = r0 + dr * s;
@@ -440,7 +448,12 @@ function lineOf(board: number[], size: number, at: number, need: number): number
   const who = board[at];
   const r0 = Math.floor(at / size);
   const c0 = at % size;
-  for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
+  for (const [dr, dc] of [
+    [0, 1],
+    [1, 0],
+    [1, 1],
+    [1, -1],
+  ]) {
     const cells = [at];
     for (const s of [1, -1]) {
       let r = r0 + dr * s;
@@ -655,7 +668,8 @@ export function applyMove(game: ChatGame, userId: string, move: GameMove, now = 
     g.last = cell!;
     g.passed = false;
     if (reversiHasMove(g.board, 1 - me)) g.turn = 1 - me;
-    else if (reversiHasMove(g.board, me)) g.passed = true; // they can't move: your turn again
+    else if (reversiHasMove(g.board, me))
+      g.passed = true; // they can't move: your turn again
     else {
       const mine = g.board.filter((v) => v === me).length;
       const theirs = g.board.filter((v) => v === 1 - me).length;
@@ -704,7 +718,9 @@ export function applyMove(game: ChatGame, userId: string, move: GameMove, now = 
   }
 
   if (g.type === "wordteam") {
-    const guess = String((move as { guess?: unknown }).guess ?? "").trim().toLowerCase();
+    const guess = String((move as { guess?: unknown }).guess ?? "")
+      .trim()
+      .toLowerCase();
     if (!/^[a-z]{5}$/.test(guess)) throw new GameError("Guess a 5-letter word.");
     if (g.guesses.some((x) => x.word === guess)) throw new GameError("That word was already tried.");
     joinTeam(g, userId);

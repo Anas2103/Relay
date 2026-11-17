@@ -119,7 +119,9 @@ export function RadioTab() {
           }}
           label="Countries"
         />
-        {!showFavs && <Chips items={GENRES.map((g) => [g, g ? g[0].toUpperCase() + g.slice(1) : "All genres"])} value={genre} onPick={setGenre} label="Genres" small />}
+        {!showFavs && (
+          <Chips items={GENRES.map((g) => [g, g ? g[0].toUpperCase() + g.slice(1) : "All genres"])} value={genre} onPick={setGenre} label="Genres" small />
+        )}
       </div>
       <ul className="min-h-0 flex-1 overflow-y-auto px-2 pb-3" aria-label="Stations">
         {loading && !showFavs ? (
@@ -135,7 +137,10 @@ export function RadioTab() {
             const isCurrent = current?.id === `radio-${s.id}`;
             const fav = favs.some((f) => f.id === s.id);
             return (
-              <li key={s.id} className={`flex items-center gap-3 rounded-xl px-2 py-1.5 ${isCurrent ? "bg-accent/10" : "hover:bg-black/5 dark:hover:bg-zinc-800/70"}`}>
+              <li
+                key={s.id}
+                className={`flex items-center gap-3 rounded-xl px-2 py-1.5 ${isCurrent ? "bg-accent/10" : "hover:bg-black/5 dark:hover:bg-zinc-800/70"}`}
+              >
                 <button
                   onClick={() => (isCurrent ? toggle() : playList(list.map(stationTrack), i))}
                   className="flex min-w-0 flex-1 items-center gap-3 text-left"
@@ -143,7 +148,9 @@ export function RadioTab() {
                 >
                   <span className="relative flex size-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-accent/30 to-accent/10 text-xl">
                     {flag(s.countryCode)}
-                    {isCurrent && m.playing && <span className="absolute -right-1 -bottom-1 rounded bg-red-500 px-1 text-[9px] font-bold text-white">LIVE</span>}
+                    {isCurrent && m.playing && (
+                      <span className="absolute -right-1 -bottom-1 rounded bg-red-500 px-1 text-[9px] font-bold text-white">LIVE</span>
+                    )}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className={`block truncate text-sm font-medium ${isCurrent ? "text-accent-fg" : ""}`}>{s.name}</span>
@@ -153,7 +160,12 @@ export function RadioTab() {
                     </span>
                   </span>
                 </button>
-                <button onClick={() => toggleFav(s)} aria-label={fav ? `Remove ${s.name} from favorites` : `Add ${s.name} to favorites`} aria-pressed={fav} className={`rounded-full p-1.5 ${fav ? "text-amber-500" : "text-zinc-400 hover:text-zinc-600"}`}>
+                <button
+                  onClick={() => toggleFav(s)}
+                  aria-label={fav ? `Remove ${s.name} from favorites` : `Add ${s.name} to favorites`}
+                  aria-pressed={fav}
+                  className={`rounded-full p-1.5 ${fav ? "text-amber-500" : "text-zinc-400 hover:text-zinc-600"}`}
+                >
                   <StarIcon className="size-4" fill={fav ? "currentColor" : "none"} />
                 </button>
               </li>
@@ -165,7 +177,19 @@ export function RadioTab() {
   );
 }
 
-export function Chips({ items, value, onPick, label, small }: { items: [string, string][]; value: string; onPick: (v: string) => void; label: string; small?: boolean }) {
+export function Chips({
+  items,
+  value,
+  onPick,
+  label,
+  small,
+}: {
+  items: [string, string][];
+  value: string;
+  onPick: (v: string) => void;
+  label: string;
+  small?: boolean;
+}) {
   return (
     <div className="no-scrollbar flex gap-1.5 overflow-x-auto" role="tablist" aria-label={label}>
       {items.map(([id, text]) => (

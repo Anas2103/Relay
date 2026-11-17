@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
-import { type GeoPoint,
+import {
+  type GeoPoint,
   E2E_MEDIA_MIME,
   E2E_RE,
   isEncrypted,
@@ -81,7 +82,10 @@ export class ChatRoom extends DurableObject<Env> {
       data     BLOB NOT NULL,
       PRIMARY KEY (media_id, idx)
     )`);
-    const columns = this.sql.exec<{ name: string }>("PRAGMA table_info(media)").toArray().map((c) => c.name);
+    const columns = this.sql
+      .exec<{ name: string }>("PRAGMA table_info(media)")
+      .toArray()
+      .map((c) => c.name);
     if (!columns.includes("chunks")) this.sql.exec("ALTER TABLE media ADD COLUMN chunks INTEGER NOT NULL DEFAULT 0");
     if (!columns.includes("name")) this.sql.exec("ALTER TABLE media ADD COLUMN name TEXT");
     // Messages waiting to be sent at a set time. Kept here, next to the room, and sent by the alarm.
@@ -173,7 +177,14 @@ export class ChatRoom extends DurableObject<Env> {
       .toArray()[0];
     if (!row) return;
     this.sql.exec("DELETE FROM scheduled WHERE id = ?", id);
-    const att: Attachment = { userId: row.user_id, username: row.username, displayName: row.display_name, roomId: row.room_id, tokens: BUCKET_SIZE, refilledAt: Date.now() };
+    const att: Attachment = {
+      userId: row.user_id,
+      username: row.username,
+      displayName: row.display_name,
+      roomId: row.room_id,
+      tokens: BUCKET_SIZE,
+      refilledAt: Date.now(),
+    };
     // Like Telegram: a scheduled message in Saved Messages is a reminder, so it alerts you.
     const room = await this.env.DB.prepare("SELECT dm_key FROM rooms WHERE id = ?1").bind(row.room_id).first<{ dm_key: string | null }>();
     const reminder = !!room?.dm_key?.startsWith("saved:");
@@ -232,12 +243,7 @@ export class ChatRoom extends DurableObject<Env> {
         name ?? null,
       );
       for (let i = 0; i < chunks; i++) {
-        this.sql.exec(
-          "INSERT INTO media_chunks (media_id, idx, data) VALUES (?, ?, ?)",
-          id,
-          i,
-          bytes.subarray(i * CHUNK_BYTES, (i + 1) * CHUNK_BYTES),
-        );
+        this.sql.exec("INSERT INTO media_chunks (media_id, idx, data) VALUES (?, ?, ?)", id, i, bytes.subarray(i * CHUNK_BYTES, (i + 1) * CHUNK_BYTES));
       }
     });
     // Clean up uploads that never got sent.
@@ -257,10 +263,7 @@ export class ChatRoom extends DurableObject<Env> {
 
     const out = new Uint8Array(row.size);
     let offset = 0;
-    for (const c of this.sql.exec<{ data: ArrayBuffer }>(
-      "SELECT data FROM media_chunks WHERE media_id = ? ORDER BY idx",
-      id,
-    )) {
+    for (const c of this.sql.exec<{ data: ArrayBuffer }>("SELECT data FROM media_chunks WHERE media_id = ? ORDER BY idx", id)) {
       out.set(new Uint8Array(c.data), offset);
       offset += c.data.byteLength;
     }
@@ -269,20 +272,14 @@ export class ChatRoom extends DurableObject<Env> {
 
   async mediaInfo(id: string): Promise<{ mime: string; size: number; name: string | null } | null> {
     return (
-      this.sql
-        .exec<{ mime: string; size: number; name: string | null }>(
-          "SELECT mime, size, name FROM media WHERE id = ? AND attached = 1",
-          id,
-        )
-        .toArray()[0] ?? null
+      this.sql.exec<{ mime: string; size: number; name: string | null }>("SELECT mime, size, name FROM media WHERE id = ? AND attached = 1", id).toArray()[0] ??
+      null
     );
   }
 
   /** Reads bytes [start, end] (inclusive) touching only the chunks needed — fast video seeking. */
   async readMedia(id: string, start: number, end: number): Promise<ArrayBuffer | null> {
-    const row = this.sql
-      .exec<{ data: ArrayBuffer; chunks: number }>("SELECT data, chunks FROM media WHERE id = ? AND attached = 1", id)
-      .toArray()[0];
+    const row = this.sql.exec<{ data: ArrayBuffer; chunks: number }>("SELECT data, chunks FROM media WHERE id = ? AND attached = 1", id).toArray()[0];
     if (!row) return null;
     if (row.chunks === 0) return row.data.slice(start, end + 1);
 
@@ -397,10 +394,7 @@ export class ChatRoom extends DurableObject<Env> {
 
   async alarm(): Promise<void> {
     const cutoff = Date.now() - UNATTACHED_MEDIA_TTL_MS;
-    this.sql.exec(
-      "DELETE FROM media_chunks WHERE media_id IN (SELECT id FROM media WHERE attached = 0 AND created_at < ?)",
-      cutoff,
-    );
+    this.sql.exec("DELETE FROM media_chunks WHERE media_id IN (SELECT id FROM media WHERE attached = 0 AND created_at < ?)", cutoff);
     this.sql.exec("DELETE FROM media WHERE attached = 0 AND created_at < ?", cutoff);
     const due = this.sql.exec<{ id: string }>("SELECT id FROM scheduled WHERE send_at <= ? ORDER BY send_at", Date.now() + 1000).toArray();
     for (const { id } of due) await this.deliverScheduled(id);
@@ -452,10 +446,7 @@ export class ChatRoom extends DurableObject<Env> {
         case "typing":
           if (!(await this.isAccepted(att.roomId))) return;
           if (await this.isBlocked(att.roomId, att.userId)) return;
-          this.broadcast(
-            { type: "typing", userId: att.userId, displayName: att.displayName, isTyping: !!event.isTyping },
-            ws,
-          );
+          this.broadcast({ type: "typing", userId: att.userId, displayName: att.displayName, isTyping: !!event.isTyping }, ws);
           return;
         case "read":
           return await this.onRead(att, event.at);
@@ -534,9 +525,7 @@ export class ChatRoom extends DurableObject<Env> {
     /** A reminder firing: alert the author too. */
     reminder = false,
   ): Promise<void> {
-    const kind: MessageKind = (["image", "voice", "video", "file", "call", "poll", "game"] as const).includes(event.kind as never)
-      ? event.kind
-      : "text";
+    const kind: MessageKind = (["image", "voice", "video", "file", "call", "poll", "game"] as const).includes(event.kind as never) ? event.kind : "text";
     let body = kind === "call" ? "" : typeof event.body === "string" ? event.body.trim() : "";
     // A game (or watch-together): the server sets it up; the body is its name, for previews.
     let game: ChatGame | null = null;
@@ -576,7 +565,9 @@ export class ChatRoom extends DurableObject<Env> {
     if (!rules) throw new UserError("You're not in this chat anymore.");
     // The owner's switches (read-only mode, uploads off) and account restrictions.
     if (kind !== "call" && !reminder) {
-      const why = (await policyBlock(this.env, att.userId, "send")) ?? (kind !== "text" && kind !== "poll" && kind !== "game" ? await policyBlock(this.env, att.userId, "uploads") : null);
+      const why =
+        (await policyBlock(this.env, att.userId, "send")) ??
+        (kind !== "text" && kind !== "poll" && kind !== "game" ? await policyBlock(this.env, att.userId, "uploads") : null);
       if (why) throw new UserError(why);
     }
     if (rules.role !== "admin" && kind !== "call") {
@@ -645,9 +636,7 @@ export class ChatRoom extends DurableObject<Env> {
 
     let replyToId: string | null = null;
     if (typeof event.replyToId === "string") {
-      const exists = await this.env.DB.prepare("SELECT 1 FROM messages WHERE id = ?1 AND room_id = ?2")
-        .bind(event.replyToId, att.roomId)
-        .first();
+      const exists = await this.env.DB.prepare("SELECT 1 FROM messages WHERE id = ?1 AND room_id = ?2").bind(event.replyToId, att.roomId).first();
       if (exists) replyToId = event.replyToId;
     }
 
@@ -670,9 +659,7 @@ export class ChatRoom extends DurableObject<Env> {
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
       ).bind(id, att.roomId, att.userId, body, now, kind, mediaId, meta ? JSON.stringify(meta) : null, replyToId, expiresAt),
       // Your own message counts as read by you.
-      this.env.DB.prepare(
-        "UPDATE room_members SET last_read_at = MAX(last_read_at, ?1) WHERE room_id = ?2 AND user_id = ?3",
-      ).bind(now, att.roomId, att.userId),
+      this.env.DB.prepare("UPDATE room_members SET last_read_at = MAX(last_read_at, ?1) WHERE room_id = ?2 AND user_id = ?3").bind(now, att.roomId, att.userId),
     ]);
     if (mediaId) this.sql.exec("UPDATE media SET attached = 1 WHERE id = ?", mediaId);
 
@@ -760,20 +747,13 @@ export class ChatRoom extends DurableObject<Env> {
     const row = await this.env.DB.prepare("SELECT meta FROM messages WHERE id = ?1").bind(msg.id).first<{ meta: string | null }>();
     const poll = (JSON.parse(row?.meta ?? "{}") as MediaMeta).poll;
     if (!poll) throw new UserError("That poll is broken.");
-    const picked = Array.isArray(raw)
-      ? [...new Set(raw.filter((v): v is number => Number.isInteger(v) && v >= 0 && v < poll.options.length))]
-      : [];
+    const picked = Array.isArray(raw) ? [...new Set(raw.filter((v): v is number => Number.isInteger(v) && v >= 0 && v < poll.options.length))] : [];
     if (!poll.multiple && picked.length > 1) throw new UserError("Pick just one answer.");
     const now = Date.now();
     await this.env.DB.batch([
       this.env.DB.prepare("DELETE FROM poll_votes WHERE message_id = ?1 AND user_id = ?2").bind(msg.id, att.userId),
       ...picked.map((i) =>
-        this.env.DB.prepare("INSERT INTO poll_votes (message_id, user_id, option_idx, created_at) VALUES (?1, ?2, ?3, ?4)").bind(
-          msg.id,
-          att.userId,
-          i,
-          now,
-        ),
+        this.env.DB.prepare("INSERT INTO poll_votes (message_id, user_id, option_idx, created_at) VALUES (?1, ?2, ?3, ?4)").bind(msg.id, att.userId, i, now),
       ),
     ]);
     const { results } = await this.env.DB.prepare("SELECT user_id, option_idx FROM poll_votes WHERE message_id = ?1")
@@ -809,12 +789,17 @@ export class ChatRoom extends DurableObject<Env> {
         if (err instanceof GameError) throw new UserError(err.message);
         throw err;
       }
-      await this.env.DB.prepare("UPDATE messages SET meta = ?1 WHERE id = ?2").bind(JSON.stringify({ ...meta, game: next }), msg.id).run();
+      await this.env.DB.prepare("UPDATE messages SET meta = ?1 WHERE id = ?2")
+        .bind(JSON.stringify({ ...meta, game: next }), msg.id)
+        .run();
       this.broadcast({ type: "game", messageId: msg.id, game: publicGame(next) });
     };
     const before = this.gameQueue.get(msg.id) ?? Promise.resolve();
     const now = before.then(run, run);
-    this.gameQueue.set(msg.id, now.catch(() => {}));
+    this.gameQueue.set(
+      msg.id,
+      now.catch(() => {}),
+    );
     await now;
   }
 
@@ -832,9 +817,7 @@ export class ChatRoom extends DurableObject<Env> {
 
   private async findMessage(att: Attachment, messageId: unknown) {
     if (typeof messageId !== "string") throw new UserError("Message not found.");
-    const row = await this.env.DB.prepare(
-      "SELECT user_id, kind, deleted_at, media_id FROM messages WHERE id = ?1 AND room_id = ?2",
-    )
+    const row = await this.env.DB.prepare("SELECT user_id, kind, deleted_at, media_id FROM messages WHERE id = ?1 AND room_id = ?2")
       .bind(messageId, att.roomId)
       .first<{ user_id: string; kind: MessageKind; deleted_at: number | null; media_id: string | null }>();
     if (!row || row.deleted_at !== null) throw new UserError("That message no longer exists.");
@@ -844,9 +827,7 @@ export class ChatRoom extends DurableObject<Env> {
   private async onReact(att: Attachment, messageId: unknown, emoji: unknown): Promise<void> {
     const msg = await this.findMessage(att, messageId);
     if (emoji === null) {
-      await this.env.DB.prepare("DELETE FROM message_reactions WHERE message_id = ?1 AND user_id = ?2")
-        .bind(msg.id, att.userId)
-        .run();
+      await this.env.DB.prepare("DELETE FROM message_reactions WHERE message_id = ?1 AND user_id = ?2").bind(msg.id, att.userId).run();
       this.broadcast({ type: "reaction", messageId: msg.id, userId: att.userId, emoji: null });
       return;
     }
@@ -873,9 +854,7 @@ export class ChatRoom extends DurableObject<Env> {
     await this.checkBody(att.roomId, body);
 
     const editedAt = Date.now();
-    await this.env.DB.prepare("UPDATE messages SET body = ?1, edited_at = ?2 WHERE id = ?3")
-      .bind(body, editedAt, msg.id)
-      .run();
+    await this.env.DB.prepare("UPDATE messages SET body = ?1, edited_at = ?2 WHERE id = ?3").bind(body, editedAt, msg.id).run();
     this.broadcast({ type: "edit", messageId: msg.id, body, editedAt });
   }
 
@@ -888,9 +867,7 @@ export class ChatRoom extends DurableObject<Env> {
       this.broadcast({ type: "pin", messageId: msg.id, pinnedAt: null });
       return;
     }
-    const { results } = await this.env.DB.prepare(
-      "SELECT id FROM messages WHERE room_id = ?1 AND pinned_at IS NOT NULL AND id != ?2 ORDER BY pinned_at ASC",
-    )
+    const { results } = await this.env.DB.prepare("SELECT id FROM messages WHERE room_id = ?1 AND pinned_at IS NOT NULL AND id != ?2 ORDER BY pinned_at ASC")
       .bind(att.roomId, msg.id)
       .all<{ id: string }>();
     const pinnedAt = Date.now();
@@ -968,9 +945,7 @@ function formatWait(ms: number): string {
 /** 2–10 distinct, non-empty answers. */
 function sanitizePoll(raw: unknown): PollInfo {
   const input = (raw && typeof raw === "object" ? raw : {}) as { options?: unknown; multiple?: unknown };
-  const options = Array.isArray(input.options)
-    ? input.options.map((o) => (typeof o === "string" ? o.trim().replace(/\s+/g, " ") : "")).filter(Boolean)
-    : [];
+  const options = Array.isArray(input.options) ? input.options.map((o) => (typeof o === "string" ? o.trim().replace(/\s+/g, " ") : "")).filter(Boolean) : [];
   if (options.some((o) => o.length > LIMITS.pollOptionMax)) throw new UserError(`Answers can be at most ${LIMITS.pollOptionMax} characters.`);
   if (new Set(options.map((o) => o.toLowerCase())).size !== options.length) throw new UserError("Each answer must be different.");
   if (options.length < LIMITS.pollOptionsMin || options.length > LIMITS.pollOptionsMax) {
@@ -997,15 +972,10 @@ function sanitizeLocation(raw: unknown): GeoPoint {
 }
 
 /** Keeps only well-formed metadata; size and type always come from the stored file. */
-function sanitizeMeta(
-  kind: MessageKind,
-  media: { mime: string; size: number; name: string | null },
-  raw: unknown,
-): MediaMeta {
+function sanitizeMeta(kind: MessageKind, media: { mime: string; size: number; name: string | null }, raw: unknown): MediaMeta {
   const input = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const meta: MediaMeta = { mime: media.mime, size: media.size };
-  const int = (v: unknown, max: number) =>
-    typeof v === "number" && Number.isFinite(v) && v > 0 && v <= max ? Math.round(v) : undefined;
+  const int = (v: unknown, max: number) => (typeof v === "number" && Number.isFinite(v) && v > 0 && v <= max ? Math.round(v) : undefined);
   const seconds = (v: unknown, max: number) => {
     const d = Number(v);
     return Number.isFinite(d) && d > 0 ? Math.min(Math.round(d * 10) / 10, max) : undefined;

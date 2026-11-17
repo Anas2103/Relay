@@ -12,38 +12,146 @@ const SECTIONS: [string, Game[]][] = [
   [
     "Puzzles & words",
     [
-      { id: "wordguess", name: "Word Guess", emoji: "🟩", blurb: "Find the 5-letter word in 6 tries", best: (v) => `streak ${v}`, load: () => import("./WordGuess").then((m) => m.WordGuess) },
+      {
+        id: "wordguess",
+        name: "Word Guess",
+        emoji: "🟩",
+        blurb: "Find the 5-letter word in 6 tries",
+        best: (v) => `streak ${v}`,
+        load: () => import("./WordGuess").then((m) => m.WordGuess),
+      },
       { id: "sudoku", name: "Sudoku", emoji: "🔢", blurb: "Classic 9×9, three levels", best: mins, load: () => import("./Sudoku").then((m) => m.Sudoku) },
-      { id: "2048", name: "2048", emoji: "🧮", blurb: "Slide and merge the tiles", best: (v) => `${v}`, load: () => import("./Game2048").then((m) => m.Game2048) },
-      { id: "mines", name: "Minesweeper", emoji: "💣", blurb: "Clear the field without a boom", best: (v) => `${v}s`, load: () => import("./Minesweeper").then((m) => m.Minesweeper) },
-      { id: "slide", name: "Sliding Puzzle", emoji: "🧩", blurb: "Put the tiles back in order", best: (v) => `${v} moves`, load: () => import("./SlidingPuzzle").then((m) => m.SlidingPuzzle) },
-      { id: "hangman", name: "Hangman", emoji: "🔤", blurb: "Guess the word, letter by letter", best: (v) => `streak ${v}`, load: () => import("./Hangman").then((m) => m.Hangman) },
-      { id: "memory", name: "Memory", emoji: "🃏", blurb: "Find all the pairs", best: (v) => `${v} moves`, load: () => import("./Memory").then((m) => m.Memory) },
+      {
+        id: "2048",
+        name: "2048",
+        emoji: "🧮",
+        blurb: "Slide and merge the tiles",
+        best: (v) => `${v}`,
+        load: () => import("./Game2048").then((m) => m.Game2048),
+      },
+      {
+        id: "mines",
+        name: "Minesweeper",
+        emoji: "💣",
+        blurb: "Clear the field without a boom",
+        best: (v) => `${v}s`,
+        load: () => import("./Minesweeper").then((m) => m.Minesweeper),
+      },
+      {
+        id: "slide",
+        name: "Sliding Puzzle",
+        emoji: "🧩",
+        blurb: "Put the tiles back in order",
+        best: (v) => `${v} moves`,
+        load: () => import("./SlidingPuzzle").then((m) => m.SlidingPuzzle),
+      },
+      {
+        id: "hangman",
+        name: "Hangman",
+        emoji: "🔤",
+        blurb: "Guess the word, letter by letter",
+        best: (v) => `streak ${v}`,
+        load: () => import("./Hangman").then((m) => m.Hangman),
+      },
+      {
+        id: "memory",
+        name: "Memory",
+        emoji: "🃏",
+        blurb: "Find all the pairs",
+        best: (v) => `${v} moves`,
+        load: () => import("./Memory").then((m) => m.Memory),
+      },
     ],
   ],
   [
     "Arcade",
     [
-      { id: "blocks", name: "Block Drop", emoji: "🟪", blurb: "Clear lines of falling blocks", best: (v) => `${v}`, load: () => import("./BlockDrop").then((m) => m.BlockDrop) },
-      { id: "snake", name: "Snake", emoji: "🐍", blurb: "Eat, grow, don't bite yourself", best: (v) => `${v}`, load: () => import("./Snake").then((m) => m.Snake) },
-      { id: "bricks", name: "Brick Breaker", emoji: "🧱", blurb: "Bounce the ball, break the wall", best: (v) => `${v}`, load: () => import("./BrickBreaker").then((m) => m.BrickBreaker) },
-      { id: "skyhop", name: "Sky Hop", emoji: "🐤", blurb: "Tap to hop through the towers", best: (v) => `${v}`, load: () => import("./SkyHop").then((m) => m.SkyHop) },
+      {
+        id: "blocks",
+        name: "Block Drop",
+        emoji: "🟪",
+        blurb: "Clear lines of falling blocks",
+        best: (v) => `${v}`,
+        load: () => import("./BlockDrop").then((m) => m.BlockDrop),
+      },
+      {
+        id: "snake",
+        name: "Snake",
+        emoji: "🐍",
+        blurb: "Eat, grow, don't bite yourself",
+        best: (v) => `${v}`,
+        load: () => import("./Snake").then((m) => m.Snake),
+      },
+      {
+        id: "bricks",
+        name: "Brick Breaker",
+        emoji: "🧱",
+        blurb: "Bounce the ball, break the wall",
+        best: (v) => `${v}`,
+        load: () => import("./BrickBreaker").then((m) => m.BrickBreaker),
+      },
+      {
+        id: "skyhop",
+        name: "Sky Hop",
+        emoji: "🐤",
+        blurb: "Tap to hop through the towers",
+        best: (v) => `${v}`,
+        load: () => import("./SkyHop").then((m) => m.SkyHop),
+      },
     ],
   ],
   [
     "Brain & reflexes",
     [
-      { id: "trivia", name: "Trivia", emoji: "🧠", blurb: "10 quick questions, any topic", best: (v) => `${v} pts`, load: () => import("./Trivia").then((m) => m.Trivia) },
-      { id: "math", name: "Math Sprint", emoji: "➗", blurb: "Sums against the clock", best: (v) => `${v}`, load: () => import("./MathSprint").then((m) => m.MathSprint) },
-      { id: "echo", name: "Color Echo", emoji: "🎨", blurb: "Repeat the growing pattern", best: (v) => `level ${v}`, load: () => import("./ColorEcho").then((m) => m.ColorEcho) },
-      { id: "reaction", name: "Reaction time", emoji: "⚡", blurb: "How fast are your reflexes?", best: (v) => `${v} ms`, load: () => import("./Reaction").then((m) => m.Reaction) },
-      { id: "typing", name: "Typing speed", emoji: "⌨️", blurb: "Words per minute in 30 s", best: (v) => `${v} wpm`, load: () => import("./Typing").then((m) => m.Typing) },
+      {
+        id: "trivia",
+        name: "Trivia",
+        emoji: "🧠",
+        blurb: "10 quick questions, any topic",
+        best: (v) => `${v} pts`,
+        load: () => import("./Trivia").then((m) => m.Trivia),
+      },
+      {
+        id: "math",
+        name: "Math Sprint",
+        emoji: "➗",
+        blurb: "Sums against the clock",
+        best: (v) => `${v}`,
+        load: () => import("./MathSprint").then((m) => m.MathSprint),
+      },
+      {
+        id: "echo",
+        name: "Color Echo",
+        emoji: "🎨",
+        blurb: "Repeat the growing pattern",
+        best: (v) => `level ${v}`,
+        load: () => import("./ColorEcho").then((m) => m.ColorEcho),
+      },
+      {
+        id: "reaction",
+        name: "Reaction time",
+        emoji: "⚡",
+        blurb: "How fast are your reflexes?",
+        best: (v) => `${v} ms`,
+        load: () => import("./Reaction").then((m) => m.Reaction),
+      },
+      {
+        id: "typing",
+        name: "Typing speed",
+        emoji: "⌨️",
+        blurb: "Words per minute in 30 s",
+        best: (v) => `${v} wpm`,
+        load: () => import("./Typing").then((m) => m.Typing),
+      },
     ],
   ],
 ];
 
 const ALL = SECTIONS.flatMap(([, g]) => g);
-const LAZY = Object.fromEntries(ALL.map((g) => [g.id, lazy(() => g.load().then((c) => ({ default: c })))])) as unknown as Record<GameId, ComponentType<{ onExit: () => void }>>;
+const LAZY = Object.fromEntries(ALL.map((g) => [g.id, lazy(() => g.load().then((c) => ({ default: c })))])) as unknown as Record<
+  GameId,
+  ComponentType<{ onExit: () => void }>
+>;
 
 /** The arcade: pick a game. Your best scores stay on this device. */
 export function GamesHub() {

@@ -87,7 +87,9 @@ export function QuickSwitcher({ rooms, me, onPick, onClose }: { rooms: Room[]; m
                   {r.peer && !r.saved && <span className="block truncate text-xs text-zinc-500 dark:text-zinc-400">@{r.peer.username}</span>}
                 </span>
                 {r.unreadCount > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-semibold text-accent-ink">{r.unreadCount}</span>
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-semibold text-accent-ink">
+                    {r.unreadCount}
+                  </span>
                 )}
               </button>
             </li>
@@ -111,7 +113,11 @@ export function QuickSwitcher({ rooms, me, onPick, onClose }: { rooms: Room[]; m
 }
 
 function Kbd({ children }: { children: string }) {
-  return <kbd className="rounded-md bg-zinc-100 px-1.5 py-0.5 font-sans font-medium text-zinc-600 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700">{children}</kbd>;
+  return (
+    <kbd className="rounded-md bg-zinc-100 px-1.5 py-0.5 font-sans font-medium text-zinc-600 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700">
+      {children}
+    </kbd>
+  );
 }
 
 /** Letters appear in order ("gmr" matches "Grimm"). */

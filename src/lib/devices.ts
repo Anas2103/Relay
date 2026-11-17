@@ -185,7 +185,10 @@ export const canPickSpeaker = typeof HTMLMediaElement !== "undefined" && "setSin
 
 function clean(label: string) {
   // "Default - Speakers (Realtek(R) Audio)" → "Speakers (Realtek(R) Audio)"; strip USB ids like "(046d:0825)".
-  return label.replace(/^(Default|Communications) - /, "").replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)$/i, "").trim();
+  return label
+    .replace(/^(Default|Communications) - /, "")
+    .replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)$/i, "")
+    .trim();
 }
 
 export async function refreshDevices(): Promise<DeviceList> {

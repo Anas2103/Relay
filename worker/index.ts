@@ -13,10 +13,13 @@ import {
   hashPassword,
   loadMe,
   rateLimit,
+  readCookie,
   requireUser,
   sessionCookie,
   verifyPassword,
 } from "./auth";
+import { AGE_BLOCK_COOKIE, UNDER_AGE_MESSAGE } from "./consent";
+import { AGE_BLOCK_SECONDS, ageOn, MIN_AGE, parseBirthDate, TERMS_VERSION } from "../shared/legal";
 import { lobby, type Env } from "./env";
 import { assertSameOrigin, clientIp, HttpError, json, readJson } from "./http";
 import {
@@ -75,6 +78,7 @@ export default {
     ctx.waitUntil(liftExpiredSuspensions(env).then((n) => void (n && console.log("suspensions lifted:", n))));
     ctx.waitUntil(expireStories(env).then((n) => void (n && console.log("expired stories:", n))));
     ctx.waitUntil(expireChillCache(env).catch(() => 0));
+    ctx.waitUntil(purgeStaleRecords(env).catch((err) => console.error("purge failed", err)));
   },
 
   async fetch(request, env): Promise<Response> {
@@ -83,12 +87,28 @@ export default {
       if (request.method !== "GET" && request.method !== "HEAD") assertSameOrigin(request, url);
       return secure(await route(request, env, url));
     } catch (err) {
-      if (err instanceof HttpError) return secure(json({ error: err.message }, err.status));
+      if (err instanceof HttpError) return secure(json({ error: err.message }, err.status, err.headers));
       console.error(err);
       return secure(json({ error: "Something went wrong. Please try again." }, 500));
     }
   },
 } satisfies ExportedHandler<Env>;
+
+/**
+ * Data minimisation: rate-limit counters (keyed by IP address or username) are only
+ * useful for their window, and expired sign-ins are dead weight. Delete them.
+ */
+async function purgeStaleRecords(env: Env): Promise<void> {
+  const now = Date.now();
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM rate_limits WHERE window_start < ?1").bind(now - RATE_LIMIT_KEEP_MS),
+    env.DB.prepare("DELETE FROM sessions WHERE expires_at < ?1").bind(now),
+    env.DB.prepare("DELETE FROM login_challenges WHERE expires_at < ?1").bind(now),
+  ]);
+}
+
+/** Longest rate-limit window in use is a day (stories); keep counters a bit longer than that. */
+const RATE_LIMIT_KEEP_MS = 2 * 24 * 60 * 60 * 1000;
 
 /** Hardening headers on every API response (pages get theirs from public/_headers). */
 const API_HEADERS: Record<string, string> = {
@@ -236,7 +256,20 @@ async function register(request: Request, env: Env): Promise<Response> {
   if (!(await readSiteSettings(env)).registrationOpen) {
     throw new HttpError(403, "Sign-ups are closed right now. Ask an admin to create an account for you.");
   }
-  const body = await readJson<{ username?: unknown; password?: unknown; displayName?: unknown }>(request);
+  const body = await readJson<{ username?: unknown; password?: unknown; displayName?: unknown; birthDate?: unknown; acceptTerms?: unknown }>(request);
+
+  // Age gate (Relay is MIN_AGE+). Someone who just entered an under-age date can't simply
+  // retry with another one for a day: a short-lived cookie that holds no personal data.
+  if (readCookie(request, AGE_BLOCK_COOKIE)) throw new HttpError(403, UNDER_AGE_MESSAGE);
+  const birthDate = parseBirthDate(body.birthDate);
+  if (!birthDate) throw new HttpError(400, "Enter your date of birth.");
+  if (ageOn(birthDate) < MIN_AGE) {
+    // Nothing about them is stored.
+    throw new HttpError(403, UNDER_AGE_MESSAGE, {
+      "Set-Cookie": `${AGE_BLOCK_COOKIE}=1; HttpOnly; Secure; SameSite=Strict; Path=/api/auth; Max-Age=${AGE_BLOCK_SECONDS}`,
+    });
+  }
+  if (body.acceptTerms !== true) throw new HttpError(400, "Please accept the Terms of Service and Privacy Policy.");
 
   const username = validUsername(body.username);
   const password = validPassword(body.password, username);
@@ -249,10 +282,10 @@ async function register(request: Request, env: Env): Promise<Response> {
   const now = Date.now();
   try {
     await env.DB.prepare(
-      `INSERT INTO users (id, username, display_name, password_hash, created_at, last_login_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?5)`,
+      `INSERT INTO users (id, username, display_name, password_hash, created_at, last_login_at, birth_date, terms_version, terms_accepted_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?6, ?7, ?5)`,
     )
-      .bind(id, username, displayName, await hashPassword(password), now)
+      .bind(id, username, displayName, await hashPassword(password), now, birthDate, TERMS_VERSION)
       .run();
   } catch (err) {
     if (isUniqueViolation(err)) throw new HttpError(409, "That username is taken.");
@@ -323,14 +356,11 @@ async function iceServers(request: Request, env: Env): Promise<Response> {
   await assertAllowed(env, me.id, "calls");
   if (!env.TURN_KEY_ID || !env.TURN_KEY_API_TOKEN) return json({ iceServers: PUBLIC_STUN, relay: false });
   try {
-    const res = await fetch(
-      `https://rtc.live.cloudflare.com/v1/turn/keys/${env.TURN_KEY_ID}/credentials/generate-ice-servers`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${env.TURN_KEY_API_TOKEN}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ ttl: 4 * 60 * 60 }),
-      },
-    );
+    const res = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${env.TURN_KEY_ID}/credentials/generate-ice-servers`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.TURN_KEY_API_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ ttl: 4 * 60 * 60 }),
+    });
     if (!res.ok) throw new Error(`TURN ${res.status}`);
     const data = (await res.json()) as { iceServers: unknown };
     const servers = Array.isArray(data.iceServers) ? data.iceServers : [data.iceServers];

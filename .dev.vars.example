@@ -1,0 +1,17 @@
+# Local secrets for `npm run dev` / tests. Copy to .dev.vars (git-ignored) and fill in what you need.
+# Every variable is OPTIONAL: Relay runs without them and the matching feature switches itself off.
+# In production, set each one with: npx wrangler secret put NAME
+
+# Cloudflare TURN relay, so calls connect on networks that block direct connections.
+# Dashboard → Realtime → TURN → Create key.
+TURN_KEY_ID=
+TURN_KEY_API_TOKEN=
+
+# Web push notifications while Relay is closed. Generate a pair with: node scripts/vapid-keys.mjs
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+# Contact address given to push services (defaults to the app's own URL).
+VAPID_SUBJECT=
+
+# YouTube Data API v3 key for Chill → Shorts and song matching (free quota: 10,000 units/day).
+YOUTUBE_API_KEY=

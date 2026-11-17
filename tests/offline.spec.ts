@@ -60,7 +60,11 @@ test("signing out wipes the offline copy", async ({ browser }) => {
   await page.getByRole("button", { name: "Settings" }).first().click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("dialog").filter({ hasText: "Sign out?" }).getByRole("button", { name: "Sign out" }).click();
-  await page.getByRole("button", { name: "Create account" }).or(page.getByRole("button", { name: "Sign in" })).first().waitFor();
+  await page
+    .getByRole("button", { name: "Create account" })
+    .or(page.getByRole("button", { name: "Sign in" }))
+    .first()
+    .waitFor();
   const after = await page.evaluate(
     () =>
       new Promise<number>((resolve) => {

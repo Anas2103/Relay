@@ -39,7 +39,11 @@ test("strangers start as a request and can't call", async ({ browser }) => {
   const id = uniq();
   const cat = await signUp(browser, `cat_${id}`);
   const dan = await signUp(browser, `dan_${id}`);
-  const res = await cat.evaluate(async (u) => (await fetch("/api/rooms/dm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: u }) })).status, `dan_${id}`);
+  const res = await cat.evaluate(
+    async (u) =>
+      (await fetch("/api/rooms/dm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: u }) })).status,
+    `dan_${id}`,
+  );
   expect(res).toBe(200);
   await dan.reload();
   await expect(dan.getByText(/request/i).first()).toBeVisible();

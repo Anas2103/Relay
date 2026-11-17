@@ -11,9 +11,7 @@ import { str } from "./validate";
 const HOUR = 60 * 60 * 1000;
 
 async function groupAdmin(env: Env, roomId: string, userId: string): Promise<void> {
-  const row = await env.DB.prepare(
-    "SELECT m.role, r.type FROM room_members m JOIN rooms r ON r.id = m.room_id WHERE m.room_id = ?1 AND m.user_id = ?2",
-  )
+  const row = await env.DB.prepare("SELECT m.role, r.type FROM room_members m JOIN rooms r ON r.id = m.room_id WHERE m.room_id = ?1 AND m.user_id = ?2")
     .bind(roomId, userId)
     .first<{ role: string; type: string }>();
   if (!row) throw new HttpError(404, "Chat not found.");
@@ -75,7 +73,12 @@ export async function createReport(request: Request, env: Env): Promise<Response
     // Secret chats: the server only has ciphertext, so the reporter can choose to share what it said.
     const encrypted = isEncrypted(msg.body);
     const evidence = str(body.evidence).slice(0, LIMITS.messageMax);
-    snapshot = { kind: msg.kind, body: encrypted ? evidence : msg.body.slice(0, LIMITS.messageMax), createdAt: msg.created_at, ...(encrypted ? { encrypted: true } : {}) };
+    snapshot = {
+      kind: msg.kind,
+      body: encrypted ? evidence : msg.body.slice(0, LIMITS.messageMax),
+      createdAt: msg.created_at,
+      ...(encrypted ? { encrypted: true } : {}),
+    };
   }
   if (!targetId || targetId === me.id) throw new HttpError(400, "Choose who to report.");
   // You can only report people you actually share a chat with.
@@ -94,7 +97,10 @@ export async function createReport(request: Request, env: Env): Promise<Response
     .run();
   // Admins with the app open see the new report count straight away.
   const { results: admins } = await env.DB.prepare("SELECT id FROM users WHERE role = 'admin'").all<{ id: string }>();
-  await lobby(env).notify(admins.map((a) => a.id), { type: "site-changed" });
+  await lobby(env).notify(
+    admins.map((a) => a.id),
+    { type: "site-changed" },
+  );
   return json({ ok: true }, 201);
 }
 
@@ -145,9 +151,7 @@ export async function resolveReport(request: Request, env: Env, admin: SessionUs
   const body = await readJson<{ status?: unknown }>(request);
   const status = body.status === "dismissed" ? "dismissed" : body.status === "resolved" ? "resolved" : null;
   if (!status) throw new HttpError(400, "Unknown status.");
-  const row = await env.DB.prepare(
-    "UPDATE reports SET status = ?1, resolved_by = ?2, resolved_at = ?3 WHERE id = ?4 RETURNING target_user_id, reason",
-  )
+  const row = await env.DB.prepare("UPDATE reports SET status = ?1, resolved_by = ?2, resolved_at = ?3 WHERE id = ?4 RETURNING target_user_id, reason")
     .bind(status, admin.username, Date.now(), id)
     .first<{ target_user_id: string | null; reason: string }>();
   if (!row) throw new HttpError(404, "Report not found.");
@@ -175,7 +179,13 @@ export async function listBans(request: Request, env: Env, roomId: string): Prom
   )
     .bind(roomId)
     .all<{ id: string; username: string; display_name: string; avatar_version: number | null; created_at: number }>();
-  const bans: GroupBan[] = results.map((r) => ({ id: r.id, username: r.username, displayName: r.display_name, avatarVersion: r.avatar_version, bannedAt: r.created_at }));
+  const bans: GroupBan[] = results.map((r) => ({
+    id: r.id,
+    username: r.username,
+    displayName: r.display_name,
+    avatarVersion: r.avatar_version,
+    bannedAt: r.created_at,
+  }));
   return json({ bans });
 }
 
@@ -217,7 +227,9 @@ export async function setGroupPhoto(request: Request, env: Env, roomId: string, 
 export async function getGroupPhoto(request: Request, env: Env, roomId: string): Promise<Response> {
   const me = await requireUser(request, env);
   await assertMember(env, roomId, me.id);
-  const row = await env.DB.prepare("SELECT mime, data FROM room_avatars WHERE room_id = ?1").bind(roomId).first<{ mime: string; data: ArrayBuffer | number[] }>();
+  const row = await env.DB.prepare("SELECT mime, data FROM room_avatars WHERE room_id = ?1")
+    .bind(roomId)
+    .first<{ mime: string; data: ArrayBuffer | number[] }>();
   if (!row) throw new HttpError(404, "No group photo.");
   const bytes = row.data instanceof ArrayBuffer ? row.data : new Uint8Array(row.data);
   return new Response(bytes, { headers: mediaHeaders(row.mime, "immutable") });

@@ -1,17 +1,73 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { submitScore, useBest } from "../../lib/scores";
 import { GameShell, Overlay } from "./GameShell";
 
 const W = 10;
 const H = 20;
 const SHAPES: { cells: [number, number][]; color: string }[] = [
-  { cells: [[0, 1], [1, 1], [2, 1], [3, 1]], color: "#06b6d4" },
-  { cells: [[0, 0], [1, 0], [0, 1], [1, 1]], color: "#eab308" },
-  { cells: [[1, 0], [0, 1], [1, 1], [2, 1]], color: "#a855f7" },
-  { cells: [[1, 0], [2, 0], [0, 1], [1, 1]], color: "#22c55e" },
-  { cells: [[0, 0], [1, 0], [1, 1], [2, 1]], color: "#ef4444" },
-  { cells: [[0, 0], [0, 1], [1, 1], [2, 1]], color: "#3b82f6" },
-  { cells: [[2, 0], [0, 1], [1, 1], [2, 1]], color: "#f97316" },
+  {
+    cells: [
+      [0, 1],
+      [1, 1],
+      [2, 1],
+      [3, 1],
+    ],
+    color: "#06b6d4",
+  },
+  {
+    cells: [
+      [0, 0],
+      [1, 0],
+      [0, 1],
+      [1, 1],
+    ],
+    color: "#eab308",
+  },
+  {
+    cells: [
+      [1, 0],
+      [0, 1],
+      [1, 1],
+      [2, 1],
+    ],
+    color: "#a855f7",
+  },
+  {
+    cells: [
+      [1, 0],
+      [2, 0],
+      [0, 1],
+      [1, 1],
+    ],
+    color: "#22c55e",
+  },
+  {
+    cells: [
+      [0, 0],
+      [1, 0],
+      [1, 1],
+      [2, 1],
+    ],
+    color: "#ef4444",
+  },
+  {
+    cells: [
+      [0, 0],
+      [0, 1],
+      [1, 1],
+      [2, 1],
+    ],
+    color: "#3b82f6",
+  },
+  {
+    cells: [
+      [2, 0],
+      [0, 1],
+      [1, 1],
+      [2, 1],
+    ],
+    color: "#f97316",
+  },
 ];
 
 interface Piece {
@@ -21,7 +77,12 @@ interface Piece {
   y: number;
 }
 
-const spawn = (i = Math.floor(Math.random() * SHAPES.length)): Piece => ({ ...SHAPES[i], cells: SHAPES[i].cells.map((c) => [...c] as [number, number]), x: 3, y: 0 });
+const spawn = (i = Math.floor(Math.random() * SHAPES.length)): Piece => ({
+  ...SHAPES[i],
+  cells: SHAPES[i].cells.map((c) => [...c] as [number, number]),
+  x: 3,
+  y: 0,
+});
 const rotate = (cells: [number, number][]): [number, number][] => {
   // Turn clockwise around the piece's own box.
   const size = Math.max(...cells.flat()) + 1;
@@ -155,7 +216,14 @@ export function BlockDrop({ onExit }: { onExit: () => void }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const map: Record<string, "left" | "right" | "down" | "rotate" | "drop"> = { ArrowLeft: "left", ArrowRight: "right", ArrowDown: "down", ArrowUp: "rotate", x: "rotate", " ": "drop" };
+      const map: Record<string, "left" | "right" | "down" | "rotate" | "drop"> = {
+        ArrowLeft: "left",
+        ArrowRight: "right",
+        ArrowDown: "down",
+        ArrowUp: "rotate",
+        x: "rotate",
+        " ": "drop",
+      };
       if (e.key === "p" || e.key === "Escape") return setState((s) => (s === "playing" ? "paused" : s === "paused" ? "playing" : s));
       const a = map[e.key];
       if (!a) return;
@@ -175,14 +243,18 @@ export function BlockDrop({ onExit }: { onExit: () => void }) {
     setState("playing");
   };
 
-  const Pad = ({ a, label, children }: { a: Parameters<typeof act>[0]; label: string; children: React.ReactNode }) => (
-    <button onPointerDown={() => act(a)} aria-label={label} className="flex h-12 flex-1 items-center justify-center rounded-xl bg-black/10 text-lg font-bold active:bg-black/20 dark:bg-white/10">
-      {children}
-    </button>
-  );
-
   return (
-    <GameShell title="Block Drop" onExit={onExit} stats={[["Score", score], ["Lines", lines], ["Best", Math.max(best, score)]]} onRestart={reset} hint="← → move · ↑ turn · ↓ faster · Space drops · P pauses">
+    <GameShell
+      title="Block Drop"
+      onExit={onExit}
+      stats={[
+        ["Score", score],
+        ["Lines", lines],
+        ["Best", Math.max(best, score)],
+      ]}
+      onRestart={reset}
+      hint="← → move · ↑ turn · ↓ faster · Space drops · P pauses"
+    >
       <div className="flex justify-center gap-3">
         <div className="relative h-[min(60dvh,32rem)] aspect-[1/2] overflow-hidden rounded-xl bg-zinc-900 ring-1 ring-black/10">
           <canvas ref={canvas} width={300} height={600} className="size-full" aria-label="Block Drop board" />
@@ -198,18 +270,44 @@ export function BlockDrop({ onExit }: { onExit: () => void }) {
         <div className="w-16 shrink-0">
           <p className="text-[10px] font-semibold tracking-wide text-zinc-500 uppercase">Next</p>
           <canvas ref={preview} width={64} height={64} className="mt-1 rounded-lg bg-zinc-900" />
-          <button onClick={() => setState((s) => (s === "playing" ? "paused" : s === "paused" ? "playing" : s))} className="mt-2 w-full rounded-lg bg-black/5 py-1 text-xs font-semibold dark:bg-white/10">
+          <button
+            onClick={() => setState((s) => (s === "playing" ? "paused" : s === "paused" ? "playing" : s))}
+            className="mt-2 w-full rounded-lg bg-black/5 py-1 text-xs font-semibold dark:bg-white/10"
+          >
             {state === "paused" ? "Resume" : "Pause"}
           </button>
         </div>
       </div>
       <div className="mt-3 flex gap-1.5 md:hidden">
-        <Pad a="left" label="Move left">←</Pad>
-        <Pad a="rotate" label="Turn">⟳</Pad>
-        <Pad a="right" label="Move right">→</Pad>
-        <Pad a="down" label="Down">↓</Pad>
-        <Pad a="drop" label="Drop">⤓</Pad>
+        <Pad onPress={() => act("left")} label="Move left">
+          ←
+        </Pad>
+        <Pad onPress={() => act("rotate")} label="Turn">
+          ⟳
+        </Pad>
+        <Pad onPress={() => act("right")} label="Move right">
+          →
+        </Pad>
+        <Pad onPress={() => act("down")} label="Down">
+          ↓
+        </Pad>
+        <Pad onPress={() => act("drop")} label="Drop">
+          ⤓
+        </Pad>
       </div>
     </GameShell>
+  );
+}
+
+/** On-screen control for touch screens. Defined outside the game so it isn't recreated (and remounted) on every frame. */
+function Pad({ onPress, label, children }: { onPress: () => void; label: string; children: ReactNode }) {
+  return (
+    <button
+      onPointerDown={onPress}
+      aria-label={label}
+      className="flex h-12 flex-1 items-center justify-center rounded-xl bg-black/10 text-lg font-bold active:bg-black/20 dark:bg-white/10"
+    >
+      {children}
+    </button>
   );
 }

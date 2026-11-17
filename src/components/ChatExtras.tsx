@@ -8,7 +8,8 @@ import { Avatar, CheckIcon, SendIcon, Spinner, TrashIcon } from "./ui";
 
 const input =
   "w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-zinc-400 focus:border-accent focus:ring-4 focus:ring-accent/15 dark:border-zinc-700 dark:bg-zinc-800";
-const primary = "flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-40";
+const primary =
+  "flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-40";
 
 // ---------- Report ----------
 
@@ -32,7 +33,14 @@ export function ReportDialog({
     setBusy(true);
     setError(null);
     try {
-      await api.report({ reason, details: details.trim() || undefined, userId: target.userId, roomId: target.roomId, messageId: target.messageId, evidence: target.evidence });
+      await api.report({
+        reason,
+        details: details.trim() || undefined,
+        userId: target.userId,
+        roomId: target.roomId,
+        messageId: target.messageId,
+        evidence: target.evidence,
+      });
       setDone(true);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't send the report.");
@@ -42,7 +50,15 @@ export function ReportDialog({
 
   if (done) {
     return (
-      <Sheet title="Report sent" onClose={onClose} footer={<button className={primary} onClick={onClose}>Done</button>}>
+      <Sheet
+        title="Report sent"
+        onClose={onClose}
+        footer={
+          <button className={primary} onClick={onClose}>
+            Done
+          </button>
+        }
+      >
         <div className="flex flex-col items-center py-4 text-center">
           <span className="flex size-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
             <CheckIcon className="size-6" />
@@ -65,23 +81,37 @@ export function ReportDialog({
     >
       <div className="space-y-4 pt-1">
         {target.preview && (
-          <blockquote className="line-clamp-3 rounded-xl bg-zinc-100 px-3.5 py-2.5 text-sm break-words dark:bg-zinc-800">{plainText(target.preview)}</blockquote>
+          <blockquote className="line-clamp-3 rounded-xl bg-zinc-100 px-3.5 py-2.5 text-sm break-words dark:bg-zinc-800">
+            {plainText(target.preview)}
+          </blockquote>
         )}
         {target.evidence !== undefined && (
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">This is a secret chat: the text above is shared with the admins so they can see what was said.</p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            This is a secret chat: the text above is shared with the admins so they can see what was said.
+          </p>
         )}
         <fieldset>
           <legend className="mb-2 text-sm font-medium">What's wrong?</legend>
           <div className="space-y-1.5">
             {(Object.entries(REPORT_REASONS) as [ReportReason, string][]).map(([id, label]) => (
-              <label key={id} className={`flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm ring-1 transition ${reason === id ? "bg-accent/10 ring-2 ring-accent" : "ring-zinc-200 hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800"}`}>
+              <label
+                key={id}
+                className={`flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm ring-1 transition ${reason === id ? "bg-accent/10 ring-2 ring-accent" : "ring-zinc-200 hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800"}`}
+              >
                 <input type="radio" name="reason" checked={reason === id} onChange={() => setReason(id)} className="accent-[var(--accent)]" />
                 {label}
               </label>
             ))}
           </div>
         </fieldset>
-        <textarea className={`${input} resize-none`} rows={3} value={details} onChange={(e) => setDetails(e.target.value)} maxLength={1000} placeholder="Anything else the admins should know? (optional)" />
+        <textarea
+          className={`${input} resize-none`}
+          rows={3}
+          value={details}
+          onChange={(e) => setDetails(e.target.value)}
+          maxLength={1000}
+          placeholder="Anything else the admins should know? (optional)"
+        />
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       </div>
     </Sheet>
@@ -128,7 +158,11 @@ export function ScheduleDialog({ text, onSchedule, onClose }: { text: string; on
         <blockquote className="line-clamp-3 rounded-xl bg-zinc-100 px-3.5 py-2.5 text-sm break-words dark:bg-zinc-800">{plainText(text)}</blockquote>
         <div className="flex flex-wrap gap-2">
           {presets.map(([label, ts]) => (
-            <button key={label} onClick={() => setValue(toLocalInput(ts))} className="min-h-9 rounded-full px-3.5 py-1.5 text-sm ring-1 ring-zinc-200 transition hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800">
+            <button
+              key={label}
+              onClick={() => setValue(toLocalInput(ts))}
+              className="min-h-9 rounded-full px-3.5 py-1.5 text-sm ring-1 ring-zinc-200 transition hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800"
+            >
               {label}
             </button>
           ))}
@@ -170,10 +204,16 @@ export function ScheduledSheet({
               </p>
               <p className="mt-1 line-clamp-3 text-sm break-words">{s.body.startsWith("e2e1.") ? "🔒 Encrypted message" : plainText(s.body)}</p>
               <div className="mt-2 flex gap-2">
-                <button onClick={() => onSendNow(s.id)} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-accent-fg ring-1 ring-accent/30 hover:bg-accent/10">
+                <button
+                  onClick={() => onSendNow(s.id)}
+                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-accent-fg ring-1 ring-accent/30 hover:bg-accent/10"
+                >
                   <SendIcon className="size-3.5" /> Send now
                 </button>
-                <button onClick={() => onDelete(s.id)} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-600 ring-1 ring-red-600/25 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40">
+                <button
+                  onClick={() => onDelete(s.id)}
+                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-600 ring-1 ring-red-600/25 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                >
                   <TrashIcon className="size-3.5" /> Delete
                 </button>
               </div>

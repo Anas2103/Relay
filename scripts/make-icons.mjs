@@ -79,7 +79,10 @@ function sample(u, v, { rounded, scale }) {
 function icon(size, opts) {
   const SS = 4;
   return png(size, (px, py) => {
-    let r = 0, g = 0, b = 0, a = 0;
+    let r = 0,
+      g = 0,
+      b = 0,
+      a = 0;
     for (let i = 0; i < SS; i++) {
       for (let j = 0; j < SS; j++) {
         const c = sample(((px + (i + 0.5) / SS) / size) * 32, ((py + (j + 0.5) / SS) / size) * 32, opts);

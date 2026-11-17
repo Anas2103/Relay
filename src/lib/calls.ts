@@ -541,9 +541,7 @@ class CallManager {
 
   /** What you see of yourself: your audio plus your camera (or the screen you're sharing). */
   private composeLocal() {
-    const tracks = [this.audioTrack(), this.screenTrack ?? (this.state.camOn ? this.camTrack : null)].filter(
-      (t): t is MediaStreamTrack => !!t,
-    );
+    const tracks = [this.audioTrack(), this.screenTrack ?? (this.state.camOn ? this.camTrack : null)].filter((t): t is MediaStreamTrack => !!t);
     this.set({ localStream: tracks.length ? new MediaStream(tracks) : null });
   }
 

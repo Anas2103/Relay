@@ -78,10 +78,23 @@ export function SlidingPuzzle({ onExit }: { onExit: () => void }) {
   });
 
   return (
-    <GameShell title="Sliding Puzzle" onExit={onExit} stats={[["Moves", moves], ["Best", best ?? "—"]]} onRestart={() => reset()} hint="Tap a tile next to the gap (or use the arrow keys). Put them back in order 1, 2, 3…">
+    <GameShell
+      title="Sliding Puzzle"
+      onExit={onExit}
+      stats={[
+        ["Moves", moves],
+        ["Best", best ?? "—"],
+      ]}
+      onRestart={() => reset()}
+      hint="Tap a tile next to the gap (or use the arrow keys). Put them back in order 1, 2, 3…"
+    >
       <div className="mb-2 flex rounded-xl bg-black/5 p-1 dark:bg-white/10">
         {[3, 4, 5].map((s) => (
-          <button key={s} onClick={() => reset(s)} className={`flex-1 rounded-lg py-1 text-sm font-medium ${n === s ? "bg-white shadow-sm dark:bg-zinc-600" : "text-zinc-500"}`}>
+          <button
+            key={s}
+            onClick={() => reset(s)}
+            className={`flex-1 rounded-lg py-1 text-sm font-medium ${n === s ? "bg-white shadow-sm dark:bg-zinc-600" : "text-zinc-500"}`}
+          >
             {s}×{s}
           </button>
         ))}

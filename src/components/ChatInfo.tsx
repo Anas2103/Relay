@@ -110,7 +110,11 @@ export function ChatInfo(props: Props) {
   const muted = isMuted(room);
 
   useEffect(() => {
-    if (peer && !room.saved) api.profile(peer.id).then((r) => setProfile(r.profile)).catch(() => {});
+    if (peer && !room.saved)
+      api
+        .profile(peer.id)
+        .then((r) => setProfile(r.profile))
+        .catch(() => {});
   }, [peer, room.saved]);
 
   useEffect(() => {
@@ -137,11 +141,11 @@ export function ChatInfo(props: Props) {
       ? `${room.memberCount} members`
       : profile?.dnd && presence?.online
         ? "Do not disturb"
-      : presence?.online
-        ? "Online"
-        : (presence?.lastSeenAt ?? profile?.lastSeenAt)
-          ? `Last seen ${formatRelative((presence?.lastSeenAt ?? profile?.lastSeenAt)!)}`
-          : "Last seen recently";
+        : presence?.online
+          ? "Online"
+          : (presence?.lastSeenAt ?? profile?.lastSeenAt)
+            ? `Last seen ${formatRelative((presence?.lastSeenAt ?? profile?.lastSeenAt)!)}`
+            : "Last seen recently";
   const picture = peer && !room.saved ? avatarUrl(peer) : null;
   const [reporting, setReporting] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
@@ -149,168 +153,190 @@ export function ChatInfo(props: Props) {
 
   return (
     <>
-    {/* Tablets and small laptops: the panel slides over the chat (there isn't room for three columns). */}
-    <div className="fade-in fixed inset-0 z-30 hidden bg-zinc-950/30 backdrop-blur-[2px] md:block xl:hidden" onClick={onClose} aria-hidden="true" />
-    <aside
-      className="panel pane slide-up safe-top fixed inset-0 z-40 flex flex-col bg-white md:inset-y-0 md:right-0 md:left-auto md:w-[24rem] md:shadow-2xl xl:static xl:z-auto xl:w-96 xl:shrink-0 xl:shadow-none dark:bg-zinc-900"
-      aria-label={heading}
-    >
-      <div className="flex items-center justify-between px-4 py-3">
-        <h2 className="font-semibold">{heading}</h2>
-        <button onClick={onClose} className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800" aria-label="Close">
-          <XIcon className="size-5" />
-        </button>
-      </div>
+      {/* Tablets and small laptops: the panel slides over the chat (there isn't room for three columns). */}
+      <div className="fade-in fixed inset-0 z-30 hidden bg-zinc-950/30 backdrop-blur-[2px] md:block xl:hidden" onClick={onClose} aria-hidden="true" />
+      <aside
+        className="panel pane slide-up safe-top fixed inset-0 z-40 flex flex-col bg-white md:inset-y-0 md:right-0 md:left-auto md:w-[24rem] md:shadow-2xl xl:static xl:z-auto xl:w-96 xl:shrink-0 xl:shadow-none dark:bg-zinc-900"
+        aria-label={heading}
+      >
+        <div className="flex items-center justify-between px-4 py-3">
+          <h2 className="font-semibold">{heading}</h2>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800" aria-label="Close">
+            <XIcon className="size-5" />
+          </button>
+        </div>
 
-      <div className="flex-1 overflow-y-auto overscroll-contain">
-        {/* Profile */}
-        <div className="flex flex-col items-center px-6 pt-2 pb-4 text-center">
-          {room.type === "group" && room.role === "admin" ? (
-            <GroupPhoto room={room} onChanged={props.onRoomsChanged} />
-          ) : picture ? (
-            <button onClick={() => setZoom(true)} className="avatar-shape cursor-zoom-in" aria-label="View profile picture">
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+          {/* Profile */}
+          <div className="flex flex-col items-center px-6 pt-2 pb-4 text-center">
+            {room.type === "group" && room.role === "admin" ? (
+              <GroupPhoto room={room} onChanged={props.onRoomsChanged} />
+            ) : picture ? (
+              <button onClick={() => setZoom(true)} className="avatar-shape cursor-zoom-in" aria-label="View profile picture">
+                <RoomAvatar room={room} size="xl" online={isDm && !room.secret ? presence?.online : undefined} />
+              </button>
+            ) : (
               <RoomAvatar room={room} size="xl" online={isDm && !room.secret ? presence?.online : undefined} />
-            </button>
-          ) : (
-            <RoomAvatar room={room} size="xl" online={isDm && !room.secret ? presence?.online : undefined} />
-          )}
-          {room.type === "group" && room.role === "admin" ? (
-            <GroupName room={room} onSaved={props.onRoomUpdated} />
-          ) : (
-            <h3 className={`mt-3 flex max-w-full items-center justify-center gap-1.5 text-xl font-semibold tracking-tight break-words ${room.secret ? "text-emerald-700 dark:text-emerald-400" : ""}`}>
-              {room.secret && <LockIcon className="size-5" />}
-              {title}
-            </h3>
-          )}
-          {peer && isDm && <p className="text-sm text-zinc-500 dark:text-zinc-400">@{peer.username}</p>}
-          <p className={`mt-1 text-sm ${presence?.online && isDm ? (profile?.dnd ? "text-red-600 dark:text-red-400" : "text-accent-fg") : "text-zinc-500 dark:text-zinc-400"}`}>{status}</p>
-          {isDm && (profile?.statusText || peer?.statusText) && (
-            <p className="mt-2 max-w-full rounded-full bg-zinc-100 px-3 py-1 text-sm break-words dark:bg-zinc-800">{profile?.statusText || peer?.statusText}</p>
-          )}
-
-          {/* Quick actions */}
-          {accepted && (
-            <div className="mt-4 flex w-full max-w-sm justify-center gap-2">
-              {peer && isDm && !room.blocked && !room.blockedMe && (
-                <>
-                  <InfoAction icon={<PhoneIcon className="size-5" />} label="Voice" onClick={() => onCall(false)} />
-                  <InfoAction icon={<VideoIcon className="size-5" />} label="Video" onClick={() => onCall(true)} />
-                </>
-              )}
-              {!room.saved && (
-                <InfoAction
-                  icon={muted ? <BellIcon className="size-5" /> : <BellOffIcon className="size-5" />}
-                  label={muted ? "Unmute" : "Mute"}
-                  onClick={() => onPrefs(room, { mutedUntil: muted ? null : MUTE_FOREVER })}
-                />
-              )}
-              {isDm && !room.secret && !room.blocked && !room.blockedMe && secretOn && (
-                <InfoAction
-                  icon={busy === "secret" ? <Spinner className="size-5" /> : <LockIcon className="size-5" />}
-                  label="Secret chat"
-                  tone="emerald"
-                  onClick={() => run("secret", () => props.onStartSecret(room))}
-                />
-              )}
-            </div>
-          )}
-          {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
-
-          {room.secret && <SecretKeyCard state={secretState} name={peer?.displayName ?? title} />}
-
-          {profile && isDm && (
-            <div className="mt-4 w-full space-y-3 rounded-2xl bg-zinc-50 p-4 text-left dark:bg-zinc-800/60">
-              <div>
-                <p className="text-xs font-medium tracking-wide text-zinc-400 uppercase">Bio</p>
-                <p className={`mt-0.5 text-sm whitespace-pre-wrap ${profile.bio ? "" : "text-zinc-400 italic"}`}>{profile.bio || "No bio yet."}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium tracking-wide text-zinc-400 uppercase">Joined</p>
-                <p className="mt-0.5 text-sm">{joinedFmt.format(profile.createdAt)}</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Chat settings */}
-        {accepted && (
-          <div className="mx-4 mb-4 divide-y divide-zinc-100 overflow-hidden rounded-2xl ring-1 ring-zinc-200 dark:divide-zinc-800 dark:ring-zinc-800">
-            <button onClick={() => setThemeOpen(true)} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
-              <PaletteIcon className="size-5 text-zinc-500 dark:text-zinc-400" />
-              <span className="flex-1">Theme</span>
-              <span className="text-zinc-500 dark:text-zinc-400">{room.theme ? CHAT_THEMES[room.theme].label : "Default"}</span>
-            </button>
-            <DisappearRow room={room} canChange={canChange} onSaved={props.onRoomUpdated} />
-            {!room.archived && (
-              <ToggleItem icon={<PinIcon className="size-5" />} label="Pin to top of chat list" checked={room.pinned} onChange={() => onPrefs(room, { pinned: !room.pinned })} />
             )}
-            <ToggleItem icon={<ArchiveIcon className="size-5" />} label="Archived" checked={room.archived} onChange={() => onPrefs(room, { archived: !room.archived })} />
-          </div>
-        )}
-
-        {room.type === "group" && room.role === "admin" && <GroupAdminSettings room={room} onSaved={props.onRoomUpdated} />}
-
-        {/* Pinned messages */}
-        {props.pinned.length > 0 && (
-          <Section title="Pinned messages">
-            <ul className="space-y-1">
-              {props.pinned.map((m) => (
-                <li key={m.id}>
-                  <button onClick={() => props.onJump(m.id)} className="w-full rounded-xl px-3 py-2 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
-                    <span className="block text-xs font-semibold text-accent-fg">{m.userId === me.id ? "You" : m.displayName}</span>
-                    <span className="block truncate text-sm">{(m as Message & { locked?: boolean }).locked ? "🔒 Encrypted message" : m.body || m.kind}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </Section>
-        )}
-
-        {room.type === "group" && <Members {...props} />}
-
-        {/* Shared content (secret chats are text-only and can't be searched by the server) */}
-        {!room.secret && accepted && <SharedContent {...props} />}
-
-        {/* Danger zone */}
-        <div className="space-y-2 px-4 pt-2 pb-8">
-          {peer && isDm && !room.blockedMe && !room.secret && (
-            <DangerButton
-              tone={room.blocked ? "accent" : "red"}
-              onClick={() => {
-                if (room.blocked) void onUnblock(peer);
-                else if (confirm(`Block ${title}? They won't be able to message or call you, and you won't see each other's online status.`)) void onBlock(peer);
-              }}
+            {room.type === "group" && room.role === "admin" ? (
+              <GroupName room={room} onSaved={props.onRoomUpdated} />
+            ) : (
+              <h3
+                className={`mt-3 flex max-w-full items-center justify-center gap-1.5 text-xl font-semibold tracking-tight break-words ${room.secret ? "text-emerald-700 dark:text-emerald-400" : ""}`}
+              >
+                {room.secret && <LockIcon className="size-5" />}
+                {title}
+              </h3>
+            )}
+            {peer && isDm && <p className="text-sm text-zinc-500 dark:text-zinc-400">@{peer.username}</p>}
+            <p
+              className={`mt-1 text-sm ${presence?.online && isDm ? (profile?.dnd ? "text-red-600 dark:text-red-400" : "text-accent-fg") : "text-zinc-500 dark:text-zinc-400"}`}
             >
-              <span className="truncate">{room.blocked ? `Unblock ${title}` : `Block ${title}`}</span>
-            </DangerButton>
-          )}
-          {peer && isDm && !room.saved && (
-            <DangerButton tone="red" onClick={() => setReporting(true)}>
-              <AlertIcon className="size-4" />
-              <span className="truncate">Report {title}</span>
-            </DangerButton>
-          )}
-          {accepted && (
-            <DangerButton tone="red" onClick={() => onDelete(room)}>
-              <TrashIcon className="size-4" />
-              {room.type === "group"
-                ? room.role === "admin"
-                  ? "Delete group"
-                  : "Leave group"
-                : room.secret
-                  ? "End secret chat"
-                  : room.saved
-                    ? "Clear Saved Messages"
-                    : "Delete chat"}
-            </DangerButton>
-          )}
-        </div>
-      </div>
+              {status}
+            </p>
+            {isDm && (profile?.statusText || peer?.statusText) && (
+              <p className="mt-2 max-w-full rounded-full bg-zinc-100 px-3 py-1 text-sm break-words dark:bg-zinc-800">
+                {profile?.statusText || peer?.statusText}
+              </p>
+            )}
 
-      {zoom && picture && <ImageViewer src={picture} onClose={() => setZoom(false)} />}
-      {themeOpen && <ChatThemePicker room={room} onSaved={props.onRoomUpdated} onClose={() => setThemeOpen(false)} />}
-      {reporting && peer && <ReportDialog target={{ userId: peer.id, name: title }} onClose={() => setReporting(false)} />}
-    </aside>
+            {/* Quick actions */}
+            {accepted && (
+              <div className="mt-4 flex w-full max-w-sm justify-center gap-2">
+                {peer && isDm && !room.blocked && !room.blockedMe && (
+                  <>
+                    <InfoAction icon={<PhoneIcon className="size-5" />} label="Voice" onClick={() => onCall(false)} />
+                    <InfoAction icon={<VideoIcon className="size-5" />} label="Video" onClick={() => onCall(true)} />
+                  </>
+                )}
+                {!room.saved && (
+                  <InfoAction
+                    icon={muted ? <BellIcon className="size-5" /> : <BellOffIcon className="size-5" />}
+                    label={muted ? "Unmute" : "Mute"}
+                    onClick={() => onPrefs(room, { mutedUntil: muted ? null : MUTE_FOREVER })}
+                  />
+                )}
+                {isDm && !room.secret && !room.blocked && !room.blockedMe && secretOn && (
+                  <InfoAction
+                    icon={busy === "secret" ? <Spinner className="size-5" /> : <LockIcon className="size-5" />}
+                    label="Secret chat"
+                    tone="emerald"
+                    onClick={() => run("secret", () => props.onStartSecret(room))}
+                  />
+                )}
+              </div>
+            )}
+            {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+            {room.secret && <SecretKeyCard state={secretState} name={peer?.displayName ?? title} />}
+
+            {profile && isDm && (
+              <div className="mt-4 w-full space-y-3 rounded-2xl bg-zinc-50 p-4 text-left dark:bg-zinc-800/60">
+                <div>
+                  <p className="text-xs font-medium tracking-wide text-zinc-400 uppercase">Bio</p>
+                  <p className={`mt-0.5 text-sm whitespace-pre-wrap ${profile.bio ? "" : "text-zinc-400 italic"}`}>{profile.bio || "No bio yet."}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium tracking-wide text-zinc-400 uppercase">Joined</p>
+                  <p className="mt-0.5 text-sm">{joinedFmt.format(profile.createdAt)}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Chat settings */}
+          {accepted && (
+            <div className="mx-4 mb-4 divide-y divide-zinc-100 overflow-hidden rounded-2xl ring-1 ring-zinc-200 dark:divide-zinc-800 dark:ring-zinc-800">
+              <button
+                onClick={() => setThemeOpen(true)}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+              >
+                <PaletteIcon className="size-5 text-zinc-500 dark:text-zinc-400" />
+                <span className="flex-1">Theme</span>
+                <span className="text-zinc-500 dark:text-zinc-400">{room.theme ? CHAT_THEMES[room.theme].label : "Default"}</span>
+              </button>
+              <DisappearRow room={room} canChange={canChange} onSaved={props.onRoomUpdated} />
+              {!room.archived && (
+                <ToggleItem
+                  icon={<PinIcon className="size-5" />}
+                  label="Pin to top of chat list"
+                  checked={room.pinned}
+                  onChange={() => onPrefs(room, { pinned: !room.pinned })}
+                />
+              )}
+              <ToggleItem
+                icon={<ArchiveIcon className="size-5" />}
+                label="Archived"
+                checked={room.archived}
+                onChange={() => onPrefs(room, { archived: !room.archived })}
+              />
+            </div>
+          )}
+
+          {room.type === "group" && room.role === "admin" && <GroupAdminSettings room={room} onSaved={props.onRoomUpdated} />}
+
+          {/* Pinned messages */}
+          {props.pinned.length > 0 && (
+            <Section title="Pinned messages">
+              <ul className="space-y-1">
+                {props.pinned.map((m) => (
+                  <li key={m.id}>
+                    <button onClick={() => props.onJump(m.id)} className="w-full rounded-xl px-3 py-2 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
+                      <span className="block text-xs font-semibold text-accent-fg">{m.userId === me.id ? "You" : m.displayName}</span>
+                      <span className="block truncate text-sm">{(m as Message & { locked?: boolean }).locked ? "🔒 Encrypted message" : m.body || m.kind}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
+
+          {room.type === "group" && <Members {...props} />}
+
+          {/* Shared content (secret chats are text-only and can't be searched by the server) */}
+          {!room.secret && accepted && <SharedContent {...props} />}
+
+          {/* Danger zone */}
+          <div className="space-y-2 px-4 pt-2 pb-8">
+            {peer && isDm && !room.blockedMe && !room.secret && (
+              <DangerButton
+                tone={room.blocked ? "accent" : "red"}
+                onClick={() => {
+                  if (room.blocked) void onUnblock(peer);
+                  else if (confirm(`Block ${title}? They won't be able to message or call you, and you won't see each other's online status.`))
+                    void onBlock(peer);
+                }}
+              >
+                <span className="truncate">{room.blocked ? `Unblock ${title}` : `Block ${title}`}</span>
+              </DangerButton>
+            )}
+            {peer && isDm && !room.saved && (
+              <DangerButton tone="red" onClick={() => setReporting(true)}>
+                <AlertIcon className="size-4" />
+                <span className="truncate">Report {title}</span>
+              </DangerButton>
+            )}
+            {accepted && (
+              <DangerButton tone="red" onClick={() => onDelete(room)}>
+                <TrashIcon className="size-4" />
+                {room.type === "group"
+                  ? room.role === "admin"
+                    ? "Delete group"
+                    : "Leave group"
+                  : room.secret
+                    ? "End secret chat"
+                    : room.saved
+                      ? "Clear Saved Messages"
+                      : "Delete chat"}
+              </DangerButton>
+            )}
+          </div>
+        </div>
+
+        {zoom && picture && <ImageViewer src={picture} onClose={() => setZoom(false)} />}
+        {themeOpen && <ChatThemePicker room={room} onSaved={props.onRoomUpdated} onClose={() => setThemeOpen(false)} />}
+        {reporting && peer && <ReportDialog target={{ userId: peer.id, name: title }} onClose={() => setReporting(false)} />}
+      </aside>
     </>
   );
 }
@@ -343,7 +369,12 @@ function InfoAction({ icon, label, onClick, tone }: { icon: ReactNode; label: st
 
 function ToggleItem({ icon, label, checked, onChange }: { icon: ReactNode; label: string; checked: boolean; onChange: () => void }) {
   return (
-    <button onClick={onChange} role="switch" aria-checked={checked} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
+    <button
+      onClick={onChange}
+      role="switch"
+      aria-checked={checked}
+      className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+    >
       <span className="text-zinc-500 dark:text-zinc-400">{icon}</span>
       <span className="flex-1">{label}</span>
       <span className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? "bg-accent" : "bg-zinc-300 dark:bg-zinc-700"}`}>
@@ -399,7 +430,8 @@ function SecretKeyCard({ state, name }: { state: SecretState; name: string }) {
         ))}
       </p>
       <p className="mt-3 text-xs leading-relaxed">
-        Messages here are encrypted on your device and can only be decrypted on {name}'s. Not even the server or the admins can read them. If {name} sees the same emoji, nobody is listening in.
+        Messages here are encrypted on your device and can only be decrypted on {name}'s. Not even the server or the admins can read them. If {name} sees the
+        same emoji, nobody is listening in.
       </p>
     </div>
   );
@@ -491,17 +523,29 @@ function GroupAdminSettings({ room, onSaved }: { room: Room; onSaved: (r: Room) 
                 >
                   {copied ? "Copied ✓" : "Copy link"}
                 </button>
-                <button onClick={() => run("invite", () => api.setInvite(room.id, true))} disabled={!!busy} className="rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-zinc-200 hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800">
+                <button
+                  onClick={() => run("invite", () => api.setInvite(room.id, true))}
+                  disabled={!!busy}
+                  className="rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-zinc-200 hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-800"
+                >
                   Reset link
                 </button>
-                <button onClick={() => run("invite", () => api.setInvite(room.id, false))} disabled={!!busy} className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 ring-1 ring-red-600/25 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40">
+                <button
+                  onClick={() => run("invite", () => api.setInvite(room.id, false))}
+                  disabled={!!busy}
+                  className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 ring-1 ring-red-600/25 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                >
                   Turn off
                 </button>
               </div>
               <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Anyone with the link can join. Resetting it stops the old link working.</p>
             </>
           ) : (
-            <button onClick={() => run("invite", () => api.setInvite(room.id, true))} disabled={!!busy} className="mt-2 rounded-lg px-3 py-1.5 text-xs font-semibold text-accent-fg ring-1 ring-accent/30 hover:bg-accent/10">
+            <button
+              onClick={() => run("invite", () => api.setInvite(room.id, true))}
+              disabled={!!busy}
+              className="mt-2 rounded-lg px-3 py-1.5 text-xs font-semibold text-accent-fg ring-1 ring-accent/30 hover:bg-accent/10"
+            >
               Create invite link
             </button>
           )}
@@ -543,13 +587,20 @@ function BannedList({ room }: { room: Room }) {
   const [bans, setBans] = useState<GroupBan[] | null>(null);
   const [open, setOpen] = useState(false);
   const load = useCallback(() => {
-    api.bans(room.id).then((r) => setBans(r.bans), () => setBans([]));
+    api.bans(room.id).then(
+      (r) => setBans(r.bans),
+      () => setBans([]),
+    );
   }, [room.id]);
   useEffect(load, [load, room.memberCount]);
   if (!bans?.length) return null;
   return (
     <div className="mt-3 overflow-hidden rounded-2xl ring-1 ring-zinc-200 dark:ring-zinc-800">
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800/60" aria-expanded={open}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+        aria-expanded={open}
+      >
         <XIcon className="size-5 text-zinc-500 dark:text-zinc-400" />
         <span className="flex-1">Banned</span>
         <span className="text-xs text-zinc-500">{bans.length}</span>
@@ -560,7 +611,10 @@ function BannedList({ room }: { room: Room }) {
             <li key={b.id} className="flex items-center gap-3 px-4 py-2.5">
               <Avatar name={b.displayName} seed={b.id} user={b} size="sm" />
               <span className="min-w-0 flex-1 truncate text-sm">{b.displayName}</span>
-              <button onClick={() => api.unban(room.id, b.id).then(load, () => {})} className="rounded-lg px-2.5 py-1 text-xs font-semibold text-accent-fg ring-1 ring-accent/30 hover:bg-accent/10">
+              <button
+                onClick={() => api.unban(room.id, b.id).then(load, () => {})}
+                className="rounded-lg px-2.5 py-1 text-xs font-semibold text-accent-fg ring-1 ring-accent/30 hover:bg-accent/10"
+              >
                 Unban
               </button>
             </li>
@@ -658,7 +712,10 @@ function Members({ room, me, rooms, onRoomsChanged }: Props) {
   const isAdmin = room.role === "admin";
 
   const load = useCallback(() => {
-    api.members(room.id).then((r) => setMembers(r.members)).catch(() => setMembers([]));
+    api
+      .members(room.id)
+      .then((r) => setMembers(r.members))
+      .catch(() => setMembers([]));
   }, [room.id]);
   useEffect(load, [load, room.memberCount]);
 
@@ -677,7 +734,11 @@ function Members({ room, me, rooms, onRoomsChanged }: Props) {
           label: "Remove from group",
           danger: true,
           onClick: () => {
-            if (confirm(`Remove ${m.displayName} from the group?`)) api.removeMember(room.id, m.id).then(() => (load(), onRoomsChanged()), () => {});
+            if (confirm(`Remove ${m.displayName} from the group?`))
+              api.removeMember(room.id, m.id).then(
+                () => (load(), onRoomsChanged()),
+                () => {},
+              );
           },
         },
         {
@@ -687,7 +748,10 @@ function Members({ room, me, rooms, onRoomsChanged }: Props) {
           danger: true,
           onClick: () => {
             if (confirm(`Remove ${m.displayName} and ban them? Invite links won't let them back in.`))
-              api.removeMember(room.id, m.id, true).then(() => (load(), onRoomsChanged()), () => {});
+              api.removeMember(room.id, m.id, true).then(
+                () => (load(), onRoomsChanged()),
+                () => {},
+              );
           },
         },
       ],
@@ -699,7 +763,10 @@ function Members({ room, me, rooms, onRoomsChanged }: Props) {
       title={`${room.memberCount} members`}
       action={
         isAdmin && (
-          <button onClick={() => setAdding(true)} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent/10">
+          <button
+            onClick={() => setAdding(true)}
+            className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent/10"
+          >
             <UserPlusIcon className="size-4" /> Add
           </button>
         )
@@ -718,7 +785,9 @@ function Members({ room, me, rooms, onRoomsChanged }: Props) {
                 <span className="block truncate text-sm font-medium">{m.id === me.id ? "You" : m.displayName}</span>
                 <span className="block truncate text-xs text-zinc-500 dark:text-zinc-400">@{m.username}</span>
               </span>
-              {m.groupRole === "admin" && <span className="rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent-fg uppercase">Admin</span>}
+              {m.groupRole === "admin" && (
+                <span className="rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent-fg uppercase">Admin</span>
+              )}
               {isAdmin && m.id !== me.id && (
                 <button
                   onClick={(e) => memberMenu(m, { x: e.clientX - 200, y: e.clientY })}
@@ -861,7 +930,11 @@ function SharedContent({ room, me, onJump, onOpenImage }: Props) {
 function MediaTile({ message: m, onOpen }: { message: Message; onOpen: () => void }) {
   const src = mediaUrl(m.roomId, m.id);
   return (
-    <button onClick={onOpen} className="group relative aspect-square overflow-hidden rounded-lg bg-zinc-200 dark:bg-zinc-800" aria-label={m.kind === "video" ? "Play video" : "Open photo"}>
+    <button
+      onClick={onOpen}
+      className="group relative aspect-square overflow-hidden rounded-lg bg-zinc-200 dark:bg-zinc-800"
+      aria-label={m.kind === "video" ? "Play video" : "Open photo"}
+    >
       {m.kind === "image" ? (
         <img src={src} alt={m.body || "Photo"} loading="lazy" decoding="async" className="size-full object-cover transition group-hover:scale-105" />
       ) : (
@@ -961,7 +1034,17 @@ function VoiceRow({ message: m, meId, onJump }: { message: Message; meId: string
 
 function StarRow({ message: m, meId, onJump }: { message: Message; meId: string; onJump: () => void }) {
   const text =
-    m.kind === "text" ? m.body : m.kind === "image" ? `📷 ${m.body || "Photo"}` : m.kind === "video" ? `🎥 ${m.body || "Video"}` : m.kind === "voice" ? "🎤 Voice message" : m.kind === "file" ? `📄 ${m.meta?.name ?? "Document"}` : "Message";
+    m.kind === "text"
+      ? m.body
+      : m.kind === "image"
+        ? `📷 ${m.body || "Photo"}`
+        : m.kind === "video"
+          ? `🎥 ${m.body || "Video"}`
+          : m.kind === "voice"
+            ? "🎤 Voice message"
+            : m.kind === "file"
+              ? `📄 ${m.meta?.name ?? "Document"}`
+              : "Message";
   return (
     <div className="flex gap-3 rounded-xl p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
       <StarIcon filled className="mt-0.5 size-4 shrink-0 text-amber-500" />

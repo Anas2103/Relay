@@ -213,7 +213,7 @@ function playPreview(t: ChillTrack, note: string) {
 async function findVideo(t: ChillTrack): Promise<string | null> {
   if (videoCache.has(t.id)) return videoCache.get(t.id)!;
   const res = await fetch(`/api/chill/songs/${itunesId(t)}/video`).catch(() => null);
-  const id = res?.ok ? ((await res.json()) as { videoId?: string }).videoId ?? null : null;
+  const id = res?.ok ? (((await res.json()) as { videoId?: string }).videoId ?? null) : null;
   // Remember "not found" only when the server said so (not on a network hiccup or a full quota).
   if (id || res?.status === 404) videoCache.set(t.id, id);
   return id;

@@ -157,9 +157,7 @@ export async function openDm(request: Request, env: Env): Promise<Response> {
   const body = await readJson<{ username?: unknown }>(request);
   const username = typeof body.username === "string" ? body.username.trim() : "";
 
-  const other = await env.DB.prepare("SELECT id FROM users WHERE username = ?1 AND suspended_at IS NULL")
-    .bind(username)
-    .first<{ id: string }>();
+  const other = await env.DB.prepare("SELECT id FROM users WHERE username = ?1 AND suspended_at IS NULL").bind(username).first<{ id: string }>();
   if (!other) throw new HttpError(404, "User not found.");
   if (other.id === me.id) throw new HttpError(400, "You can't start a chat with yourself.");
 
@@ -185,17 +183,13 @@ export async function openDm(request: Request, env: Env): Promise<Response> {
   await assertAllowed(env, me.id, "newChats");
   await rateLimit(env, `requests:${me.id}`, 20, 60 * 60 * 1000);
   const now = Date.now();
-  await env.DB.prepare(
-    "INSERT OR IGNORE INTO rooms (id, type, dm_key, created_at, status, requested_by) VALUES (?1, 'dm', ?2, ?3, 'pending', ?4)",
-  )
+  await env.DB.prepare("INSERT OR IGNORE INTO rooms (id, type, dm_key, created_at, status, requested_by) VALUES (?1, 'dm', ?2, ?3, 'pending', ?4)")
     .bind(crypto.randomUUID(), dmKey, now, me.id)
     .run();
   const dm = await env.DB.prepare("SELECT id FROM rooms WHERE dm_key = ?1").bind(dmKey).first<{ id: string }>();
   if (!dm) throw new Error("DM room missing after insert");
 
-  const addMember = env.DB.prepare(
-    "INSERT OR IGNORE INTO room_members (room_id, user_id, joined_at) VALUES (?1, ?2, ?3)",
-  );
+  const addMember = env.DB.prepare("INSERT OR IGNORE INTO room_members (room_id, user_id, joined_at) VALUES (?1, ?2, ?3)");
   await env.DB.batch([addMember.bind(dm.id, me.id, now), addMember.bind(dm.id, other.id, now)]);
   await lobby(env).notify([other.id], { type: "rooms-changed" });
 
@@ -204,9 +198,7 @@ export async function openDm(request: Request, env: Env): Promise<Response> {
 }
 
 export async function assertMember(env: Env, roomId: string, userId: string): Promise<void> {
-  const row = await env.DB.prepare("SELECT 1 FROM room_members WHERE room_id = ?1 AND user_id = ?2")
-    .bind(roomId, userId)
-    .first();
+  const row = await env.DB.prepare("SELECT 1 FROM room_members WHERE room_id = ?1 AND user_id = ?2").bind(roomId, userId).first();
   // 404 rather than 403, so people can't probe which room ids exist.
   if (!row) throw new HttpError(404, "Chat not found.");
 }
@@ -250,10 +242,7 @@ export async function getMessages(request: Request, env: Env, url: URL, roomId: 
   const after = Number(sp.get("after")) || null;
 
   if (around) {
-    const target = await db
-      .prepare("SELECT created_at FROM messages WHERE id = ?1 AND room_id = ?2")
-      .bind(around, roomId)
-      .first<{ created_at: number }>();
+    const target = await db.prepare("SELECT created_at FROM messages WHERE id = ?1 AND room_id = ?2").bind(around, roomId).first<{ created_at: number }>();
     if (!target) throw new HttpError(404, "Message not found.");
     const half = PAGE_SIZE / 2;
     const [before, from, r] = await db.batch<MessageRow & { user_id: string; last_read_at: number }>([
@@ -416,9 +405,7 @@ export async function getMediaFile(env: Env, request: Request, roomId: string, m
   const me = await requireUser(request, env);
   await assertMember(env, roomId, me.id);
 
-  const msg = await env.DB.prepare(
-    "SELECT user_id, kind, media_id, meta, deleted_at FROM messages WHERE id = ?1 AND room_id = ?2",
-  )
+  const msg = await env.DB.prepare("SELECT user_id, kind, media_id, meta, deleted_at FROM messages WHERE id = ?1 AND room_id = ?2")
     .bind(messageId, roomId)
     .first<{ user_id: string; kind: MessageKind; media_id: string | null; meta: string | null; deleted_at: number | null }>();
   if (!msg || msg.deleted_at !== null || !msg.media_id) throw new HttpError(404, "File not found.");
@@ -460,9 +447,7 @@ export async function getMediaFile(env: Env, request: Request, roomId: string, m
 
   // Destroy the photo once every recipient has seen it.
   const recipients = (await roomMemberIds(env.DB, roomId)).filter((id) => id !== msg.user_id);
-  const viewed = await env.DB.prepare("SELECT COUNT(*) AS n FROM media_views WHERE message_id = ?1")
-    .bind(messageId)
-    .first<{ n: number }>();
+  const viewed = await env.DB.prepare("SELECT COUNT(*) AS n FROM media_views WHERE message_id = ?1").bind(messageId).first<{ n: number }>();
   if ((viewed?.n ?? 0) >= recipients.length) await stub.deleteMedia(msg.media_id);
   await stub.notifyViewed(messageId, me.id);
 
@@ -526,9 +511,7 @@ export async function assertAccepted(env: Env, roomId: string): Promise<void> {
 
 /** Whether a block exists in each direction between two people. */
 export async function blockState(env: Env, meId: string, otherId: string): Promise<{ iBlocked: boolean; blockedMe: boolean }> {
-  const { results } = await env.DB.prepare(
-    "SELECT blocker_id FROM blocks WHERE (blocker_id = ?1 AND blocked_id = ?2) OR (blocker_id = ?2 AND blocked_id = ?1)",
-  )
+  const { results } = await env.DB.prepare("SELECT blocker_id FROM blocks WHERE (blocker_id = ?1 AND blocked_id = ?2) OR (blocker_id = ?2 AND blocked_id = ?1)")
     .bind(meId, otherId)
     .all<{ blocker_id: string }>();
   return {
@@ -556,9 +539,7 @@ export async function blockUser(request: Request, env: Env, targetId: string): P
   if (targetId === me.id) throw new HttpError(400, "You can't block yourself.");
   const target = await env.DB.prepare("SELECT id FROM users WHERE id = ?1").bind(targetId).first<{ id: string }>();
   if (!target) throw new HttpError(404, "User not found.");
-  await env.DB.prepare("INSERT OR IGNORE INTO blocks (blocker_id, blocked_id, created_at) VALUES (?1, ?2, ?3)")
-    .bind(me.id, targetId, Date.now())
-    .run();
+  await env.DB.prepare("INSERT OR IGNORE INTO blocks (blocker_id, blocked_id, created_at) VALUES (?1, ?2, ?3)").bind(me.id, targetId, Date.now()).run();
   // Refresh both sidebars; they stop seeing each other's presence.
   await lobby(env).notify([me.id, targetId], { type: "rooms-changed" });
   return json({ ok: true });

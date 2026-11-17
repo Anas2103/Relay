@@ -93,9 +93,7 @@ export class Lobby extends DurableObject<Env> {
 
     // Nobody to ring: tell the caller straight away instead of ringing forever.
     if (signal.type === "invite" && !this.isUserOnline(to)) {
-      ws.send(
-        JSON.stringify({ type: "call", from: to, fromName: "", roomId, callId, signal: { type: "unavailable" } } satisfies LobbyEvent),
-      );
+      ws.send(JSON.stringify({ type: "call", from: to, fromName: "", roomId, callId, signal: { type: "unavailable" } } satisfies LobbyEvent));
       return;
     }
 
@@ -233,9 +231,7 @@ export class Lobby extends DurableObject<Env> {
   }
 
   private isUserOnline(userId: string, exclude?: WebSocket): boolean {
-    return this.ctx
-      .getWebSockets(userId)
-      .some((ws) => ws !== exclude && ws.readyState === WebSocket.OPEN);
+    return this.ctx.getWebSockets(userId).some((ws) => ws !== exclude && ws.readyState === WebSocket.OPEN);
   }
 
   private async onDisconnect(ws: WebSocket): Promise<void> {

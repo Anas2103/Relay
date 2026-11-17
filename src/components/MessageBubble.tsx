@@ -150,12 +150,12 @@ export const MessageBubble = memo(function MessageBubble({
     : emojiOnly || sticker
       ? "bg-transparent"
       : mine
-      ? m.status === "failed"
-        ? "bg-red-500 text-white"
-        : "bubble-fill"
-      : theirs
-        ? "shadow-sm"
-        : "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-900/5 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-white/5";
+        ? m.status === "failed"
+          ? "bg-red-500 text-white"
+          : "bubble-fill"
+        : theirs
+          ? "shadow-sm"
+          : "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-900/5 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-white/5";
 
   const visual = (m.kind === "image" || m.kind === "video") && !viewOnce;
   const imageOnly = visual && !m.body && !m.replyTo && !deleted;
@@ -204,7 +204,9 @@ export const MessageBubble = memo(function MessageBubble({
           } ${m.status === "pending" ? "opacity-80" : ""} select-text`}
         >
           {m.meta?.forwarded && !deleted && (
-            <span className={`mb-0.5 flex items-center gap-1 text-xs italic ${tinted ? "opacity-80" : "text-zinc-500 dark:text-zinc-400"} ${visual ? "px-2 pt-1" : ""}`}>
+            <span
+              className={`mb-0.5 flex items-center gap-1 text-xs italic ${tinted ? "opacity-80" : "text-zinc-500 dark:text-zinc-400"} ${visual ? "px-2 pt-1" : ""}`}
+            >
               <ForwardIcon className="size-3" /> Forwarded
             </span>
           )}
@@ -304,7 +306,7 @@ export const MessageBubble = memo(function MessageBubble({
         </button>
       ) : (
         endsGroup && (
-          <span className={`mt-1 flex items-center gap-1 text-[11px] text-zinc-400 tabular-nums ${mine ? "mr-1" : "ml-1"}`}>
+          <span className={`mt-1 flex items-center gap-1 text-[11px] text-zinc-500 tabular-nums dark:text-zinc-400 ${mine ? "mr-1" : "ml-1"}`}>
             {m.pinnedAt && !deleted && <PinIcon className="size-3 rotate-45" aria-label="Pinned" />}
             {m.expiresAt && !deleted && <TimerIcon className="size-3" aria-label="Disappearing message" />}
             {m.editedAt && !deleted && <span>edited ·</span>}
@@ -354,12 +356,8 @@ function ReplyQuote({ reply, mine, meId, onClick }: { reply: ReplyPreview; mine:
       {reply.kind === "voice" && <MicIcon className="mt-0.5 size-3.5 shrink-0 opacity-70" />}
       {reply.kind === "image" && <ImageIcon className="mt-0.5 size-3.5 shrink-0 opacity-70" />}
       <span className="min-w-0">
-        <span className={`block text-xs font-semibold ${mine ? "" : "text-accent-fg"}`}>
-          {reply.userId === meId ? "You" : reply.displayName}
-        </span>
-        <span className={`line-clamp-2 ${mine ? "opacity-85" : "text-zinc-600 dark:text-zinc-300"} ${reply.deleted ? "italic" : ""}`}>
-          {text}
-        </span>
+        <span className={`block text-xs font-semibold ${mine ? "" : "text-accent-fg"}`}>{reply.userId === meId ? "You" : reply.displayName}</span>
+        <span className={`line-clamp-2 ${mine ? "opacity-85" : "text-zinc-600 dark:text-zinc-300"} ${reply.deleted ? "italic" : ""}`}>{text}</span>
       </span>
     </button>
   );
@@ -449,17 +447,7 @@ function FileContent({ message: m, mine }: { message: UiMessage; mine: boolean }
   );
 }
 
-function CallContent({
-  message: m,
-  mine,
-  tinted,
-  onCallBack,
-}: {
-  message: UiMessage;
-  mine: boolean;
-  tinted: boolean;
-  onCallBack: (video: boolean) => void;
-}) {
+function CallContent({ message: m, mine, tinted, onCallBack }: { message: UiMessage; mine: boolean; tinted: boolean; onCallBack: (video: boolean) => void }) {
   const call = m.meta?.call;
   const missed = call?.status === "missed" || call?.status === "declined";
   const Icon = call?.video ? VideoIcon : PhoneIcon;
@@ -489,8 +477,12 @@ function CallContent({
 /** A transcript or translation under a message. */
 function AiTextBlock({ value, tinted, label, onHide, padded }: { value: AiText; tinted: boolean; label: string; onHide?: () => void; padded?: boolean }) {
   return (
-    <div className={`mt-1.5 border-t pt-1.5 text-[0.95em] ${tinted ? "border-current/20" : "border-zinc-200 dark:border-zinc-700"} ${padded ? "mx-2.5 mb-1.5" : ""}`}>
-      <span className={`flex items-center justify-between gap-3 text-[11px] font-semibold tracking-wide uppercase ${tinted ? "opacity-75" : "text-zinc-500 dark:text-zinc-400"}`}>
+    <div
+      className={`mt-1.5 border-t pt-1.5 text-[0.95em] ${tinted ? "border-current/20" : "border-zinc-200 dark:border-zinc-700"} ${padded ? "mx-2.5 mb-1.5" : ""}`}
+    >
+      <span
+        className={`flex items-center justify-between gap-3 text-[11px] font-semibold tracking-wide uppercase ${tinted ? "opacity-75" : "text-zinc-500 dark:text-zinc-400"}`}
+      >
         {value.state === "loading" ? (label === "Transcript" ? "Transcribing…" : "Translating…") : label}
         {onHide && value.state !== "loading" && (
           <button onClick={onHide} className="normal-case underline-offset-2 hover:underline">
@@ -568,19 +560,7 @@ function ImageContent({ message: m, onOpen }: { message: UiMessage; onOpen: (src
   );
 }
 
-function ViewOnceContent({
-  message: m,
-  mine,
-  tinted,
-  meId,
-  onOpen,
-}: {
-  tinted: boolean;
-  message: UiMessage;
-  mine: boolean;
-  meId: string;
-  onOpen: () => void;
-}) {
+function ViewOnceContent({ message: m, mine, tinted, meId, onOpen }: { tinted: boolean; message: UiMessage; mine: boolean; meId: string; onOpen: () => void }) {
   const openedByMe = m.viewedBy.includes(meId);
   const openedByOthers = m.viewedBy.some((id) => id !== meId);
   const what = m.kind === "video" ? "Video" : "Photo";
@@ -610,17 +590,7 @@ function ViewOnceContent({
   );
 }
 
-function Reactions({
-  reactions,
-  meId,
-  mine,
-  onToggle,
-}: {
-  reactions: [string, string][];
-  meId: string;
-  mine: boolean;
-  onToggle: (emoji: string) => void;
-}) {
+function Reactions({ reactions, meId, mine, onToggle }: { reactions: [string, string][]; meId: string; mine: boolean; onToggle: (emoji: string) => void }) {
   const counts = new Map<string, { count: number; mineToo: boolean }>();
   for (const [userId, emoji] of reactions) {
     const c = counts.get(emoji) ?? { count: 0, mineToo: false };
@@ -633,9 +603,7 @@ function Reactions({
           key={emoji}
           onClick={() => onToggle(emoji)}
           className={`pop-in flex items-center gap-1 rounded-full px-1.5 py-0.5 text-sm shadow-sm ring-1 transition active:scale-95 ${
-            mineToo
-              ? "bg-accent/15 ring-accent/40 dark:bg-accent/30"
-              : "bg-white ring-zinc-200 dark:bg-zinc-800 dark:ring-zinc-700"
+            mineToo ? "bg-accent/15 ring-accent/40 dark:bg-accent/30" : "bg-white ring-zinc-200 dark:bg-zinc-800 dark:ring-zinc-700"
           }`}
           aria-label={`${emoji} ${count}${mineToo ? ", including you" : ""}`}
         >
@@ -650,17 +618,7 @@ function Reactions({
 const URL_RE = /(https?:\/\/[^\s<]+[^\s<.,:;"')\]!?])/g;
 
 /** A poll: tap an answer to vote (or tick several, then Vote). Results show once you've voted. */
-function PollContent({
-  message: m,
-  meId,
-  tinted,
-  onVote,
-}: {
-  message: UiMessage;
-  meId: string;
-  tinted: boolean;
-  onVote: (options: number[]) => void;
-}) {
+function PollContent({ message: m, meId, tinted, onVote }: { message: UiMessage; meId: string; tinted: boolean; onVote: (options: number[]) => void }) {
   const poll = m.meta?.poll;
   const [picked, setPicked] = useState<number[]>([]);
   if (!poll) return null;
@@ -690,7 +648,11 @@ function PollContent({
                   else onVote([i]);
                 }}
                 className={`relative block w-full overflow-hidden rounded-lg px-2.5 py-1.5 text-left text-sm transition ${
-                  voted ? "cursor-default" : tinted ? "ring-1 ring-current/30 hover:bg-white/10" : "ring-1 ring-zinc-200 hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-700/50"
+                  voted
+                    ? "cursor-default"
+                    : tinted
+                      ? "ring-1 ring-current/30 hover:bg-white/10"
+                      : "ring-1 ring-zinc-200 hover:bg-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-700/50"
                 } ${!voted && chosen ? "ring-2" : ""}`}
                 aria-pressed={chosen}
               >
@@ -703,7 +665,9 @@ function PollContent({
                 )}
                 <span className="relative flex items-center gap-2">
                   {(poll.multiple || chosen) && (
-                    <span className={`flex size-4 shrink-0 items-center justify-center rounded-full ring-1 ring-current/50 ${chosen ? (tinted ? "bg-white/90 text-zinc-900" : "bg-accent text-accent-ink ring-accent") : ""}`}>
+                    <span
+                      className={`flex size-4 shrink-0 items-center justify-center rounded-full ring-1 ring-current/50 ${chosen ? (tinted ? "bg-white/90 text-zinc-900" : "bg-accent text-accent-ink ring-accent") : ""}`}
+                    >
                       {chosen && <CheckIcon className="size-3" />}
                     </span>
                   )}

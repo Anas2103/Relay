@@ -4,7 +4,7 @@
   var saved = null;
   try {
     saved = JSON.parse(localStorage.getItem("relay:appearance:v4") || "null");
-  } catch (e) {}
+  } catch {}
   var theme = (saved && saved.theme) || "system";
   var dark = theme === "dark" || (theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
   var root = document.documentElement;

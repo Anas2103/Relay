@@ -111,9 +111,7 @@ export function DeviceHelp({
           {steps.map((s, i) => (
             <li key={i} className="flex gap-3">
               {steps.length > 1 && (
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent-fg">
-                  {i + 1}
-                </span>
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent-fg">{i + 1}</span>
               )}
               <span>{s}</span>
             </li>
